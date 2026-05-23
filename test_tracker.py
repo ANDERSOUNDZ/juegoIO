@@ -8,24 +8,21 @@ import time
 import threading
 import queue
 import psycopg2
-from dotenv import load_dotenv
 
-# ─── CONFIG ──────────────────────────────────────────
-load_dotenv()
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": os.getenv("DB_PORT", "5432"),
-    "database": os.getenv("DB_NAME", "postgres"),
-    "user": os.getenv("DB_USER", "postgres"),
-    "password": os.getenv("DB_PASSWORD", ""),
-}
+# ─── CONFIGURACION (EDITA AQUI) ─────────────────────
+DB_HOST = "localhost"
+DB_PORT = 5432
+DB_NAME = "mario_db"
+DB_USER = "postgres"
+DB_PASSWORD = "admin"   # <-- pon tu contraseña real de PostgreSQL
+
 MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 MODEL_PATH = "hand_landmarker.task"
 NUM_HANDS = 1
 NIVEL = 1
 HEARTBEAT_MS = 200
 
-# ─── DB WORKER ASÍNCRONO ─────────────────────────────
+# ─── DB WORKER ASINCRONO ─────────────────────────────
 class DBWorker:
     def __init__(self):
         self.q = queue.Queue(maxsize=100)
@@ -36,7 +33,10 @@ class DBWorker:
 
     def _connect(self):
         try:
-            self.conn = psycopg2.connect(**DB_CONFIG)
+            self.conn = psycopg2.connect(
+                host=DB_HOST, port=DB_PORT, database=DB_NAME,
+                user=DB_USER, password=DB_PASSWORD
+            )
             self.conn.autocommit = True
             self.cursor = self.conn.cursor()
             print("[DB] Conectado a PostgreSQL")
