@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mario DB Finger Tracker</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0c29; font-family: 'Segoe UI', Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: #fff; }
+.wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.top-bar { display: flex; gap: 30px; align-items: center; background: rgba(255,255,255,0.05); padding: 10px 25px; border-radius: 10px; }
+.top-bar h1 { font-size: 20px; font-weight: 300; letter-spacing: 2px; }
+.top-bar .level-badge { background: #e94560; padding: 4px 16px; border-radius: 20px; font-size: 18px; font-weight: bold; }
+.panels { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+.panel { border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.panel-video { background: #000; }
+.panel-game { background: #16213e; }
+.video-wrap { position: relative; }
+.video-wrap img { display: block; width: 480px; height: 360px; object-fit: cover; }
+.finger-bar { display: flex; justify-content: center; gap: 8px; padding: 8px; background: rgba(0,0,0,0.8); }
+.finger-pill { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; transition: all 0.15s; }
+.finger-pill.active { background: #2ecc71; color: #000; }
+.finger-pill.inactive { background: #444; color: #888; }
+.controls { display: flex; gap: 8px; }
+.controls button { padding: 8px 20px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; background: #1a1a3e; color: #888; transition: all 0.15s; }
+.controls button:hover { background: #2a2a5e; }
+.controls button.active { background: #e94560; color: #fff; box-shadow: 0 0 12px rgba(233,69,96,0.4); }
+.info-bar { display: flex; gap: 30px; font-size: 13px; color: #aaa; }
+canvas { display: block; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="top-bar">
+    <h1>🎮 MARIO DB</h1>
+    <span class="level-badge" id="levelDisplay">NIVEL 1</span>
+    <span style="color:#888">|</span>
+    <span id="scoreDisplay" style="color:#f1c40f">Puntaje: 0</span>
+  </div>
+
+  <div class="panels">
+    <div class="panel panel-video">
+      <div class="video-wrap">
+        <img id="videoFeed" src="/video_feed" alt="Camara">
+      </div>
+      <div class="finger-bar" id="fingerBar">
+        <span class="finger-pill inactive" data-idx="0">🖐 Pulgar</span>
+        <span class="finger-pill inactive" data-idx="1">☝ Indice</span>
+        <span class="finger-pill inactive" data-idx="2">✌ Medio</span>
+        <span class="finger-pill inactive" data-idx="3">🖖 Anular</span>
+        <span class="finger-pill inactive" data-idx="4">🤙 Menique</span>
+      </div>
+    </div>
+
+    <div class="panel panel-game">
+      <canvas id="gameCanvas" width="400" height="600"></canvas>
+    </div>
+  </div>
+
+  <div class="controls" id="levelButtons">
+    <button data-lvl="1">Nivel 1</button>
+    <button data-lvl="2" class="active">Nivel 2</button>
+    <button data-lvl="3">Nivel 3</button>
+    <button data-lvl="4">Nivel 4</button>
+    <button data-lvl="5">Nivel 5</button>
+  </div>
+
+  <div class="info-bar">
+    <span>🖐 Pulgar = Saltar</span>
+    <span>☝ Indice = Derecha</span>
+    <span>✌ Medio = Izquierda</span>
+    <span>⌨ Teclas 1-5 = Nivel</span>
+  </div>
+</div>
+
+<script>
+// ─── POLLING FINGER DATA ─────────────────────────────
+let nivel = 1;
+let fingers = [0,0,0,0,0];
+
+async function pollFingers() {
+  try {
+    const r = await fetch('/finger_data');
+    const d = await r.json();
+    nivel = d.nivel;
+    fingers = d.fingers;
+    document.getElementById('levelDisplay').textContent = 'NIVEL ' + nivel;
+    const pills = document.querySelectorAll('#fingerBar .finger-pill');
+    pills.forEach((el, i) => {
+      el.className = 'finger-pill' + (fingers[i] ? ' active' : ' inactive');
+    });
+    document.querySelectorAll('#levelButtons button').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.lvl) === nivel);
+    });
+  } catch(e) {}
+  setTimeout(pollFingers, 50);
+}
+pollFingers();
+
+document.querySelectorAll('#levelButtons button').forEach(b => {
+  b.addEventListener('click', () => {
+    fetch('/set_nivel/' + b.dataset.lvl);
+  });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key >= '1' && e.key <= '5') fetch('/set_nivel/' + e.key);
+});
+
+// ─── JUEGO (Vertical Jumper) ─────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = 400, H = 600;
+
+const player = { x: 188, y: 480, w: 24, h: 30, vx: 0, vy: 0, onGround: false, facing: 1 };
+const GRAVITY = 0.55;
+const JUMP = -11;
+const SPEED = 4.5;
+
+let platforms = [];
+let cameraY = 0;
+let score = 0;
+let gameOver = false;
+
+function genPlatforms() {
+  platforms = [];
+  platforms.push({ x: 0, y: 580, w: 400, h: 20 });
+  let y = 480;
+  while (y > -400) {
+    const gap = Math.max(25, 55 - nivel * 5);
+    y -= 55 + Math.random() * gap;
+    platforms.push({ x: Math.random() * 300, y, w: 55 + Math.random() * 80, h: 14 });
+  }
+}
+
+function resetGame() {
+  player.x = 188; player.y = 480; player.vy = 0; player.vx = 0; player.onGround = false;
+  cameraY = 0; score = 0; gameOver = false;
+  genPlatforms();
+}
+
+genPlatforms();
+
+function update() {
+  if (gameOver) {
+    if (fingers[0] === 1) resetGame();
+    return;
+  }
+
+  player.vx = 0;
+  if (fingers[1] === 1) player.vx = SPEED;
+  if (fingers[2] === 1) player.vx = -SPEED;
+  if (player.vx > 0) player.facing = 1;
+  else if (player.vx < 0) player.facing = -1;
+
+  if (fingers[0] === 1 && player.onGround) { player.vy = JUMP; player.onGround = false; }
+
+  player.vy += GRAVITY;
+  player.x += player.vx;
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.w > W) player.x = W - player.w;
+
+  player.y += player.vy;
+  player.onGround = false;
+  for (const p of platforms) {
+    if (player.x + player.w > p.x && player.x < p.x + p.w &&
+        player.y + player.h > p.y && player.y + player.h <= p.y + p.h + 8 &&
+        player.vy >= 0) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.onGround = true;
+    }
+  }
+
+  if (player.y - cameraY > H + 120) { gameOver = true; return; }
+
+  const targetCam = player.y - H * 0.35;
+  if (targetCam < cameraY) cameraY = targetCam;
+
+  score = Math.max(score, Math.floor(-cameraY / 10));
+
+  // Generate platforms ahead
+  let minY = Math.min(...platforms.map(p => p.y));
+  while (minY > cameraY - 150) {
+    const gap = Math.max(25, 50 - nivel * 4);
+    minY -= 50 + Math.random() * gap;
+    platforms.push({ x: Math.random() * 300, y: minY, w: 50 + Math.random() * 80, h: 14 });
+  }
+  platforms = platforms.filter(p => p.y - cameraY < H + 60);
+
+  document.getElementById('scoreDisplay').textContent = 'Puntaje: ' + score;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0f0c29'); grad.addColorStop(0.5, '#302b63'); grad.addColorStop(1, '#24243e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const p of platforms) {
+    const dy = Math.round(p.y - cameraY);
+    if (dy > -20 && dy < H + 10) {
+      ctx.fillStyle = '#2ecc71';
+      ctx.fillRect(p.x, dy, p.w, p.h);
+      ctx.fillStyle = '#27ae60';
+      ctx.fillRect(p.x, dy, p.w, 4);
+    }
+  }
+
+  const px = Math.round(player.x);
+  const py = Math.round(player.y - cameraY);
+
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillRect(px, py, player.w, player.h);
+  ctx.fillStyle = '#c0392b';
+  ctx.fillRect(px, py, player.w, 6);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(px + 4, py - 5, player.w - 8, 7);
+  ctx.fillStyle = '#c0392b';
+  ctx.fillRect(px + 6, py - 4, 4, 5);
+  ctx.fillRect(px + 14, py - 4, 4, 5);
+
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(px + 5, py + 7, 6, 6);
+  ctx.fillRect(px + 13, py + 7, 6, 6);
+  ctx.fillStyle = '#000';
+  const eo = player.facing > 0 ? 2 : 0;
+  ctx.fillRect(px + 7 + eo, py + 9, 3, 3);
+  ctx.fillRect(px + 15 + eo, py + 9, 3, 3);
+
+  ctx.fillStyle = '#4a2311';
+  ctx.fillRect(px + 4, py + 15, 16, 3);
+
+  if (gameOver) {
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(40, 180, 320, 180);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 32px Arial';
+    ctx.fillText('GAME OVER', 200, 245);
+    ctx.font = '18px Arial';
+    ctx.fillStyle = '#f1c40f';
+    ctx.fillText('Score: ' + score, 200, 290);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '14px Arial';
+    ctx.fillText('Levanta el pulgar para reiniciar', 200, 330);
+  }
+
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(8, 8, 100, 36);
+  ctx.fillStyle = '#f1c40f';
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 16px Arial';
+  ctx.fillText('Nivel ' + nivel, 16, 32);
+}
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+
+// Keyboard fallback for testing
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowUp') fingers[0] = 1;
+  if (e.key === 'ArrowRight') fingers[1] = 1;
+  if (e.key === 'ArrowLeft') fingers[2] = 1;
+  if (e.key === 'r') resetGame();
+});
+document.addEventListener('keyup', e => {
+  if (e.key === 'ArrowUp') fingers[0] = 0;
+  if (e.key === 'ArrowRight') fingers[1] = 0;
+  if (e.key === 'ArrowLeft') fingers[2] = 0;
+});
+
+loop();
+</script>
+</body>
+</html>
