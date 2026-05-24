@@ -2,3 +2,4 @@ opencv-python>=4.8.0
 mediapipe>=0.10.0
 psycopg2-binary>=2.9.0
 flask>=3.0.0
+flask-sock>=0.7.0

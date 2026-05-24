@@ -237,8 +237,13 @@
     <div class="panel pxbox">
       <div class="panel-title"><span>CAM &middot; DETECCION DE DEDOS</span><span class="led"></span></div>
       <div class="video-wrap">
-        <img id="videoFeed" alt="Camara" onerror="this.style.display='none';document.getElementById('fallback').style.display='flex';">
-        <div class="video-fallback" id="fallback" style="display:none">
+        <!-- Video local del cliente (oculto, solo para captura) -->
+        <video id="localVideo" autoplay playsinline muted style="display:none"></video>
+        <!-- Canvas para capturar frames -->
+        <canvas id="captureCanvas" style="display:none"></canvas>
+        <!-- Frame procesado por el servidor -->
+        <img id="videoFeed" alt="Camara">
+        <div class="video-fallback" id="fallback" style="display:flex">
           <svg width="120" height="120" viewBox="0 0 12 12" shape-rendering="crispEdges">
             <!-- pixel hand silhouette -->
             <rect x="4" y="1" width="1" height="3" fill="#3ddc97"/>
@@ -249,8 +254,8 @@
             <rect x="2" y="5" width="1" height="3" fill="#3ddc97"/>
             <rect x="4" y="9" width="4" height="2" fill="#1f7a4f"/>
           </svg>
-          <div>OFFLINE &middot; INICIA EL SERVIDOR FLASK</div>
-          <div style="font-size:8px;color:#5a3a8a">esperando /video_feed ...</div>
+          <div id="fallbackMsg">CLICK PARA ACTIVAR CAMARA</div>
+          <div style="font-size:8px;color:#5a3a8a">tu camara se envia al servidor para deteccion</div>
         </div>
       </div>
       <div class="finger-bar" id="fingerBar">
@@ -338,15 +343,173 @@
   }
 })();
 
-/* ── trigger fallback immediately if no /video_feed (preview mode) ── */
-(function(){
-  const img=document.getElementById('videoFeed');
-  const fb=document.getElementById('fallback');
-  // probe the server; only attach the stream if it's actually there
-  fetch('/finger_data', {cache:'no-store'})
-    .then(r=>{ if(!r.ok) throw 0; img.src='/video_feed'; })
-    .catch(()=>{ img.style.display='none'; fb.style.display='flex'; });
-})();
+/* ── IN-GAME CONFIG (drawn on canvas) ── */
+const sensitivity = [50, 50, 50, 50, 50];
+const actionMap = ['jump', 'right', 'left', 'none', 'none'];
+const ACTION_LIST = ['jump', 'right', 'left', 'none'];
+const ACTION_LABELS = { jump:'SALTAR', right:'DERECHA', left:'IZQUIER', none:'NINGUNA' };
+const FINGER_NAMES = ['PULGAR','INDICE','MEDIO','ANULAR','MENIQ'];
+let configOpen = false;
+let draggingSlider = -1; // which finger slider is being dragged
+
+function sendConfig() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'config', sensitivity }));
+    console.log('[CONFIG] Sensibilidad enviada:', sensitivity.slice());
+  } else {
+    console.warn('[CONFIG] WebSocket no conectado, config no enviada');
+  }
+}
+
+function getMappedActions() {
+  const actions = { jump: 0, right: 0, left: 0 };
+  for (let i = 0; i < 5; i++) {
+    if (fingers[i] === 1 && actionMap[i] !== 'none') {
+      actions[actionMap[i]] = 1;
+    }
+  }
+  return actions;
+}
+
+/* Config layout constants (inside the 400x600 canvas) */
+const CFG = {
+  gearX: 370, gearY: 570, gearR: 14,       // gear icon bottom-right
+  panelX: 15, panelY: 60, panelW: 370, panelH: 470,
+  rowH: 82, rowStartY: 110, colX: 30,
+  sliderW: 140, sliderH: 10, sliderY_off: 32,  // offset within row
+  knobW: 12, knobH: 18,
+  actionY_off: 58, actionBtnW: 60, actionBtnH: 18,
+};
+
+function getSliderGeom(i) {
+  const ry = CFG.rowStartY + i * CFG.rowH;
+  const sx = CFG.colX + 80;
+  const sy = ry + CFG.sliderY_off;
+  return { x: sx, y: sy, w: CFG.sliderW, h: CFG.sliderH, ry };
+}
+
+function getKnobX(i) {
+  const g = getSliderGeom(i);
+  return g.x + (sensitivity[i] / 100) * g.w;
+}
+
+function getActionBtns(i) {
+  const g = getSliderGeom(i);
+  const ay = g.ry + CFG.actionY_off;
+  const btns = [];
+  for (let j = 0; j < ACTION_LIST.length; j++) {
+    btns.push({ x: CFG.colX + j * (CFG.actionBtnW + 4), y: ay, w: CFG.actionBtnW, h: CFG.actionBtnH, action: ACTION_LIST[j] });
+  }
+  return btns;
+}
+
+function drawConfigOverlay(ctx) {
+  if (!configOpen) {
+    // draw gear icon
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(CFG.gearX - CFG.gearR, CFG.gearY - CFG.gearR, CFG.gearR*2, CFG.gearR*2);
+    ctx.fillStyle = '#a89bd6';
+    ctx.font = '18px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u2699', CFG.gearX, CFG.gearY);
+    ctx.restore();
+    return;
+  }
+
+  ctx.save();
+  // dark overlay
+  ctx.fillStyle = 'rgba(10,4,32,0.92)';
+  ctx.fillRect(0, 0, W, H);
+
+  // panel border
+  ctx.fillStyle = '#5a3a8a';
+  ctx.fillRect(CFG.panelX-3, CFG.panelY-3, CFG.panelW+6, CFG.panelH+6);
+  ctx.fillStyle = '#0d0420';
+  ctx.fillRect(CFG.panelX, CFG.panelY, CFG.panelW, CFG.panelH);
+
+  // title
+  ctx.fillStyle = '#ff5c8a';
+  ctx.font = '12px "Press Start 2P", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('\u2699 CONFIG', W/2, CFG.panelY + 30);
+
+  ctx.fillStyle = '#a89bd6';
+  ctx.font = '7px "Press Start 2P", monospace';
+  ctx.fillText('SENSIBILIDAD & CONTROLES', W/2, CFG.panelY + 44);
+
+  // each finger row
+  for (let i = 0; i < 5; i++) {
+    const g = getSliderGeom(i);
+
+    // finger name
+    ctx.fillStyle = fingers[i] ? '#3ddc97' : '#ffd23f';
+    ctx.font = '9px "Press Start 2P", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(FINGER_NAMES[i], CFG.colX, g.ry + 14);
+
+    // sensitivity label + value
+    ctx.fillStyle = '#a89bd6';
+    ctx.font = '7px "Press Start 2P", monospace';
+    ctx.fillText('SENS', CFG.colX, g.ry + CFG.sliderY_off + 4);
+
+    // slider track
+    ctx.fillStyle = '#2a1850';
+    ctx.fillRect(g.x, g.y, g.w, g.h);
+    ctx.fillStyle = '#5a3a8a';
+    ctx.fillRect(g.x, g.y, 1, g.h);
+    ctx.fillRect(g.x + g.w - 1, g.y, 1, g.h);
+
+    // filled part
+    const fillW = (sensitivity[i] / 100) * g.w;
+    ctx.fillStyle = '#3ddc97';
+    ctx.fillRect(g.x, g.y + 2, fillW, g.h - 4);
+
+    // knob
+    const kx = getKnobX(i);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(kx - CFG.knobW/2, g.y - 4, CFG.knobW, CFG.knobH);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(kx - 1, g.y - 2, 2, CFG.knobH - 4);
+
+    // value text
+    ctx.fillStyle = '#3ddc97';
+    ctx.font = '10px "VT323", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(sensitivity[i].toString(), g.x + g.w + 8, g.y + 10);
+
+    // action buttons
+    const btns = getActionBtns(i);
+    for (const b of btns) {
+      const selected = actionMap[i] === b.action;
+      ctx.fillStyle = selected ? '#c84b31' : '#2a1850';
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      // border
+      ctx.fillStyle = selected ? '#e87a5a' : '#5a3a8a';
+      ctx.fillRect(b.x, b.y, b.w, 2);
+      ctx.fillStyle = selected ? '#7a2e1d' : '#1a0a2e';
+      ctx.fillRect(b.x, b.y + b.h - 2, b.w, 2);
+
+      ctx.fillStyle = selected ? '#fff' : '#a89bd6';
+      ctx.font = '6px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(ACTION_LABELS[b.action], b.x + b.w/2, b.y + 12);
+    }
+  }
+
+  // close button
+  ctx.fillStyle = '#ff5c8a';
+  ctx.fillRect(CFG.panelX + CFG.panelW - 30, CFG.panelY + 8, 22, 18);
+  ctx.fillStyle = '#fff';
+  ctx.font = '10px "Press Start 2P", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('X', CFG.panelX + CFG.panelW - 19, CFG.panelY + 22);
+
+  ctx.restore();
+}
+
+/* ── Client camera → WebSocket → Server processing ── */
 
 /* ─────────────────────────────────────────────────
    SPRITE LOADER — lee las imagenes de los <image-slot>
@@ -392,29 +555,120 @@ function watchSlots(){
 // initial pass + retry until elements upgrade
 let _w=0; const _wi = setInterval(()=>{ watchSlots(); if(++_w>30) clearInterval(_wi); }, 200);
 
-/* ── POLLING ── */
+/* ── WebSocket camera streaming ── */
 let nivel = 1;
 let fingers = [0,0,0,0,0];
-let serverAlive = true;
+let serverAlive = false;
+let ws = null;
+let cameraStream = null;
+let sending = false;
 
-async function pollFingers(){
-  try{
-    const r = await fetch('/finger_data');
-    if(!r.ok) throw 0;
-    const d = await r.json();
-    nivel = d.nivel; fingers = d.fingers;
+const localVideo = document.getElementById('localVideo');
+const captureCanvas = document.getElementById('captureCanvas');
+const captureCtx = captureCanvas.getContext('2d');
+const videoFeed = document.getElementById('videoFeed');
+const fallback = document.getElementById('fallback');
+const fallbackMsg = document.getElementById('fallbackMsg');
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws');
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    console.log('[WS] Conectado');
     serverAlive = true;
+    sendConfig();
+    startSendingFrames();
+  };
+
+  ws.onmessage = (evt) => {
+    const d = JSON.parse(evt.data);
+    fingers = d.fingers;
+    nivel = d.nivel;
+    serverAlive = true;
+
+    // Show annotated frame from server
+    if (d.frame) {
+      videoFeed.src = 'data:image/jpeg;base64,' + d.frame;
+      videoFeed.style.display = 'block';
+      fallback.style.display = 'none';
+    }
+
+    // Update UI
     document.getElementById('levelDisplay').textContent = 'NIVEL ' + nivel;
-    document.querySelectorAll('#fingerBar .finger-pill').forEach((el,i)=>{
+    document.querySelectorAll('#fingerBar .finger-pill').forEach((el, i) => {
       el.classList.toggle('active', !!fingers[i]);
     });
-    document.querySelectorAll('#levelButtons .btn').forEach(b=>{
-      b.classList.toggle('active', parseInt(b.dataset.lvl)===nivel);
+    document.querySelectorAll('#levelButtons .btn').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.lvl) === nivel);
     });
-  }catch(e){ serverAlive=false; }
-  setTimeout(pollFingers, 60);
+
+    // Ready for next frame
+    sending = false;
+  };
+
+  ws.onclose = () => {
+    console.log('[WS] Desconectado, reconectando...');
+    serverAlive = false;
+    sending = false;
+    setTimeout(connectWS, 2000);
+  };
+
+  ws.onerror = () => {
+    serverAlive = false;
+    ws.close();
+  };
 }
-pollFingers();
+
+function startSendingFrames() {
+  function sendFrame() {
+    if (!ws || ws.readyState !== WebSocket.OPEN || sending) {
+      requestAnimationFrame(sendFrame);
+      return;
+    }
+    if (localVideo.readyState < 2) {
+      requestAnimationFrame(sendFrame);
+      return;
+    }
+
+    captureCanvas.width = 640;
+    captureCanvas.height = 480;
+    captureCtx.drawImage(localVideo, 0, 0, 640, 480);
+
+    captureCanvas.toBlob((blob) => {
+      if (blob && ws && ws.readyState === WebSocket.OPEN) {
+        sending = true;
+        blob.arrayBuffer().then(buf => ws.send(buf));
+      }
+    }, 'image/jpeg', 0.7);
+
+    requestAnimationFrame(sendFrame);
+  }
+  requestAnimationFrame(sendFrame);
+}
+
+async function startCamera() {
+  try {
+    fallbackMsg.textContent = 'INICIANDO CAMARA...';
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' }
+    });
+    localVideo.srcObject = cameraStream;
+    connectWS();
+  } catch (e) {
+    fallbackMsg.textContent = 'ERROR: NO SE PUDO ACCEDER A LA CAMARA';
+    console.error('[CAM]', e);
+  }
+}
+
+// Click to start camera
+fallback.addEventListener('click', () => {
+  if (!cameraStream) startCamera();
+});
+
+// Auto-start camera
+startCamera();
 
 document.querySelectorAll('#levelButtons .btn').forEach(b=>{
   b.addEventListener('click', ()=>{
@@ -501,15 +755,18 @@ genBg();
 genPlatforms();
 
 function update(){
+  if(configOpen) return;
   if(gameOver){
-    if(fingers[0]===1) resetGame();
+    const goA = getMappedActions();
+    if(goA.jump) resetGame();
     return;
   }
+  const act = getMappedActions();
   player.vx = 0;
-  if(fingers[1]===1) player.vx = SPEED;
-  if(fingers[2]===1) player.vx = -SPEED;
+  if(act.right) player.vx = SPEED;
+  if(act.left) player.vx = -SPEED;
   if(player.vx>0) player.facing=1; else if(player.vx<0) player.facing=-1;
-  if(fingers[0]===1 && player.onGround){ player.vy=JUMP; player.onGround=false; }
+  if(act.jump && player.onGround){ player.vy=JUMP; player.onGround=false; }
 
   player.vy += GRAVITY;
   player.x += player.vx;
@@ -853,7 +1110,89 @@ function draw(){
   ctx.fillRect(W-14, 14, 6, 6);
 }
 
-function loop(){ update(); draw(); requestAnimationFrame(loop); }
+function loop(){ update(); draw(); drawConfigOverlay(ctx); requestAnimationFrame(loop); }
+
+/* ── Canvas mouse interaction for config ── */
+function canvasCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+}
+
+canvas.addEventListener('mousedown', e => {
+  const p = canvasCoords(e);
+
+  if (!configOpen) {
+    // check gear icon click
+    if (Math.abs(p.x - CFG.gearX) < CFG.gearR && Math.abs(p.y - CFG.gearY) < CFG.gearR) {
+      configOpen = true;
+      e.preventDefault();
+    }
+    return;
+  }
+
+  // close button
+  const cx = CFG.panelX + CFG.panelW - 30, cy = CFG.panelY + 8;
+  if (p.x >= cx && p.x <= cx + 22 && p.y >= cy && p.y <= cy + 18) {
+    configOpen = false;
+    e.preventDefault();
+    return;
+  }
+
+  // check sliders
+  for (let i = 0; i < 5; i++) {
+    const g = getSliderGeom(i);
+    if (p.x >= g.x - 6 && p.x <= g.x + g.w + 6 && p.y >= g.y - 8 && p.y <= g.y + CFG.knobH + 4) {
+      draggingSlider = i;
+      const val = Math.round(Math.max(0, Math.min(100, ((p.x - g.x) / g.w) * 100)));
+      sensitivity[i] = val;
+      sendConfig();
+      e.preventDefault();
+      return;
+    }
+  }
+
+  // check action buttons
+  for (let i = 0; i < 5; i++) {
+    const btns = getActionBtns(i);
+    for (const b of btns) {
+      if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
+        actionMap[i] = b.action;
+        e.preventDefault();
+        return;
+      }
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (draggingSlider < 0) return;
+  const p = canvasCoords(e);
+  const g = getSliderGeom(draggingSlider);
+  const val = Math.round(Math.max(0, Math.min(100, ((p.x - g.x) / g.w) * 100)));
+  sensitivity[draggingSlider] = val;
+  sendConfig();
+  e.preventDefault();
+});
+
+canvas.addEventListener('mouseup', () => { draggingSlider = -1; });
+canvas.addEventListener('mouseleave', () => { draggingSlider = -1; });
+
+// Touch support for mobile
+canvas.addEventListener('touchstart', e => {
+  const touch = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY }));
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  const touch = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY }));
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchend', () => {
+  canvas.dispatchEvent(new MouseEvent('mouseup'));
+});
 
 /* keyboard fallback */
 document.addEventListener('keydown', e=>{
