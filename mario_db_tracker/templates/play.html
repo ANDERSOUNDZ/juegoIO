@@ -1,0 +1,705 @@
+{% extends "base.html" %}
+{% block title %}Jugar - PIXO Therapy{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
+<script src="{{ url_for('static', filename='js/sprite-generator.js') }}"></script>
+<script src="{{ url_for('static', filename='js/game-loader.js') }}"></script>
+<style>
+/* ─── FULLSCREEN LAYOUT ─────────────────────── */
+.play-wrapper {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 12px;
+    height: calc(100vh - 80px);
+}
+.play-wrapper.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: var(--bg-0);
+    padding: 0;
+    grid-template-columns: 260px 1fr;
+    height: 100vh;
+}
+.play-wrapper.fullscreen .play-sidebar { padding: 8px; }
+.play-wrapper.fullscreen .navbar-hide { display: none; }
+
+/* ─── SIDEBAR ────────────────────────────────── */
+.play-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+}
+
+/* ─── VIDEO + LANDMARKS ──────────────────────── */
+.video-wrap {
+    position: relative;
+    background: #000;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.video-wrap video {
+    width: 100%;
+    display: none;
+    transform: scaleX(-1);
+}
+.video-wrap canvas.landmarks-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+.video-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+    gap: 10px;
+    padding: 16px;
+}
+.video-placeholder p {
+    color: var(--ink-dim);
+    font-size: 8px;
+    text-align: center;
+}
+.btn-cam-toggle {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    font-family: inherit;
+    font-size: 7px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.7);
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: all .15s;
+}
+.btn-cam-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.btn-cam-toggle.active { background: rgba(61,220,151,0.2); border-color: var(--accent-3); color: var(--accent-3); }
+
+/* ─── FINGER INDICATORS ──────────────────────── */
+.fingers-row {
+    display: flex;
+    gap: 4px;
+    justify-content: space-around;
+}
+.finger-ind {
+    padding: 5px 6px;
+    border-radius: 4px;
+    font-size: 6px;
+    text-align: center;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    transition: all .15s;
+    flex: 1;
+}
+.finger-ind.active {
+    background: var(--accent-3);
+    color: var(--bg-0);
+    border-color: var(--accent-3);
+}
+
+/* ─── GAME AREA ──────────────────────────────── */
+.game-area {
+    position: relative;
+    background: #000;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ─── GEAR ICON (inside game) ────────────────── */
+.gear-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--ink-dim);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+}
+.gear-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ─── FULLSCREEN BTN ─────────────────────────── */
+.fs-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    width: 28px;
+    height: 28px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--ink-dim);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fs-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ─── CONFIG OVERLAY (inside game) ───────────── */
+.config-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: rgba(10, 4, 32, 0.94);
+    padding: 20px;
+    overflow-y: auto;
+}
+.config-overlay.active { display: flex; flex-direction: column; }
+
+.config-overlay h2 {
+    color: var(--accent-2);
+    font-size: 12px;
+    text-align: center;
+    margin-bottom: 4px;
+}
+.config-overlay .config-subtitle {
+    color: var(--ink-dim);
+    font-size: 7px;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.config-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #5a3a8a44;
+}
+.config-finger-name {
+    width: 65px;
+    font-size: 8px;
+}
+.config-slider-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.config-slider-wrap input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent-3);
+    height: 6px;
+}
+.config-val {
+    width: 24px;
+    text-align: right;
+    font-size: 9px;
+    color: var(--accent-3);
+}
+.config-actions {
+    display: flex;
+    gap: 3px;
+}
+.config-actions button {
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 7px;
+    border: 1px solid #5a3a8a;
+    border-radius: 3px;
+    background: #2a1850;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: all .12s;
+}
+.config-actions button.selected {
+    background: #c84b31;
+    color: #fff;
+    border-color: #e87a5a;
+}
+.config-actions button:hover:not(.selected) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.config-bottom {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.config-status {
+    font-size: 7px;
+    color: var(--accent-3);
+    text-align: center;
+    margin-top: 6px;
+    min-height: 14px;
+}
+
+/* ─── TOOLBAR ────────────────────────────────── */
+.play-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="play-wrapper" id="play-wrapper">
+    <!-- SIDEBAR -->
+    <div class="play-sidebar">
+        <!-- Video -->
+        <div class="video-wrap" id="video-container">
+            <video id="camera" autoplay playsinline muted ></video>
+            <canvas class="landmarks-canvas" id="landmarks-canvas"></canvas>
+            <canvas id="send-canvas" style="display:none;" width="640" height="480"></canvas>
+            <div class="video-placeholder" id="camera-placeholder">
+                <p id="camera-status-text">Camara desactivada</p>
+            </div>
+            <button class="btn-cam-toggle" id="btn-camera" onclick="toggleCamera()">Activar camara</button>
+        </div>
+
+        <!-- Finger indicators -->
+        <div class="card" style="padding:8px;">
+            <div class="fingers-row">
+                <div class="finger-ind" data-finger="0">PUL</div>
+                <div class="finger-ind" data-finger="1">IND</div>
+                <div class="finger-ind" data-finger="2">MED</div>
+                <div class="finger-ind" data-finger="3">ANU</div>
+                <div class="finger-ind" data-finger="4">MEN</div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="card" style="padding:8px;">
+            <div class="play-toolbar" style="flex-wrap:wrap;">
+                <span id="session-timer" style="color:var(--accent); font-size:10px;">00:00</span>
+                <div style="display:flex; gap:6px;">
+                    <button class="btn" onclick="restartGame()" style="font-size:7px; padding:4px 8px;" title="Reiniciar juego">&#x21bb; Reiniciar</button>
+
+                    <button class="btn btn-danger" onclick="endGame()" style="font-size:7px; padding:4px 8px;">Salir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME AREA -->
+    <div class="game-area" id="game-area">
+        <div id="game-container"></div>
+
+        <!-- Gear icon (inside game) -->
+        <button class="gear-btn" onclick="toggleConfig()" title="Configuracion">&#9881;</button>
+
+        <!-- Fullscreen btn (inside game) -->
+        <button class="fs-btn" onclick="toggleFullscreen()" title="Pantalla completa (F11)">&#x26F6;</button>
+
+        <!-- Config overlay (inside game) -->
+        <div class="config-overlay" id="config-overlay">
+            <h2>&#9881; CONFIG</h2>
+            <p class="config-subtitle">SENSIBILIDAD & CONTROLES</p>
+            <div id="config-rows"></div>
+            <div class="config-bottom">
+                <button class="btn" onclick="resetConfig()" style="font-size:7px; padding:5px 12px;">Reset</button>
+                <button class="btn btn-primary" onclick="saveConfig()" style="font-size:7px; padding:5px 12px;">Guardar</button>
+                <button class="btn" onclick="toggleConfig()" style="font-size:7px; padding:5px 12px;">Cerrar</button>
+            </div>
+            <p class="config-status" id="config-status"></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const GAME_ID = {{ game_id }};
+const params = new URLSearchParams(window.location.search);
+const SESSION_ID = parseInt(params.get('session_id'));
+const PATIENT_ID = parseInt(params.get('patient_id'));
+
+const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
+const actionLabels = [
+    { key: 'jump', label: 'JUMP' },
+    { key: 'right', label: 'RIGHT' },
+    { key: 'left', label: 'LEFT' },
+    { key: 'none', label: 'NONE' },
+];
+
+let currentSensitivity = [50, 50, 50, 50, 50];
+let currentFingerMap = { 0:'jump', 1:'right', 2:'left', 3:'none', 4:'none' };
+let defaultFingerMap = {};
+let sessionStartTime = Date.now();
+let gameInstance = null;
+let cameraEnabled = false;
+
+// ─── HAND LANDMARK CONNECTIONS ──────────────────
+const CONNECTIONS = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [0,9],[9,10],[10,11],[11,12],
+    [0,13],[13,14],[14,15],[15,16],
+    [0,17],[17,18],[18,19],[19,20],
+];
+
+// ─── TIMER ──────────────────────────────────────
+setInterval(() => {
+    const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    document.getElementById('session-timer').textContent = `${m}:${s}`;
+}, 1000);
+
+// ─── HAND INPUT ─────────────────────────────────
+const handInput = new HandInput();
+
+handInput.onFingers((fingers) => {
+    const inds = document.querySelectorAll('.finger-ind');
+    fingers.forEach((f, i) => {
+        if (inds[i]) inds[i].classList.toggle('active', f === 1);
+    });
+    // Draw landmarks on canvas overlay
+    drawLandmarks(handInput.landmarks, fingers);
+});
+
+handInput.onConnect(() => {
+    if (SESSION_ID) {
+        handInput.sendMessage({ type: 'start_session', session_id: SESSION_ID });
+    }
+});
+
+// ─── LANDMARKS DRAWING ─────────────────────────
+function drawLandmarks(lm, fingers) {
+    const canvas = document.getElementById('landmarks-canvas');
+    const video = document.getElementById('camera');
+    if (!canvas || !video || video.style.display === 'none') return;
+
+    // Match canvas size to video
+    const rect = video.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!lm || lm.length < 21) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Draw connections
+    ctx.strokeStyle = 'rgba(0, 128, 255, 0.6)';
+    ctx.lineWidth = 2;
+    for (const [a, b] of CONNECTIONS) {
+        ctx.beginPath();
+        ctx.moveTo(lm[a][0] * w, lm[a][1] * h);
+        ctx.lineTo(lm[b][0] * w, lm[b][1] * h);
+        ctx.stroke();
+    }
+
+    // Draw points
+    // Finger tip indices: 4(thumb), 8(index), 12(middle), 16(ring), 20(pinky)
+    const tips = [4, 8, 12, 16, 20];
+    for (let i = 0; i < lm.length; i++) {
+        const isTip = tips.indexOf(i);
+        const isActive = isTip >= 0 && fingers && fingers[isTip] === 1;
+        const radius = isTip >= 0 ? 5 : 3;
+
+        ctx.beginPath();
+        ctx.arc(lm[i][0] * w, lm[i][1] * h, radius, 0, Math.PI * 2);
+        ctx.fillStyle = isActive ? '#3ddc97' : (isTip >= 0 ? '#ffd23f' : '#00ff00');
+        ctx.fill();
+    }
+}
+
+// ─── CAMERA TOGGLE ──────────────────────────────
+async function toggleCamera() {
+    const videoEl = document.getElementById('camera');
+    const placeholder = document.getElementById('camera-placeholder');
+    const btn = document.getElementById('btn-camera');
+    const statusText = document.getElementById('camera-status-text');
+
+    if (!cameraEnabled) {
+        btn.disabled = true;
+        btn.textContent = 'Activando...';
+        statusText.textContent = 'Inicializando camara...';
+
+        try {
+            await handInput.connect();
+            cameraEnabled = true;
+            videoEl.style.display = 'block';
+            placeholder.style.display = 'none';
+            updateCameraButtons();
+        } catch (err) {
+            statusText.textContent = 'Error: no se pudo acceder a la camara';
+            statusText.style.color = 'var(--accent-2)';
+            btn.textContent = 'Reintentar';
+            btn.disabled = false;
+            console.error('[Camera]', err);
+            return;
+        }
+        btn.disabled = false;
+    } else {
+        cameraEnabled = false;
+        handInput.disconnect();
+        videoEl.style.display = 'none';
+        // Clear landmarks
+        const lc = document.getElementById('landmarks-canvas');
+        if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
+        placeholder.style.display = 'flex';
+        statusText.textContent = 'Camara desactivada';
+        statusText.style.color = 'var(--ink-dim)';
+        btn.textContent = 'Activar camara';
+        updateCameraButtons();
+    }
+}
+
+function updateCameraButtons() {
+    const btn = document.getElementById('btn-camera');
+    if (cameraEnabled) {
+        btn.textContent = 'Desactivar camara';
+        btn.classList.add('active');
+    } else {
+        btn.textContent = 'Activar camara';
+        btn.classList.remove('active');
+    }
+}
+
+// ─── FULLSCREEN ─────────────────────────────────
+function toggleFullscreen() {
+    const wrapper = document.getElementById('play-wrapper');
+    const nav = document.querySelector('.navbar');
+
+    if (!document.fullscreenElement) {
+        wrapper.requestFullscreen().then(() => {
+            wrapper.classList.add('fullscreen');
+            if (nav) nav.style.display = 'none';
+        }).catch(() => {
+            // Fallback: CSS fullscreen
+            wrapper.classList.toggle('fullscreen');
+            if (nav) nav.style.display = wrapper.classList.contains('fullscreen') ? 'none' : '';
+        });
+    } else {
+        document.exitFullscreen().then(() => {
+            wrapper.classList.remove('fullscreen');
+            if (nav) nav.style.display = '';
+        });
+    }
+}
+
+document.addEventListener('fullscreenchange', () => {
+    const wrapper = document.getElementById('play-wrapper');
+    const nav = document.querySelector('.navbar');
+    if (!document.fullscreenElement) {
+        wrapper.classList.remove('fullscreen');
+        if (nav) nav.style.display = '';
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+    }
+});
+
+// ─── CONFIG OVERLAY ─────────────────────────────
+function toggleConfig() {
+    document.getElementById('config-overlay').classList.toggle('active');
+}
+
+function buildConfigUI() {
+    const container = document.getElementById('config-rows');
+    container.innerHTML = fingerNames.map((name, i) => {
+        const fingerColor = handInput.fingers[i] ? 'var(--accent-3)' : 'var(--accent)';
+        return `
+        <div class="config-row">
+            <span class="config-finger-name" style="color:${fingerColor}">${name}</span>
+            <div class="config-slider-wrap">
+                <input type="range" min="0" max="100" value="${currentSensitivity[i]}"
+                    oninput="onSensChange(${i}, this.value)">
+                <span class="config-val" id="sens-val-${i}">${currentSensitivity[i]}</span>
+            </div>
+            <div class="config-actions">
+                ${actionLabels.map(a => `
+                    <button data-finger="${i}" data-action="${a.key}"
+                        class="${currentFingerMap[i] === a.key ? 'selected' : ''}"
+                        onclick="onActionChange(${i}, '${a.key}', this)">
+                        ${a.label}
+                    </button>
+                `).join('')}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function onSensChange(finger, value) {
+    value = parseInt(value);
+    currentSensitivity[finger] = value;
+    document.getElementById(`sens-val-${finger}`).textContent = value;
+    handInput.setSensitivity(currentSensitivity);
+}
+
+function onActionChange(finger, action, btn) {
+    currentFingerMap[finger] = action;
+    const row = btn.closest('.config-row');
+    row.querySelectorAll('.config-actions button').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    if (gameInstance) {
+        const scene = gameInstance.scene.getScene('PlayScene');
+        if (scene && scene._fingerMap) {
+            scene._fingerMap[String(finger)] = action;
+        }
+    }
+}
+
+function resetConfig() {
+    currentSensitivity = [50, 50, 50, 50, 50];
+    currentFingerMap = Object.assign({}, defaultFingerMap);
+    buildConfigUI();
+    handInput.setSensitivity(currentSensitivity);
+    showStatus('Config reseteada');
+}
+
+async function saveConfig() {
+    const fingerMapObj = {};
+    for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
+
+    // Apply to live scene immediately
+    if (gameInstance) {
+        const scene = gameInstance.scene.getScene('PlayScene');
+        if (scene && scene._fingerMap) {
+            Object.assign(scene._fingerMap, fingerMapObj);
+        }
+    }
+    handInput.setSensitivity(currentSensitivity);
+
+    // Persist to DB
+    await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensitivities: currentSensitivity, finger_map: fingerMapObj }),
+    });
+    showStatus('Config guardada!');
+}
+
+function showStatus(msg) {
+    const el = document.getElementById('config-status');
+    el.textContent = msg;
+    setTimeout(() => { el.textContent = ''; }, 2000);
+}
+
+// ─── RESTART GAME ───────────────────────────────
+function restartGame() {
+    if (!gameInstance) return;
+    const scene = gameInstance.scene.getScene('PlayScene');
+    if (scene) {
+        scene.scene.restart();
+    }
+}
+
+// ─── INIT GAME ──────────────────────────────────
+async function initGame() {
+    try {
+        const gameConfig = await fetch(`/api/games/${GAME_ID}/config`).then(r => r.json());
+        const playerConfig = await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`).then(r => r.json());
+
+        const gameControls = gameConfig.controls || {};
+        defaultFingerMap = gameControls.fingerMap || { 0:'jump', 1:'right', 2:'left', 3:'none', 4:'none' };
+
+        currentSensitivity = playerConfig.sensitivities || [50, 50, 50, 50, 50];
+        const fm = playerConfig.finger_map || defaultFingerMap;
+        for (let i = 0; i < 5; i++) {
+            currentFingerMap[i] = fm[String(i)] || fm[i] || 'none';
+        }
+
+        handInput.setSensitivity(currentSensitivity);
+
+        gameConfig.controls = gameConfig.controls || {};
+        const fingerMapObj = {};
+        for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
+        gameConfig.controls.fingerMap = fingerMapObj;
+
+        // Resolve sprite_ids → full sprite data
+        await resolveSprites(gameConfig);
+
+        buildConfigUI();
+        gameInstance = GameLoader.load(gameConfig, 'game-container', handInput);
+    } catch (e) {
+        console.error('Error loading game:', e);
+        document.getElementById('game-container').innerHTML =
+            '<p style="color:var(--accent-2); padding:20px;">Error cargando el juego</p>';
+    }
+}
+
+/**
+ * Resolve sprite_id references in config.sprites to full sprite objects.
+ * config.sprites = { player: { sprite_id: 3 }, ... }
+ *   → config.sprites = { player: { id:3, type:"pixelmap", data:{...}, ... }, ... }
+ */
+async function resolveSprites(config) {
+    if (!config.sprites) return;
+    const ids = [];
+    const roles = [];
+    for (const [role, ref] of Object.entries(config.sprites)) {
+        if (ref && ref.sprite_id) {
+            ids.push(ref.sprite_id);
+            roles.push(role);
+        }
+    }
+    if (!ids.length) return;
+
+    const res = await fetch('/api/sprites/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+    });
+    const spritesData = await res.json();
+    const byId = {};
+    for (const s of spritesData) byId[s.id] = s;
+
+    for (const role of roles) {
+        const sid = config.sprites[role].sprite_id;
+        if (byId[sid]) {
+            config.sprites[role] = byId[sid];
+        }
+    }
+}
+
+async function endGame() {
+    if (!confirm('Terminar sesion?')) return;
+    const score = gameInstance?.scene?.getScene('PlayScene')?.score || 0;
+    if (SESSION_ID) {
+        handInput.sendMessage({ type: 'end_session' });
+        await fetch(`/api/sessions/${SESSION_ID}/end`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score }),
+        });
+    }
+    window.location.href = SESSION_ID ? `/sessions/${SESSION_ID}/report` : '/games';
+}
+
+initGame();
+</script>
+{% endblock %}

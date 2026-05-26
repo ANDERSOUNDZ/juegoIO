@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - PIXO Therapy{% endblock %}
+
+{% block content %}
+<h1 style="color: var(--accent); font-size: 16px; margin-bottom: 24px;">
+    Hola, {{ current_user.name }}
+</h1>
+
+<div class="stats-row" id="stats">
+    <div class="stat-card">
+        <span class="stat-value" id="stat-patients">-</span>
+        <span class="stat-label">Pacientes</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value" id="stat-sessions">-</span>
+        <span class="stat-label">Sesiones</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value" id="stat-games">-</span>
+        <span class="stat-label">Juegos</span>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div class="card">
+        <div class="card-header">
+            <h2 style="font-size: 11px; color: var(--accent);">Pacientes recientes</h2>
+            <a href="/patients" class="btn-sm">Ver todos</a>
+        </div>
+        <div id="recent-patients"><p style="color: var(--ink-dim);">Cargando...</p></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 style="font-size: 11px; color: var(--accent);">Sesiones recientes</h2>
+        </div>
+        <div id="recent-sessions"><p style="color: var(--ink-dim);">Cargando...</p></div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 16px;">
+    <div class="card-header">
+        <h2 style="font-size: 11px; color: var(--accent);">Acciones rapidas</h2>
+    </div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a href="/patients" class="btn">+ Nuevo paciente</a>
+        <a href="/games" class="btn">Ver juegos</a>
+        <a href="/legacy" class="btn" target="_blank">Juego legacy</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadDashboard() {
+    try {
+        const [patients, sessions, games] = await Promise.all([
+            fetch('/api/patients').then(r => r.json()),
+            fetch('/api/sessions').then(r => r.json()),
+            fetch('/api/games').then(r => r.json()),
+        ]);
+
+        document.getElementById('stat-patients').textContent = patients.length;
+        document.getElementById('stat-sessions').textContent = sessions.length;
+        document.getElementById('stat-games').textContent = games.length;
+
+        // Recent patients
+        const rp = document.getElementById('recent-patients');
+        if (patients.length === 0) {
+            rp.innerHTML = '<p style="color:var(--ink-dim);">Sin pacientes aun</p>';
+        } else {
+            rp.innerHTML = patients.slice(0, 5).map(p =>
+                `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <span>${p.name}${p.age ? ' (' + p.age + ')' : ''}</span>
+                    <a href="/patients/${p.id}" class="btn-sm">Ver</a>
+                </div>`
+            ).join('');
+        }
+
+        // Recent sessions
+        const rs = document.getElementById('recent-sessions');
+        if (sessions.length === 0) {
+            rs.innerHTML = '<p style="color:var(--ink-dim);">Sin sesiones aun</p>';
+        } else {
+            rs.innerHTML = sessions.slice(0, 5).map(s => {
+                const date = new Date(s.started_at).toLocaleDateString('es');
+                return `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <span>${s.game_name || 'Juego'} - Score: ${s.score || 0}</span>
+                    <span style="color:var(--ink-dim); font-size:7px;">${date}</span>
+                </div>`;
+            }).join('');
+        }
+    } catch (e) {
+        console.error('Error loading dashboard:', e);
+    }
+}
+loadDashboard();
+</script>
+{% endblock %}

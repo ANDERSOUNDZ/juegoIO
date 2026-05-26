@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Reporte - PIXO Therapy{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% endblock %}
+
+{% block content %}
+<div class="card-header">
+    <h1 style="font-size: 14px; color: var(--accent);">Reporte de sesion</h1>
+    <a href="javascript:history.back()" class="btn">Volver</a>
+</div>
+
+<div class="stats-row" id="session-stats">
+    <div class="stat-card">
+        <span class="stat-value" id="stat-score">-</span>
+        <span class="stat-label">Score</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value" id="stat-duration">-</span>
+        <span class="stat-label">Duracion</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value" id="stat-events">-</span>
+        <span class="stat-label">Eventos</span>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div class="card">
+        <h2 style="font-size: 11px; color: var(--accent); margin-bottom: 16px;">Activaciones por dedo</h2>
+        <canvas id="chart-activations" height="200"></canvas>
+    </div>
+    <div class="card">
+        <h2 style="font-size: 11px; color: var(--accent); margin-bottom: 16px;">Rango de movimiento</h2>
+        <canvas id="chart-movement" height="200"></canvas>
+    </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+    <h2 style="font-size: 11px; color: var(--accent); margin-bottom: 16px;">Detalle por dedo</h2>
+    <table>
+        <thead>
+            <tr><th>Dedo</th><th>Eventos totales</th><th>Activaciones</th><th>Rango X</th><th>Rango Y</th></tr>
+        </thead>
+        <tbody id="detail-table"></tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SID = {{ session_id }};
+const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
+const colors = ['#ffd23f', '#ff5c8a', '#3ddc97', '#4a90d9', '#c084fc'];
+
+async function loadReport() {
+    const report = await fetch(`/api/sessions/${SID}/report`).then(r => r.json());
+
+    // Stats
+    document.getElementById('stat-score').textContent = report.session.score || 0;
+    if (report.duration_seconds) {
+        const m = Math.floor(report.duration_seconds / 60);
+        const s = Math.floor(report.duration_seconds % 60);
+        document.getElementById('stat-duration').textContent = `${m}m ${s}s`;
+    }
+    const totalEvents = report.finger_stats.reduce((sum, f) => sum + f.total_events, 0);
+    document.getElementById('stat-events').textContent = totalEvents;
+
+    // Activations chart
+    const actCtx = document.getElementById('chart-activations').getContext('2d');
+    new Chart(actCtx, {
+        type: 'bar',
+        data: {
+            labels: report.finger_stats.map(f => f.name),
+            datasets: [{
+                label: 'Activaciones',
+                data: report.finger_stats.map(f => f.active_count),
+                backgroundColor: colors,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#a8a0c0', font: { family: 'Press Start 2P', size: 7 } } },
+                x: { ticks: { color: '#a8a0c0', font: { family: 'Press Start 2P', size: 7 } } },
+            },
+        }
+    });
+
+    // Movement chart
+    const movCtx = document.getElementById('chart-movement').getContext('2d');
+    new Chart(movCtx, {
+        type: 'bar',
+        data: {
+            labels: report.movement_stats.map(m => fingerNames[m.finger_index] || `D${m.finger_index}`),
+            datasets: [
+                {
+                    label: 'Rango X',
+                    data: report.movement_stats.map(m => m.range_x),
+                    backgroundColor: '#ffd23f88',
+                },
+                {
+                    label: 'Rango Y',
+                    data: report.movement_stats.map(m => m.range_y),
+                    backgroundColor: '#3ddc9788',
+                },
+            ]
+        },
+        options: {
+            plugins: { legend: { labels: { color: '#a8a0c0', font: { family: 'Press Start 2P', size: 7 } } } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#a8a0c0', font: { family: 'Press Start 2P', size: 7 } } },
+                x: { ticks: { color: '#a8a0c0', font: { family: 'Press Start 2P', size: 7 } } },
+            },
+        }
+    });
+
+    // Detail table
+    const tbody = document.getElementById('detail-table');
+    const movMap = {};
+    report.movement_stats.forEach(m => { movMap[m.finger_index] = m; });
+
+    tbody.innerHTML = report.finger_stats.map(f => {
+        const mov = movMap[f.finger_index] || { range_x: 0, range_y: 0 };
+        return `<tr>
+            <td style="color:${colors[f.finger_index]}">${f.name}</td>
+            <td>${f.total_events}</td>
+            <td>${f.active_count}</td>
+            <td>${mov.range_x.toFixed(4)}</td>
+            <td>${mov.range_y.toFixed(4)}</td>
+        </tr>`;
+    }).join('');
+}
+
+loadReport();
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Pacientes - PIXO Therapy{% endblock %}
+
+{% block content %}
+<div class="card-header">
+    <h1 style="font-size: 14px; color: var(--accent);">Pacientes</h1>
+    <button class="btn btn-primary" onclick="openModal()">+ Nuevo paciente</button>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Edad</th>
+                <th>Diagnostico</th>
+                <th>Sensibilidad</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="patients-table">
+            <tr><td colspan="5" style="color:var(--ink-dim);">Cargando...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal: Nuevo paciente -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <h2>Nuevo paciente</h2>
+        <form id="patient-form">
+            <div class="form-group">
+                <label>Nombre *</label>
+                <input type="text" id="f-name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Edad</label>
+                <input type="number" id="f-age" class="form-control" min="1" max="120">
+            </div>
+            <div class="form-group">
+                <label>Diagnostico</label>
+                <textarea id="f-diagnosis" class="form-control"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea id="f-notes" class="form-control"></textarea>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button type="button" class="btn" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openModal() { document.getElementById('modal').classList.add('active'); }
+function closeModal() { document.getElementById('modal').classList.remove('active'); }
+
+async function loadPatients() {
+    const res = await fetch('/api/patients');
+    const patients = await res.json();
+    const tbody = document.getElementById('patients-table');
+
+    if (patients.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:var(--ink-dim);">No hay pacientes registrados</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = patients.map(p => {
+        const sens = p.sensitivity ? p.sensitivity.map(s => s).join(', ') : 'Sin config';
+        return `<tr>
+            <td><a href="/patients/${p.id}" style="color:var(--accent); text-decoration:none;">${p.name}</a></td>
+            <td>${p.age || '-'}</td>
+            <td>${p.diagnosis || '-'}</td>
+            <td style="font-size:7px; color:var(--ink-dim);">[${sens}]</td>
+            <td>
+                <a href="/patients/${p.id}" class="btn-sm">Ver</a>
+                <button class="btn-sm" onclick="deletePatient(${p.id})" style="cursor:pointer; background:none; border:1px solid var(--danger); color:var(--danger); font-family:inherit; font-size:8px; border-radius:4px; padding:4px 10px;">X</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+document.getElementById('patient-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+        name: document.getElementById('f-name').value,
+        age: parseInt(document.getElementById('f-age').value) || null,
+        diagnosis: document.getElementById('f-diagnosis').value || null,
+        notes: document.getElementById('f-notes').value || null,
+    };
+    await fetch('/api/patients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    closeModal();
+    loadPatients();
+    document.getElementById('patient-form').reset();
+});
+
+async function deletePatient(id) {
+    if (!confirm('Eliminar paciente?')) return;
+    await fetch(`/api/patients/${id}`, { method: 'DELETE' });
+    loadPatients();
+}
+
+loadPatients();
+</script>
+{% endblock %}

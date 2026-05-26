@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Paciente - PIXO Therapy{% endblock %}
+
+{% block content %}
+<div id="patient-info">
+    <p style="color:var(--ink-dim);">Cargando...</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <!-- Sensibilidad -->
+    <div class="card">
+        <h2 style="font-size: 11px; color: var(--accent); margin-bottom: 16px;">Sensibilidad actual</h2>
+        <div id="sensitivity-config">
+            <p style="color:var(--ink-dim);">Cargando...</p>
+        </div>
+        <div style="margin-top: 12px;">
+            <h3 style="font-size: 9px; color: var(--ink-dim); margin-bottom: 8px;">Presets disponibles</h3>
+            <div id="presets-list"></div>
+        </div>
+    </div>
+
+    <!-- Historial de sensibilidad -->
+    <div class="card">
+        <h2 style="font-size: 11px; color: var(--accent); margin-bottom: 16px;">Historial de cambios</h2>
+        <div id="sensitivity-history">
+            <p style="color:var(--ink-dim);">Cargando...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Sesiones -->
+<div class="card" style="margin-top: 16px;">
+    <div class="card-header">
+        <h2 style="font-size: 11px; color: var(--accent);">Sesiones de juego</h2>
+    </div>
+    <table>
+        <thead>
+            <tr><th>Juego</th><th>Fecha</th><th>Score</th><th>Duracion</th><th></th></tr>
+        </thead>
+        <tbody id="sessions-table">
+            <tr><td colspan="5" style="color:var(--ink-dim);">Cargando...</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PID = {{ patient_id }};
+const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
+
+async function loadAll() {
+    const [patient, sens, presets, sessions, history] = await Promise.all([
+        fetch(`/api/patients/${PID}`).then(r => r.json()),
+        fetch(`/api/patients/${PID}/sensitivity`).then(r => r.json()),
+        fetch('/api/sensitivity/presets').then(r => r.json()),
+        fetch(`/api/sessions?patient_id=${PID}`).then(r => r.json()),
+        fetch(`/api/patients/${PID}/sensitivity/history`).then(r => r.json()),
+    ]);
+
+    // Patient info
+    document.getElementById('patient-info').innerHTML = `
+        <div class="card-header">
+            <div>
+                <h1 style="font-size:14px; color:var(--accent);">${patient.name}</h1>
+                <p style="color:var(--ink-dim); margin-top:4px;">
+                    ${patient.age ? 'Edad: ' + patient.age : ''}
+                    ${patient.diagnosis ? '| ' + patient.diagnosis : ''}
+                </p>
+            </div>
+            <a href="/games" class="btn btn-play">Jugar</a>
+        </div>
+        ${patient.notes ? '<div class="card"><p style="color:var(--ink-dim);">' + patient.notes + '</p></div>' : ''}
+    `;
+
+    // Sensitivity
+    const sensDiv = document.getElementById('sensitivity-config');
+    const currentSens = sens.sensitivities || [50, 50, 50, 50, 50];
+    sensDiv.innerHTML = fingerNames.map((name, i) => `
+        <div class="sens-slider">
+            <label>${name}</label>
+            <input type="range" min="0" max="100" value="${currentSens[i]}" data-finger="${i}" oninput="this.nextElementSibling.textContent=this.value">
+            <span class="sens-value">${currentSens[i]}</span>
+        </div>
+    `).join('') + `
+        <div class="form-group" style="margin-top:12px;">
+            <label>Razon del cambio</label>
+            <input type="text" id="sens-reason" class="form-control" placeholder="Opcional">
+        </div>
+        <button class="btn btn-primary" onclick="saveSensitivity()">Guardar sensibilidad</button>
+    `;
+
+    // Presets
+    const presetsDiv = document.getElementById('presets-list');
+    presetsDiv.innerHTML = presets.map(p => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border);">
+            <div>
+                <span style="color:var(--accent-3); font-size:8px;">${p.name}</span>
+                <span style="color:var(--ink-dim); font-size:7px; margin-left:8px;">[${p.sensitivities.join(', ')}]</span>
+            </div>
+            <button class="btn-sm" onclick="applyPreset(${JSON.stringify(p.sensitivities).replace(/"/g, '&quot;')}, ${p.id})" style="cursor:pointer; background:none; border:1px solid var(--accent-3); color:var(--accent-3); font-family:inherit; font-size:7px; border-radius:4px; padding:3px 8px;">Aplicar</button>
+        </div>
+    `).join('');
+
+    // History
+    const histDiv = document.getElementById('sensitivity-history');
+    if (history.length === 0) {
+        histDiv.innerHTML = '<p style="color:var(--ink-dim);">Sin cambios registrados</p>';
+    } else {
+        histDiv.innerHTML = history.slice(0, 10).map(h => {
+            const date = new Date(h.changed_at).toLocaleDateString('es');
+            return `<div style="padding:6px 0; border-bottom:1px solid var(--border);">
+                <div style="font-size:7px; color:var(--ink-dim);">${date} ${h.reason ? '- ' + h.reason : ''}</div>
+                <div style="font-size:8px;">[${(h.old_sensitivities || []).join(', ')}] → [${h.new_sensitivities.join(', ')}]</div>
+            </div>`;
+        }).join('');
+    }
+
+    // Sessions
+    const tbody = document.getElementById('sessions-table');
+    if (sessions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:var(--ink-dim);">Sin sesiones</td></tr>';
+    } else {
+        tbody.innerHTML = sessions.map(s => {
+            const date = new Date(s.started_at).toLocaleDateString('es');
+            let dur = '-';
+            if (s.started_at && s.ended_at) {
+                const secs = Math.floor((new Date(s.ended_at) - new Date(s.started_at)) / 1000);
+                dur = `${Math.floor(secs/60)}m ${secs%60}s`;
+            }
+            return `<tr>
+                <td>${s.game_name || 'Juego'}</td>
+                <td>${date}</td>
+                <td>${s.score || 0}</td>
+                <td>${dur}</td>
+                <td><a href="/sessions/${s.id}/report" class="btn-sm">Reporte</a></td>
+            </tr>`;
+        }).join('');
+    }
+}
+
+function applyPreset(sensitivities, presetId) {
+    const sliders = document.querySelectorAll('.sens-slider input[type="range"]');
+    sensitivities.forEach((v, i) => {
+        if (sliders[i]) {
+            sliders[i].value = v;
+            sliders[i].nextElementSibling.textContent = v;
+        }
+    });
+}
+
+async function saveSensitivity() {
+    const sliders = document.querySelectorAll('.sens-slider input[type="range"]');
+    const sensitivities = Array.from(sliders).map(s => parseInt(s.value));
+    const reason = document.getElementById('sens-reason').value;
+
+    await fetch(`/api/patients/${PID}/sensitivity`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensitivities, reason }),
+    });
+    loadAll();
+}
+
+loadAll();
+</script>
+{% endblock %}
