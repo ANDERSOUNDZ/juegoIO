@@ -2,49 +2,65 @@
 {% block title %}Dashboard - PIXO Therapy{% endblock %}
 
 {% block content %}
-<h1 style="color: var(--accent); font-size: 16px; margin-bottom: 24px;">
-    Hola, {{ current_user.name }}
-</h1>
+<section class="uk-margin-medium-bottom">
+    <span class="page-kicker"><span uk-icon="icon: bolt; ratio: .9"></span>Panel principal</span>
+    <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap uk-grid-small" uk-grid>
+        <div>
+            <h1 class="page-title">Hola, {{ current_user.name }}</h1>
+            <p class="page-subtitle">Resumen operativo de pacientes, sesiones y juegos disponibles.</p>
+        </div>
+        <div class="uk-flex uk-flex-middle uk-grid-small" uk-grid>
+            <div><a href="/patients" class="btn btn-primary"><span uk-icon="icon: plus; ratio: .85"></span>Nuevo paciente</a></div>
+            <div><a href="/games" class="btn"><span uk-icon="icon: play-circle; ratio: .85"></span>Ver juegos</a></div>
+        </div>
+    </div>
+</section>
 
 <div class="stats-row" id="stats">
-    <div class="stat-card">
-        <span class="stat-value" id="stat-patients">-</span>
+    <div class="stat-card uk-card uk-card-default">
         <span class="stat-label">Pacientes</span>
+        <span class="stat-value" id="stat-patients">-</span>
+        <span class="pixo-list-meta">Registrados en plataforma</span>
     </div>
-    <div class="stat-card">
-        <span class="stat-value" id="stat-sessions">-</span>
+    <div class="stat-card uk-card uk-card-default">
         <span class="stat-label">Sesiones</span>
+        <span class="stat-value" id="stat-sessions">-</span>
+        <span class="pixo-list-meta">Sesiones terapeuticas</span>
     </div>
-    <div class="stat-card">
-        <span class="stat-value" id="stat-games">-</span>
+    <div class="stat-card uk-card uk-card-default">
         <span class="stat-label">Juegos</span>
+        <span class="stat-value" id="stat-games">-</span>
+        <span class="pixo-list-meta">Actividades disponibles</span>
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-    <div class="card">
+<div class="pixo-grid-2 uk-margin-medium-top">
+    <div class="card uk-card uk-card-default uk-card-small">
         <div class="card-header">
-            <h2 style="font-size: 11px; color: var(--accent);">Pacientes recientes</h2>
+            <h2 class="section-heading"><span uk-icon="icon: users; ratio: .9"></span>Pacientes recientes</h2>
             <a href="/patients" class="btn-sm">Ver todos</a>
         </div>
-        <div id="recent-patients"><p style="color: var(--ink-dim);">Cargando...</p></div>
+        <div id="recent-patients"><p class="muted">Cargando...</p></div>
     </div>
 
-    <div class="card">
+    <div class="card uk-card uk-card-default uk-card-small">
         <div class="card-header">
-            <h2 style="font-size: 11px; color: var(--accent);">Sesiones recientes</h2>
+            <h2 class="section-heading"><span uk-icon="icon: history; ratio: .9"></span>Sesiones recientes</h2>
         </div>
-        <div id="recent-sessions"><p style="color: var(--ink-dim);">Cargando...</p></div>
+        <div id="recent-sessions"><p class="muted">Cargando...</p></div>
     </div>
 </div>
 
-<div class="card" style="margin-top: 16px;">
+<div class="card uk-card uk-card-default uk-card-small uk-margin-medium-top">
     <div class="card-header">
-        <h2 style="font-size: 11px; color: var(--accent);">Acciones rapidas</h2>
+        <div>
+            <h2 class="section-heading"><span uk-icon="icon: settings; ratio: .9"></span>Acciones rapidas</h2>
+            <p class="page-subtitle">Accesos directos para iniciar el flujo de trabajo.</p>
+        </div>
     </div>
-    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <a href="/patients" class="btn">+ Nuevo paciente</a>
-        <a href="/games" class="btn">Ver juegos</a>
+    <div class="uk-flex uk-flex-middle uk-flex-wrap uk-grid-small" uk-grid>
+        <div><a href="/patients" class="btn btn-primary"><span uk-icon="icon: plus; ratio: .85"></span>Nuevo paciente</a></div>
+        <div><a href="/games" class="btn"><span uk-icon="icon: thumbnails; ratio: .85"></span>Ver juegos</a></div>
     </div>
 </div>
 {% endblock %}
@@ -66,11 +82,14 @@ async function loadDashboard() {
         // Recent patients
         const rp = document.getElementById('recent-patients');
         if (patients.length === 0) {
-            rp.innerHTML = '<p style="color:var(--ink-dim);">Sin pacientes aun</p>';
+            rp.innerHTML = '<div class="empty-state"><p class="muted">Sin pacientes aun</p></div>';
         } else {
             rp.innerHTML = patients.slice(0, 5).map(p =>
-                `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-                    <span>${p.name}${p.age ? ' (' + p.age + ')' : ''}</span>
+                `<div class="pixo-list-item">
+                    <div>
+                        <div class="pixo-list-title">${p.name}${p.age ? ' (' + p.age + ')' : ''}</div>
+                        <div class="pixo-list-meta">Ficha clinica disponible</div>
+                    </div>
                     <a href="/patients/${p.id}" class="btn-sm">Ver</a>
                 </div>`
             ).join('');
@@ -79,13 +98,16 @@ async function loadDashboard() {
         // Recent sessions
         const rs = document.getElementById('recent-sessions');
         if (sessions.length === 0) {
-            rs.innerHTML = '<p style="color:var(--ink-dim);">Sin sesiones aun</p>';
+            rs.innerHTML = '<div class="empty-state"><p class="muted">Sin sesiones aun</p></div>';
         } else {
             rs.innerHTML = sessions.slice(0, 5).map(s => {
                 const date = new Date(s.started_at).toLocaleDateString('es');
-                return `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-                    <span>${s.game_name || 'Juego'} - Score: ${s.score || 0}</span>
-                    <span style="color:var(--ink-dim); font-size:7px;">${date}</span>
+                return `<div class="pixo-list-item">
+                    <div>
+                        <div class="pixo-list-title">${s.game_name || 'Juego'}</div>
+                        <div class="pixo-list-meta">Score: ${s.score || 0}</div>
+                    </div>
+                    <span class="uk-label pixo-label">${date}</span>
                 </div>`;
             }).join('');
         }

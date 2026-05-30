@@ -2,28 +2,42 @@
 {% block title %}Juegos - PIXO Therapy{% endblock %}
 
 {% block content %}
-<div class="card-header">
-    <h1 style="font-size: 14px; color: var(--accent);">Catalogo de juegos</h1>
-</div>
+<section class="uk-margin-medium-bottom">
+    <span class="page-kicker"><span uk-icon="icon: thumbnails; ratio: .9"></span>Biblioteca terapeutica</span>
+    <div class="card-header uk-margin-remove-bottom">
+        <div>
+            <h1 class="page-title">Catalogo de juegos</h1>
+            <p class="page-subtitle">Selecciona una actividad y asignala a un paciente para iniciar una sesion.</p>
+        </div>
+    </div>
+</section>
 
 <div class="card-grid" id="games-grid">
-    <p style="color:var(--ink-dim);">Cargando...</p>
+    <div class="card uk-card uk-card-default empty-state">
+        <p class="muted">Cargando...</p>
+    </div>
 </div>
 
 <!-- Modal: Seleccionar paciente para jugar -->
 <div class="modal-overlay" id="modal-play">
-    <div class="modal">
-        <h2>Seleccionar paciente</h2>
-        <p style="color:var(--ink-dim); margin-bottom:16px;">Elige el paciente que va a jugar</p>
+    <div class="modal uk-card uk-card-default uk-card-body">
+        <div class="card-header">
+            <div>
+                <span class="page-kicker"><span uk-icon="icon: user; ratio: .85"></span>Inicio de sesion</span>
+                <h2>Seleccionar paciente</h2>
+                <p class="page-subtitle">Elige el paciente que va a jugar.</p>
+            </div>
+            <button class="uk-modal-close-default" type="button" uk-close onclick="closePlayModal()"></button>
+        </div>
 
-        <div id="patient-select-list"></div>
+        <div id="patient-select-list" class="uk-margin-top"></div>
 
-        <div id="sensitivity-choice" style="display:none; margin-top:16px;">
-            <h3 style="font-size:9px; color:var(--accent); margin-bottom:8px;">Sensibilidad a usar</h3>
+        <div id="sensitivity-choice" class="uk-margin-medium-top" style="display:none;">
+            <h3 class="section-heading"><span uk-icon="icon: settings; ratio: .85"></span>Sensibilidad a usar</h3>
             <div id="sens-options"></div>
         </div>
 
-        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+        <div class="uk-flex uk-flex-right uk-margin-medium-top">
             <button class="btn" onclick="closePlayModal()">Cancelar</button>
         </div>
     </div>
@@ -40,20 +54,23 @@ async function loadGames() {
 
     if (games.length === 0) {
         grid.innerHTML = `
-            <div class="card" style="text-align:center; padding:40px;">
-                <p style="color:var(--ink-dim); margin-bottom:16px;">No hay juegos disponibles</p>
-                <p style="color:var(--ink-dim); font-size:8px;">Usa /create-game en Claude Code para generar juegos</p>
+            <div class="card uk-card uk-card-default uk-card-body empty-state">
+                <div>
+                    <span uk-icon="icon: thumbnails; ratio: 1.4" class="text-primary"></span>
+                    <p class="muted uk-margin-small-top uk-margin-small-bottom">No hay juegos disponibles</p>
+                    <p class="muted uk-text-small">Usa /create-game en Claude Code para generar juegos</p>
+                </div>
             </div>
         `;
         return;
     }
 
     grid.innerHTML = games.map(g => `
-        <div class="card game-card card-clickable" onclick="openPlayModal(${g.id})">
-            <div class="game-type">${g.game_type}</div>
-            <h3>${g.name}</h3>
-            <p>${g.description || 'Sin descripcion'}</p>
-            <button class="btn btn-play" style="width:100%; font-size:10px; padding:8px;">Jugar</button>
+        <div class="card uk-card uk-card-default uk-card-hover game-card card-clickable" onclick="openPlayModal(${g.id})">
+            <div class="game-type uk-label pixo-label">${g.game_type}</div>
+            <h3 class="uk-card-title uk-margin-small-top uk-margin-small-bottom">${g.name}</h3>
+            <p class="muted uk-margin-small-bottom">${g.description || 'Sin descripcion'}</p>
+            <button class="btn btn-play uk-width-1-1" style="margin-top:16px;">Jugar</button>
         </div>
     `).join('');
 }
@@ -66,15 +83,18 @@ async function openPlayModal(gameId) {
     const list = document.getElementById('patient-select-list');
 
     if (patients.length === 0) {
-        list.innerHTML = '<p style="color:var(--ink-dim);">No hay pacientes. <a href="/patients" style="color:var(--accent-3);">Crear uno</a></p>';
+        list.innerHTML = '<div class="uk-alert"><p class="muted">No hay pacientes. <a href="/patients">Crear uno</a></p></div>';
         return;
     }
 
     list.innerHTML = patients.map(p => `
-        <div class="card card-clickable" style="padding:12px; margin-bottom:8px;" onclick="selectPatient(${p.id}, '${p.name.replace(/'/g, "\\'")}')">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span>${p.name} ${p.age ? '(' + p.age + ')' : ''}</span>
-                <span style="font-size:7px; color:var(--ink-dim);">${p.sensitivity ? '[' + p.sensitivity.join(',') + ']' : 'Sin config'}</span>
+        <div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" onclick="selectPatient(${p.id}, '${p.name.replace(/'/g, "\\'")}')">
+            <div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>
+                <div>
+                    <div class="pixo-list-title">${p.name} ${p.age ? '(' + p.age + ')' : ''}</div>
+                    <div class="pixo-list-meta">Paciente seleccionado para la sesion</div>
+                </div>
+                <span class="uk-label pixo-label">${p.sensitivity ? '[' + p.sensitivity.join(',') + ']' : 'Sin config'}</span>
             </div>
         </div>
     `).join('');
@@ -95,17 +115,21 @@ async function selectPatient(patientId, patientName) {
 
     // Current patient sensitivity
     if (sens.sensitivities) {
-        html += `<div class="card card-clickable" style="padding:10px; margin-bottom:6px; border-color:var(--accent-3);" onclick="startGame(${patientId}, ${JSON.stringify(sens.sensitivities)})">
-            <span style="color:var(--accent-3);">Config actual de ${patientName}</span>
-            <span style="font-size:7px; color:var(--ink-dim); margin-left:8px;">[${sens.sensitivities.join(', ')}]</span>
+        html += `<div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" style="border-color:rgba(20,184,166,.45);" onclick="startGame(${patientId}, ${JSON.stringify(sens.sensitivities)})">
+            <div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>
+                <span class="pixo-list-title text-accent">Config actual de ${patientName}</span>
+                <span class="uk-label pixo-label">[${sens.sensitivities.join(', ')}]</span>
+            </div>
         </div>`;
     }
 
     // Presets
     html += presets.map(p => `
-        <div class="card card-clickable" style="padding:10px; margin-bottom:6px;" onclick="startGame(${patientId}, ${JSON.stringify(p.sensitivities)})">
-            <span>${p.name}</span>
-            <span style="font-size:7px; color:var(--ink-dim); margin-left:8px;">[${p.sensitivities.join(', ')}]</span>
+        <div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" onclick="startGame(${patientId}, ${JSON.stringify(p.sensitivities)})">
+            <div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>
+                <span class="pixo-list-title">${p.name}</span>
+                <span class="uk-label pixo-label">[${p.sensitivities.join(', ')}]</span>
+            </div>
         </div>
     `).join('');
 
