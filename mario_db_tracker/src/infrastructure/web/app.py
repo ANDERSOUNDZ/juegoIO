@@ -35,6 +35,9 @@ def create_app(settings=None, db_worker=None):
     from .controllers.sprites import sprites_bp
     app.register_blueprint(sprites_bp)
 
+    from .controllers.analytics import analytics_bp
+    app.register_blueprint(analytics_bp)
+
     from .controllers.pages import main_bp
     app.register_blueprint(main_bp)
 

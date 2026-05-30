@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { margin: 2cm; size: A4; }
+  @page { @top-center { content: "PIXO Therapy — Reporte Clínico"; font-size: 8pt; color: #888; } }
+  @page { @bottom-center { content: "Página " counter(page) " de " counter(pages); font-size: 8pt; color: #888; } }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10pt;
+    color: #222;
+    line-height: 1.5;
+  }
+
+  .header {
+    border-bottom: 3px solid #3ddc97;
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: 18pt;
+    color: #1a0a2e;
+    margin-bottom: 4px;
+  }
+
+  .header p {
+    color: #666;
+    font-size: 9pt;
+  }
+
+  .patient-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 12px;
+    background: #f5f5f8;
+    border-radius: 6px;
+  }
+
+  .patient-info .label {
+    font-size: 8pt;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .patient-info .value {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .score-box {
+    text-align: center;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 2px solid #3ddc97;
+    border-radius: 8px;
+  }
+
+  .score-box .score {
+    font-size: 36pt;
+    font-weight: 700;
+    color: #1a0a2e;
+  }
+
+  .score-box .score-label {
+    font-size: 9pt;
+    color: #666;
+  }
+
+  .score-box .change {
+    font-size: 10pt;
+    margin-top: 4px;
+  }
+
+  .score-box .change.up { color: #3ddc97; }
+  .score-box .change.down { color: #ff5c8a; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+
+  th, td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    font-size: 9pt;
+  }
+
+  th {
+    background: #1a0a2e;
+    color: #fff;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  tr:nth-child(even) td { background: #f9f9fc; }
+  td.alert { background: #fff0f0 !important; color: #cc3333; font-weight: 600; }
+  td.ok { color: #3ddc97; }
+
+  .section-title {
+    font-size: 12pt;
+    color: #1a0a2e;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 6px;
+    margin: 20px 0 12px;
+  }
+
+  .independence-box {
+    padding: 10px;
+    background: #f5f5f8;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+
+  .independence-box .status {
+    font-size: 10pt;
+    font-weight: 600;
+  }
+
+  .interpretation {
+    padding: 14px;
+    background: #f0faf5;
+    border-left: 4px solid #3ddc97;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    font-size: 9.5pt;
+    line-height: 1.6;
+  }
+
+  .footer {
+    margin-top: 30px;
+    padding-top: 12px;
+    border-top: 1px solid #ddd;
+    font-size: 8pt;
+    color: #999;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>PIXO Therapy</h1>
+  <p>Reporte Clínico de Sesión de Rehabilitación</p>
+</div>
+
+<div class="patient-info">
+  <div>
+    <div class="label">Paciente</div>
+    <div class="value">{{ patient_name }}</div>
+  </div>
+  <div>
+    <div class="label">Edad</div>
+    <div class="value">{{ patient_age }}</div>
+  </div>
+  <div>
+    <div class="label">Diagnóstico</div>
+    <div class="value">{{ patient_diagnosis }}</div>
+  </div>
+  <div>
+    <div class="label">Juego</div>
+    <div class="value">{{ game_name }}</div>
+  </div>
+  <div>
+    <div class="label">Fecha</div>
+    <div class="value">{{ date[:10] if date else '-' }}</div>
+  </div>
+  <div>
+    <div class="label">Duración</div>
+    <div class="value">
+      {% if duration %}
+        {{ (duration // 60)|int }}m {{ (duration % 60)|int }}s
+      {% else %}-{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="score-box">
+  <div class="score">{{ functional_score }}</div>
+  <div class="score-label">Score Funcional (0-100)</div>
+  {% if previous_session %}
+  <div class="change {{ 'up' if previous_session.improving else 'down' }}">
+    {% if previous_session.improving %}▲{% else %}▼{% endif %}
+    {{ previous_session.change_pct }}% vs sesión anterior ({{ previous_session.previous_score }})
+  </div>
+  {% endif %}
+</div>
+
+<h2 class="section-title">Métricas por Dedo</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Dedo</th>
+      <th>ROM</th>
+      <th>Reacción</th>
+      <th>Fatiga</th>
+      <th>Temblor</th>
+      <th>Activ.</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in finger_rows %}
+    <tr>
+      <td style="font-weight:600;">{{ row.name }}</td>
+      <td class="{{ 'alert' if row.rom != '-' and row.rom < 0.05 else 'ok' }}">{{ row.rom }}</td>
+      <td>{{ row.reaction }}</td>
+      <td class="{{ 'alert' if row.fatigue != '-' and row.fatigue|replace('%','')|int > 25 else 'ok' }}">{{ row.fatigue }}</td>
+      <td class="{{ 'alert' if row.tremor != '-' and row.tremor > 0.015 else 'ok' }}">{{ row.tremor }}</td>
+      <td>{{ row.activations }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2 class="section-title">Independencia Digital</h2>
+
+<div class="independence-box">
+  <div class="status">{{ independence.status }}</div>
+  <div style="font-size:9pt;color:#666;margin-top:4px;">
+    Score: {{ independence.score }}/100
+    {% if independence.issues %}
+    <ul style="margin-top:6px;padding-left:16px;">
+      {% for issue in independence.issues[:3] %}
+      <li>{{ issue }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</div>
+
+<h2 class="section-title">Interpretación Clínica</h2>
+
+<div class="interpretation">
+  {{ interpretation }}
+</div>
+
+<div class="footer">
+  PIXO Therapy — Plataforma de Juegos Terapéuticos<br>
+  Reporte generado automáticamente — {{ date[:10] if date else '' }}
+</div>
+
+</body>
+</html>

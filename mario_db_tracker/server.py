@@ -12,6 +12,6 @@ if __name__ == '__main__':
     print("[SERVER] La camara se activa en el CLIENTE (navegador)")
     print("[SERVER] Presiona Ctrl+C para detener\n")
     try:
-        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+        app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
     finally:
         db_worker.stop()
