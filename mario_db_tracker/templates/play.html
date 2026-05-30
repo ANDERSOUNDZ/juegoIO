@@ -3,6 +3,7 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
 <script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
 <script src="{{ url_for('static', filename='js/sprite-generator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/game-loader.js') }}"></script>
@@ -45,7 +46,6 @@
 .video-wrap video {
     width: 100%;
     display: none;
-    transform: scaleX(-1);
 }
 .video-wrap canvas.landmarks-canvas {
     position: absolute;
@@ -274,7 +274,6 @@
         <div class="video-wrap" id="video-container">
             <video id="camera" autoplay playsinline muted ></video>
             <canvas class="landmarks-canvas" id="landmarks-canvas"></canvas>
-            <canvas id="send-canvas" style="display:none;" width="640" height="480"></canvas>
             <div class="video-placeholder" id="camera-placeholder">
                 <p id="camera-status-text">Camara desactivada</p>
             </div>
@@ -384,6 +383,7 @@ handInput.onFingers((fingers) => {
 
 handInput.onConnect(() => {
     if (SESSION_ID) {
+        handInput._sessionId = SESSION_ID;
         handInput.sendMessage({ type: 'start_session', session_id: SESSION_ID });
     }
 });

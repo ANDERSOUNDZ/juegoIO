@@ -12,12 +12,12 @@
     {% if current_user.is_authenticated %}
     <nav class="navbar">
         <div class="nav-brand">
-            <a href="{{ url_for('main.dashboard') }}">🎮 PIXO Therapy</a>
+            <a href="{{ url_for('pages.dashboard') }}">🎮 PIXO Therapy</a>
         </div>
         <div class="nav-links">
-            <a href="{{ url_for('main.dashboard') }}" class="{% if request.endpoint == 'main.dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="{{ url_for('main.patients_page') }}" class="{% if 'patient' in request.endpoint %}active{% endif %}">Pacientes</a>
-            <a href="{{ url_for('main.games_page') }}" class="{% if 'game' in request.endpoint %}active{% endif %}">Juegos</a>
+            <a href="{{ url_for('pages.dashboard') }}" class="{% if request.endpoint == 'pages.dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('pages.patients_page') }}" class="{% if 'patient' in request.endpoint %}active{% endif %}">Pacientes</a>
+            <a href="{{ url_for('pages.games_page') }}" class="{% if 'game' in request.endpoint %}active{% endif %}">Juegos</a>
         </div>
         <div class="nav-user">
             <span>{{ current_user.name }}</span>

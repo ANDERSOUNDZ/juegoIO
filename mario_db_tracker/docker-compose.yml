@@ -1,4 +1,23 @@
 services:
+  web:
+    build: .
+    container_name: mario-web
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: mario_db
+      DB_USER: postgres
+      DB_PASSWORD: admin
+      SECRET_KEY: change-me-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./hand_landmarker.task:/app/hand_landmarker.task
+    restart: unless-stopped
+
   postgres:
     image: postgres:16
     container_name: mario-postgres
