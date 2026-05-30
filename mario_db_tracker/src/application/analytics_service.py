@@ -47,13 +47,13 @@ class AnalyticsService:
             for e in prev_events:
                 if e.finger_index in prev_finger_data:
                     prev_finger_data[e.finger_index].append(e)
-            prev_report = self._compute_all_metrics(prev_finger_data, prev_events)
+            prev_metrics = self._compute_all_metrics(prev_finger_data, prev_events)
 
         metrics = self._compute_all_metrics(finger_data, events)
 
         # Functional score
         score = self._compute_functional_score(metrics)
-        prev_score = prev_report['functional_score'] if prev_report else None
+        prev_score = self._compute_functional_score(prev_metrics) if previous_session_id else None
 
         # Previous session comparison
         comparison = None
