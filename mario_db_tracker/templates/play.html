@@ -10,21 +10,25 @@
 <style>
 .play-wrapper {
     display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
-    gap: 18px;
-    min-height: calc(100vh - 150px);
+    grid-template-columns: minmax(280px, 320px) 1fr;
+    gap: 12px;
+    height: calc(100vh - 80px);
 }
 .play-wrapper.fullscreen {
     position: fixed;
     inset: 0;
     z-index: 200;
-    background: #0f172a;
-    padding: 18px;
-    grid-template-columns: 300px minmax(0, 1fr);
-    min-height: 100vh;
+    background: var(--bg-0);
+    padding: 0;
+    grid-template-columns: minmax(240px, 280px) 1fr;
+    height: 100vh;
 }
-.play-wrapper.fullscreen .play-sidebar { padding: 0; }
-.play-wrapper.fullscreen .navbar-hide { display: none; }
+
+@media (max-width: 1024px) {
+    .play-wrapper { grid-template-columns: 1fr; }
+    .play-wrapper.fullscreen { grid-template-columns: 1fr; }
+    .navbar-hide { display: none; }
+}
 .play-sidebar {
     display: flex;
     flex-direction: column;
@@ -122,16 +126,14 @@
 }
 .game-area {
     position: relative;
-    min-width: 0;
-    min-height: 540px;
-    background: radial-gradient(circle at top, #1e293b 0%, #020617 58%);
-    border: 1px solid rgba(148, 163, 184, .26);
-    border-radius: 24px;
+    background: #000;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 28px 60px rgba(15,23,42,.18);
+    min-height: clamp(320px, 60vh, 540px);
 }
 #game-container {
     width: 100%;
@@ -679,7 +681,9 @@ async function initGame() {
         await resolveSprites(gameConfig);
 
         buildConfigUI();
-        gameInstance = GameLoader.load(gameConfig, 'game-container', handInput);
+        gameInstance = GameLoader.load(gameConfig, 'game-container', handInput, (score, won) => {
+            endGame(score);
+        });
     } catch (e) {
         console.error('Error loading game:', e);
         document.getElementById('game-container').innerHTML =
@@ -721,9 +725,8 @@ async function resolveSprites(config) {
     }
 }
 
-async function endGame() {
-    if (!confirm('Terminar sesion?')) return;
-    const score = gameInstance?.scene?.getScene('PlayScene')?.score || 0;
+async function endGame(finalScore) {
+    const score = finalScore ?? (gameInstance?.scene?.getScene('PlayScene')?.score || 0);
     if (SESSION_ID) {
         handInput.sendMessage({ type: 'end_session' });
         await fetch(`/api/sessions/${SESSION_ID}/end`, {

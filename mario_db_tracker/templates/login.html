@@ -4,22 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - PIXO Therapy</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✋</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.25.16/dist/css/uikit.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/platform.css') }}">
     <style>
-        :root {
-            --pixo-bg: #f5f7fb;
-            --pixo-ink: #0f172a;
-            --pixo-muted: #64748b;
-            --pixo-primary: #2563eb;
-            --pixo-accent: #14b8a6;
-            --pixo-border: #e2e8f0;
-            --pixo-danger: #dc2626;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        @media (max-width: 480px) {
+            .auth-container { padding: 16px; }
+            .auth-card { padding: 20px; }
+            .auth-card h1 { font-size: clamp(14px, 5vw, 20px); }
+            .brand-mark { width: 40px; height: 40px; }
         }
-        html, body { min-height: 100%; }
+        @media (max-width: 360px) {
+            .auth-card { padding: 14px; border-radius: 16px; }
+            .auth-card h1 { font-size: 16px; }
+        }
+
         body {
             margin: 0;
             background:

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}PIXO Therapy{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✋</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -172,6 +173,8 @@
             font-weight: 800;
             letter-spacing: -0.04em;
             line-height: 1.1;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
 
         .page-subtitle {
@@ -570,6 +573,20 @@
             .stats-row,
             .pixo-grid-2 { grid-template-columns: 1fr; }
             .container { width: min(100% - 28px, 1180px); padding-top: 24px; }
+        }
+
+        @media (max-width: 480px) {
+            .navbar.pixo-navbar { padding: 10px 12px; }
+            .nav-user span:first-child { max-width: 120px; }
+            .container { width: min(100% - 20px, 1180px); padding: 16px 0 32px; }
+            .sens-slider { grid-template-columns: 1fr 1fr; gap: 6px; }
+            .form-group { margin-bottom: 10px; }
+            .modal { padding: 16px; }
+        }
+
+        @media (max-width: 360px) {
+            .nav-user span:first-child { max-width: 80px; }
+            .btn-sm { font-size: .7rem; padding: 0 8px; }
         }
     </style>
     {% block head %}{% endblock %}

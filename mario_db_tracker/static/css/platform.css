@@ -21,8 +21,14 @@ body {
     background: var(--bg-0);
     color: var(--ink);
     min-height: 100vh;
-    font-size: 10px;
+    font-size: clamp(8px, 1.2vw, 10px);
     line-height: 1.8;
+}
+
+/* ─── OVERFLOW (global) ───────────────────── */
+p, h1, h2, h3, td, th, li, .card, .flash, .interpretation {
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 /* ─── NAVBAR ──────────────────────────────── */
@@ -38,7 +44,7 @@ body {
 .nav-brand a {
     color: var(--accent);
     text-decoration: none;
-    font-size: 14px;
+    font-size: clamp(10px, 1.8vw, 14px);
 }
 
 .nav-links { display: flex; gap: 20px; }
@@ -77,6 +83,8 @@ body {
     border-radius: var(--radius);
     padding: 20px;
     margin-bottom: 16px;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .card-header {
@@ -84,6 +92,8 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .card-grid {
@@ -106,7 +116,7 @@ body {
     display: inline-block;
     padding: 10px 20px;
     font-family: inherit;
-    font-size: 10px;
+    font-size: clamp(8px, 1.2vw, 10px);
     border: 2px solid var(--accent);
     border-radius: var(--radius);
     background: transparent;
@@ -140,7 +150,7 @@ body {
 
 .btn-sm {
     padding: 4px 10px;
-    font-size: 8px;
+    font-size: clamp(6px, 1vw, 8px);
     border: 1px solid var(--border);
     border-radius: 4px;
     color: var(--ink-dim);
@@ -156,8 +166,8 @@ body {
     background: var(--accent-3);
     border-color: var(--accent-3);
     color: var(--bg-0);
-    font-size: 12px;
-    padding: 12px 28px;
+    font-size: clamp(9px, 1.5vw, 12px);
+    padding: clamp(8px, 1.5vw, 12px) clamp(16px, 3vw, 28px);
 }
 .btn-play:hover {
     background: var(--accent);
@@ -166,21 +176,21 @@ body {
 
 /* ─── FORMS ───────────────────────────────── */
 .form-group {
-    margin-bottom: 16px;
+    margin-bottom: clamp(10px, 1.5vw, 16px);
 }
 
 .form-group label {
     display: block;
     margin-bottom: 6px;
     color: var(--ink-dim);
-    font-size: 8px;
+    font-size: clamp(7px, 1vw, 8px);
 }
 
 .form-control {
     width: 100%;
-    padding: 10px 14px;
+    padding: clamp(8px, 1.2vw, 10px) clamp(10px, 1.5vw, 14px);
     font-family: inherit;
-    font-size: 10px;
+    font-size: clamp(8px, 1.2vw, 10px);
     background: var(--bg-0);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -207,28 +217,30 @@ select.form-control {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    padding: 24px;
+    padding: clamp(12px, 3vw, 24px);
 }
 
 .auth-card {
     background: var(--card-bg);
     border: 2px solid var(--border);
     border-radius: 12px;
-    padding: 40px;
+    padding: clamp(20px, 5vw, 40px);
     width: 100%;
-    max-width: 400px;
+    max-width: min(400px, 94vw);
     text-align: center;
 }
 
 .auth-card h1 {
     color: var(--accent);
-    font-size: 18px;
+    font-size: clamp(14px, 4.5vw, 18px);
     margin-bottom: 8px;
+    overflow-wrap: break-word;
 }
 
 .auth-card p {
     color: var(--ink-dim);
-    margin-bottom: 24px;
+    margin-bottom: clamp(16px, 3vw, 24px);
+    font-size: clamp(8px, 1.2vw, 10px);
 }
 
 .auth-card .btn {
@@ -237,7 +249,7 @@ select.form-control {
 }
 
 .auth-link {
-    margin-top: 16px;
+    margin-top: clamp(10px, 2vw, 16px);
     color: var(--ink-dim);
 }
 .auth-link a {
@@ -250,7 +262,7 @@ select.form-control {
     padding: 10px 16px;
     border-radius: var(--radius);
     margin-bottom: 12px;
-    font-size: 9px;
+    font-size: clamp(7px, 1.2vw, 9px);
 }
 .flash-error { background: #ff444433; border: 1px solid var(--danger); }
 .flash-success { background: #3ddc9733; border: 1px solid var(--accent-3); }
@@ -258,7 +270,7 @@ select.form-control {
 /* ─── STATS ROW ───────────────────────────── */
 .stats-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 12px;
     margin-bottom: 24px;
 }
@@ -271,14 +283,14 @@ select.form-control {
 }
 
 .stat-value {
-    font-size: 24px;
+    font-size: clamp(16px, 5vw, 24px);
     color: var(--accent);
     display: block;
     margin-bottom: 4px;
 }
 
 .stat-label {
-    font-size: 7px;
+    font-size: clamp(6px, 1vw, 8px);
     color: var(--ink-dim);
 }
 
@@ -289,15 +301,15 @@ table {
 }
 
 th, td {
-    padding: 10px 12px;
+    padding: clamp(6px, 0.8vw, 10px) clamp(8px, 1vw, 12px);
     text-align: left;
     border-bottom: 1px solid var(--border);
-    font-size: 9px;
+    font-size: clamp(7px, 1vw, 9px);
 }
 
 th {
     color: var(--ink-dim);
-    font-size: 7px;
+    font-size: clamp(6px, 0.9vw, 8px);
     text-transform: uppercase;
 }
 
@@ -319,8 +331,8 @@ tr:hover td { background: var(--bg-2); }
     background: var(--bg-1);
     border: 2px solid var(--border);
     border-radius: 12px;
-    padding: 28px;
-    width: 90%;
+    padding: clamp(16px, 3.5vw, 28px);
+    width: 94vw;
     max-width: 500px;
     max-height: 80vh;
     overflow-y: auto;
@@ -328,7 +340,7 @@ tr:hover td { background: var(--bg-2); }
 
 .modal h2 {
     color: var(--accent);
-    font-size: 12px;
+    font-size: clamp(9px, 1.5vw, 12px);
     margin-bottom: 16px;
 }
 
@@ -339,20 +351,20 @@ tr:hover td { background: var(--bg-2); }
 }
 
 .game-card .game-type {
-    font-size: 7px;
+    font-size: clamp(6px, 0.9vw, 8px);
     color: var(--accent-3);
     text-transform: uppercase;
     margin-bottom: 8px;
 }
 
 .game-card h3 {
-    font-size: 11px;
+    font-size: clamp(9px, 1.3vw, 11px);
     color: var(--accent);
     margin-bottom: 8px;
 }
 
 .game-card p {
-    font-size: 8px;
+    font-size: clamp(7px, 1vw, 9px);
     color: var(--ink-dim);
     margin-bottom: 12px;
 }
@@ -366,57 +378,70 @@ tr:hover td { background: var(--bg-2); }
 }
 
 .sens-slider label {
-    width: 80px;
-    font-size: 8px;
+    min-width: 60px;
+    width: max(60px, 20%);
+    flex-shrink: 0;
+    font-size: clamp(7px, 1vw, 8px);
     color: var(--ink-dim);
 }
 
 .sens-slider input[type="range"] {
     flex: 1;
     accent-color: var(--accent);
+    min-width: 40px;
 }
 
 .sens-slider .sens-value {
-    width: 30px;
+    width: clamp(24px, 4vw, 30px);
     text-align: right;
-    font-size: 9px;
+    font-size: clamp(7px, 1.1vw, 9px);
     color: var(--accent);
 }
 
-/* ─── PLAY PAGE ───────────────────────────── */
-.play-layout {
+/* ─── HAND VIZ ────────────────────────────── */
+.report-chart-grid {
     display: grid;
-    grid-template-columns: 1fr 2fr;
+    grid-template-columns: 1fr 1fr;
     gap: 16px;
-    height: calc(100vh - 100px);
 }
 
-.play-video {
-    border: 2px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: #000;
-}
-
-.play-video img {
-    width: 100%;
-    image-rendering: pixelated;
-}
-
-.play-game {
-    border: 2px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000;
+.hand-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+    align-items: start;
 }
 
 /* ─── RESPONSIVE ──────────────────────────── */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .navbar { flex-wrap: wrap; gap: 8px; }
-    .nav-links { order: 3; width: 100%; justify-content: center; }
+    .nav-links { order: 3; width: 100%; justify-content: center; gap: 8px; overflow-x: auto; }
     .play-layout { grid-template-columns: 1fr; }
     .card-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+    .container { padding: 16px; }
+    .card { padding: 14px; }
+    .stats-row { grid-template-columns: 1fr; }
+    .report-chart-grid { grid-template-columns: 1fr; }
+    .hand-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+    .navbar { padding: 8px 12px; }
+    .modal { padding: 14px; width: 96vw; }
+    .auth-card h1 { font-size: clamp(12px, 5vw, 16px); }
+    .sens-slider { flex-wrap: wrap; }
+    .sens-slider label { width: 100%; min-width: unset; }
+    .btn-sm { font-size: 7px; padding: 3px 8px; }
+    .stat-card { min-height: 90px; padding: 12px; }
+}
+
+@media (max-width: 360px) {
+    body { font-size: 7px; }
+    .card { padding: 10px; }
+    .auth-card { padding: 14px; }
+    .auth-card h1 { font-size: 13px; }
 }

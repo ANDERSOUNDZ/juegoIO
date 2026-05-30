@@ -19,9 +19,10 @@ const GameLoader = {
      * @param {Object} config - Game config JSON from DB (with resolved sprites)
      * @param {string} containerId - DOM element ID for Phaser canvas
      * @param {HandInput} handInput - HandInput instance for finger control
+     * @param {Function} onGameOver - Callback when game ends (won/lost)
      * @returns {Phaser.Game}
      */
-    load(config, containerId, handInput) {
+    load(config, containerId, handInput, onGameOver) {
         const physics = config.physics || { type: 'arcade', gravity: { x: 0, y: 300 } };
         const world = config.world || { width: 400, height: 600 };
 
@@ -41,7 +42,7 @@ const GameLoader = {
             scene: [
                 createBootScene(config, handInput),
                 createPlayScene(config, handInput),
-                createGameOverScene(config),
+                createGameOverScene(config, onGameOver),
             ],
             pixelArt: true,
         };
@@ -668,7 +669,7 @@ function createPlayScene(config, handInput) {
     };
 }
 
-function createGameOverScene(config) {
+function createGameOverScene(config, onGameOver) {
     return class GameOverScene extends Phaser.Scene {
         constructor() {
             super('GameOverScene');
@@ -695,14 +696,18 @@ function createGameOverScene(config) {
                 color: '#ffd23f',
             }).setOrigin(0.5);
 
-            this.add.text(W / 2, H / 2 + 50, 'Click para reiniciar', {
+            this.add.text(W / 2, H / 2 + 50, this.won ? 'Click para salir' : 'Click para reiniciar', {
                 fontFamily: '"Press Start 2P"',
                 fontSize: '8px',
                 color: '#a8a0c0',
             }).setOrigin(0.5);
 
             this.input.on('pointerdown', () => {
-                this.scene.start('PlayScene');
+                if (this.won && onGameOver) {
+                    onGameOver(this.finalScore, this.won);
+                } else if (!this.won) {
+                    this.scene.start('PlayScene');
+                }
             });
         }
     };
