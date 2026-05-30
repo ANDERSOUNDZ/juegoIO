@@ -197,6 +197,65 @@
   {% endif %}
 </div>
 
+<h2 class="section-title">Mapa Diagnóstico de la Mano</h2>
+
+<div style="display:flex; gap:20px; align-items:center; margin-bottom:20px;">
+  <svg width="200" height="260" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
+    <!-- Palm connections -->
+    <line x1="100" y1="205" x2="94" y2="170" stroke="#aaa" stroke-width="2"/>
+    <line x1="100" y1="205" x2="102" y2="168" stroke="#aaa" stroke-width="2"/>
+    <line x1="100" y1="205" x2="97" y2="170" stroke="#aaa" stroke-width="2"/>
+    <line x1="100" y1="205" x2="91" y2="172" stroke="#aaa" stroke-width="2"/>
+    <line x1="100" y1="205" x2="87" y2="178" stroke="#aaa" stroke-width="2"/>
+    <!-- Palm knuckles -->
+    <line x1="87" y1="178" x2="91" y2="172" stroke="#aaa" stroke-width="2"/>
+    <line x1="91" y1="172" x2="97" y2="170" stroke="#aaa" stroke-width="2"/>
+    <line x1="97" y1="170" x2="102" y2="168" stroke="#aaa" stroke-width="2"/>
+    <line x1="102" y1="168" x2="94" y2="170" stroke="#aaa" stroke-width="2"/>
+
+    <!-- Finger paths [thumb, index, middle, ring, pinky] -->
+    <!-- Each path: base knuckle → middle → tip -->
+    <path d="M94 170 L90 148 L84 126 L78 104" stroke="{{ '#ff5c8a' if finger_rows[0].alert else '#3ddc97' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M102 168 L107 146 L112 124 L117 102" stroke="{{ '#ff5c8a' if finger_rows[1].alert else '#3ddc97' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M97 170 L97 148 L97 126 L97 100" stroke="{{ '#ff5c8a' if finger_rows[2].alert else '#3ddc97' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M91 172 L85 152 L79 132 L73 112" stroke="{{ '#ff5c8a' if finger_rows[3].alert else '#3ddc97' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M87 178 L79 160 L71 144 L63 128" stroke="{{ '#ff5c8a' if finger_rows[4].alert else '#3ddc97' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
+
+    <!-- Wrist -->
+    <rect x="90" y="205" width="20" height="25" rx="3" fill="#ddd"/>
+
+    <!-- Legend -->
+    <circle cx="10" cy="238" r="5" fill="#3ddc97"/>
+    <text x="20" y="242" font-size="8" fill="#666">Normal</text>
+    <circle cx="80" cy="238" r="5" fill="#ffd23f"/>
+    <text x="90" y="242" font-size="8" fill="#666">Alerta</text>
+    <circle cx="140" cy="238" r="5" fill="#ff5c8a"/>
+    <text x="150" y="242" font-size="8" fill="#666">Crítico</text>
+  </svg>
+
+  <table style="margin:0; flex:1;">
+    <thead>
+      <tr><th>Dedo</th><th>Estado</th><th>ROM</th><th>Fatiga</th><th>Temblor</th></tr>
+    </thead>
+    <tbody>
+      {% for row in finger_rows %}
+      <tr>
+        <td style="font-weight:600;">{{ row.name }}</td>
+        <td>
+          <span style="display:inline-block; width:10px; height:10px; border-radius:50%;
+            background:{% if row.alert %}#ff5c8a{% else %}#3ddc97{% endif %};
+            margin-right:4px;"></span>
+          {% if row.alert %}Atención{% else %}Normal{% endif %}
+        </td>
+        <td>{{ row.rom }}</td>
+        <td>{{ row.fatigue }}</td>
+        <td>{{ row.tremor }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
 <h2 class="section-title">Métricas por Dedo</h2>
 
 <table>

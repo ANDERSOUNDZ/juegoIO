@@ -3,6 +3,7 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="{{ url_for('static', filename='js/hand-viz.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -40,25 +41,39 @@
     </div>
 </div>
 
-<!-- Análisis de Rehabilitación -->
-<div class="card" style="margin-top:16px; border-color: var(--accent-3);">
-    <h2 style="font-size: 11px; color: var(--accent-3); margin-bottom: 12px;">Analisis de Rehabilitacion</h2>
-
-    <div class="stats-row" id="analytics-header">
-        <div class="stat-card" style="background:var(--bg-0); border:1px solid var(--accent-3);">
-            <span class="stat-value" id="analytics-score" style="color:var(--accent-3);">-</span>
-            <span class="stat-label">Score funcional (0-100)</span>
-        </div>
-        <div class="stat-card" id="analytics-change" style="background:var(--bg-0); border:1px solid var(--accent); display:none;">
-            <span class="stat-value" id="analytics-change-value" style="color:var(--accent);">-</span>
-            <span class="stat-label">vs sesion anterior</span>
-        </div>
-        <div class="stat-card" style="background:var(--bg-0); border:1px solid var(--accent-2);">
-            <span class="stat-value" id="analytics-independence" style="color:var(--accent-2);">-</span>
-            <span class="stat-label">Independencia digital</span>
-        </div>
+<!-- Mano interactiva -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <div class="card" style="border-color: var(--accent-3);">
+        <h2 style="font-size: 11px; color: var(--accent-3); margin-bottom: 12px;">Mano diagnostica</h2>
+        <p style="font-size:7px; color:var(--ink-dim); margin-bottom:8px;">Pasa el mouse sobre cada dedo para ver sus metricas</p>
+        <canvas id="hand-canvas" style="width:100%; height:340px;"></canvas>
     </div>
 
+    <div class="card" style="border-color: var(--accent-3);">
+        <h2 style="font-size: 11px; color: var(--accent-3); margin-bottom: 12px;">Analisis de Rehabilitacion</h2>
+
+        <div class="stats-row" id="analytics-header">
+            <div class="stat-card" style="background:var(--bg-0); border:1px solid var(--accent-3);">
+                <span class="stat-value" id="analytics-score" style="color:var(--accent-3);">-</span>
+                <span class="stat-label">Score funcional (0-100)</span>
+            </div>
+            <div class="stat-card" id="analytics-change" style="background:var(--bg-0); border:1px solid var(--accent); display:none;">
+                <span class="stat-value" id="analytics-change-value" style="color:var(--accent);">-</span>
+                <span class="stat-label">vs sesion anterior</span>
+            </div>
+            <div class="stat-card" style="background:var(--bg-0); border:1px solid var(--accent-2);">
+                <span class="stat-value" id="analytics-independence" style="color:var(--accent-2);">-</span>
+                <span class="stat-label">Independencia digital</span>
+            </div>
+        </div>
+
+        <div id="analytics-interpretation" style="padding:12px; background:var(--bg-0); border-left:3px solid var(--accent-3); border-radius:4px; font-size:9px; line-height:1.8; color:var(--ink-dim); display:none;"></div>
+    </div>
+</div>
+
+<!-- Tabla de metricas -->
+<div class="card" style="margin-top:16px;">
+    <h2 style="font-size: 11px; color: var(--accent); margin-bottom: 16px;">Metricas por dedo</h2>
     <table>
         <thead>
             <tr><th>Dedo</th><th>ROM</th><th>Reaccion</th><th>Fatiga</th><th>Temblor</th><th>Estado</th></tr>
@@ -67,8 +82,6 @@
             <tr><td colspan="6" style="color:var(--ink-dim);">Cargando...</td></tr>
         </tbody>
     </table>
-
-    <div id="analytics-interpretation" style="margin-top:12px; padding:12px; background:var(--bg-0); border-left:3px solid var(--accent-3); border-radius:4px; font-size:9px; line-height:1.8; color:var(--ink-dim); display:none;"></div>
 </div>
 
 <div class="card" style="margin-top:16px;">
@@ -87,6 +100,8 @@
 const SID = {{ session_id }};
 const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
 const colors = ['#ffd23f', '#ff5c8a', '#3ddc97', '#4a90d9', '#c084fc'];
+
+const handViz = new HandViz('hand-canvas');
 
 async function loadReport() {
     const [report, analytics] = await Promise.all([
@@ -153,6 +168,10 @@ async function loadReport() {
         }
     });
 
+    // ── Hand visualization ──
+    handViz.setData(analytics);
+    handViz.start();
+
     // ── Detail table ──
     const tbody = document.getElementById('detail-table');
     const movMap = {};
@@ -173,7 +192,9 @@ async function loadReport() {
 }
 
 function renderAnalytics(a) {
-    document.getElementById('analytics-score').textContent = a.functional_score ?? '-';
+    // Animate score counting
+    const scoreEl = document.getElementById('analytics-score');
+    animateValue(scoreEl, 0, a.functional_score ?? 0, 800);
 
     if (a.previous_session) {
         const el = document.getElementById('analytics-change');
@@ -211,6 +232,19 @@ function renderAnalytics(a) {
         el.style.display = 'block';
         el.textContent = a.interpretation;
     }
+}
+
+function animateValue(el, start, end, duration) {
+    const range = end - start;
+    const startTime = performance.now();
+    function step(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = Math.floor(start + range * eased);
+        if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
 }
 
 loadReport();
