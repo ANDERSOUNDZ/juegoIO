@@ -19,4 +19,3 @@ class Config:
     MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
     MODEL_PATH = os.environ.get('MODEL_PATH', 'hand_landmarker.task')
     NUM_HANDS = 1
-    HEARTBEAT_MS = 200

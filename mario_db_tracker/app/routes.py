@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, jsonify
+from flask import Blueprint, render_template, redirect, url_for
 from flask_login import login_required, current_user
 
 main_bp = Blueprint('main', __name__)
@@ -46,7 +46,3 @@ def play_game(game_id):
 def session_report(sid):
     return render_template('report.html', session_id=sid)
 
-
-@main_bp.route('/legacy')
-def legacy():
-    return render_template('index.html')

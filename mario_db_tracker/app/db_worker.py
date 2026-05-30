@@ -61,10 +61,6 @@ class DBWorker:
             except queue.Full:
                 pass
 
-    def send_legacy(self, nivel, pulgar, indice, medio, anular, menique):
-        """Insert into control_juego (backward compat)."""
-        self._enqueue(('legacy', (nivel, pulgar, indice, medio, anular, menique)))
-
     def send_events_batch(self, session_id, finger_states, landmarks_data):
         """Queue a single batch item with all 5 finger events."""
         rows = []
@@ -91,13 +87,7 @@ class DBWorker:
                     continue
 
                 try:
-                    if kind == 'legacy':
-                        n, pg, i, m, a, mn = data
-                        self.cursor.execute(
-                            "INSERT INTO control_juego (nivel, pulgar, indice, medio, anular, menique) VALUES (%s,%s,%s,%s,%s,%s)",
-                            (n, pg, i, m, a, mn),
-                        )
-                    elif kind == 'events_batch':
+                    if kind == 'events_batch':
                         # Batch insert all finger events in one query
                         execute_values(
                             self.cursor,

@@ -1,200 +1,107 @@
-# Mario DB Finger Tracker
+# PIXO Therapy - Juegos Terapéuticos
 
-Captura la posicion de los 5 dedos de la mano en tiempo real via camara web usando OpenCV + MediaPipe y los guarda en PostgreSQL. Incluye un servidor web con stream de video y un juego plataformero (Doodle Jump) controlado por gestos.
+Plataforma de juegos terapéuticos controlados por gestos de la mano mediante MediaPipe Hand Tracking. Terapeutas gestionan pacientes, configuran sensibilidad, ejecutan sesiones y monitorean el progreso.
+
+## Requisitos
+
+- **Docker Desktop** instalado y corriendo
+- **Python 3.8 - 3.14**
+- **Cámara web**
+
+## Inicio rápido
+
+```powershell
+# 1. Levantar PostgreSQL + pgAdmin
+docker compose up -d
+
+# 2. Instalar dependencias
+pip install -r requirements.txt
+
+# 3. Iniciar servidor
+python server.py
+
+# 4. Abrir http://localhost:5000
+```
+
+## Servicios Docker
+
+| Contenedor | Puerto | Acceso |
+|---|---|---|
+| **PostgreSQL 16** | `5432` | Localhost |
+| **pgAdmin 4** | `5050` | http://localhost:5050 |
+
+pgAdmin: `admin@admin.com` / `admin`
 
 ## Estructura del proyecto
 
 ```
-juegoIO/
-├── schema.sql                     # Esquema de la base de datos PostgreSQL
-├── test_tracker.py                # Version standalone (sin servidor web)
-├── mario_db_tracker/
-│   ├── server.py                  # Servidor Flask: camara + deteccion + DB + web
-│   ├── docker-compose.yml         # PostgreSQL + pgAdmin en Docker
-│   ├── requirements.txt           # Dependencias Python
-│   ├── templates/
-│   │   └── index.html             # Cliente web: video stream + juego canvas
-│   └── README.md                  # Esta documentacion
+mario_db_tracker/
+├── server.py                  # Entry point Flask
+├── docker-compose.yml         # PostgreSQL + pgAdmin
+├── requirements.txt           # Dependencias Python
+├── app/
+│   ├── __init__.py            # App factory
+│   ├── config.py              # Configuración
+│   ├── models.py              # Modelos SQLAlchemy
+│   ├── auth.py                # Login/registro
+│   ├── routes.py              # Rutas de páginas
+│   ├── db_worker.py           # Worker async para inserts
+│   ├── hand_tracking.py       # Detección MediaPipe
+│   ├── ws.py                  # WebSocket (mano en tiempo real)
+│   └── api/                   # APIs REST
+│       ├── patients.py        # Pacientes + sensibilidad
+│       ├── games.py           # Juegos + config por paciente
+│       ├── sessions.py        # Sesiones + reportes
+│       ├── sensitivity.py     # Presets de sensibilidad
+│       └── sprites.py         # Sprites reutilizables
+├── static/
+│   ├── css/platform.css       # Tema retro pixel art
+│   └── js/
+│       ├── hand-input.js      # Cliente WebSocket + cámara
+│       ├── game-loader.js     # Intérprete Phaser 3
+│       └── sprite-generator.js# Renderizador de sprites
+└── templates/
+    ├── base.html              # Layout principal
+    ├── login.html             # Inicio de sesión
+    ├── register.html          # Registro
+    ├── dashboard.html         # Panel del terapeuta
+    ├── patients.html          # Lista de pacientes
+    ├── patient_detail.html    # Detalle + sensibilidad
+    ├── games.html             # Catálogo de juegos
+    ├── play.html              # Ejecutor Phaser 3
+    └── report.html            # Reportes con Chart.js
 ```
-
-## Requisitos
-
-- **Windows** con **Docker Desktop** instalado y corriendo
-- **Python 3.8 - 3.14** (cualquier version moderna)
-- **Camara web**
-
-## Paso 1: Levantar PostgreSQL + pgAdmin con Docker
-
-```powershell
-# Desde la carpeta mario_db_tracker
-cd mario_db_tracker
-
-# Iniciar los contenedores
-docker compose up -d
-```
-
-Esto levanta dos servicios:
-
-| Contenedor | Puerto | Acceso |
-|---|---|---|
-| **mario-postgres** (PostgreSQL 16) | `5432` | Localhost |
-| **mario-pgadmin** (pgAdmin 4) | `5050` | Navegador web |
-
-La base de datos `mario_db` y la tabla `control_juego` se crean automaticamente al iniciar por primera vez.
-
-Para verificar que estan corriendo:
-
-```powershell
-docker compose ps
-```
-
-## Paso 2: Acceder a pgAdmin (opcional)
-
-1. Abre **http://localhost:5050** en tu navegador
-2. Inicia sesion con:
-   - **Email:** `admin@admin.com`
-   - **Contrasena:** `admin`
-3. Para conectar al servidor PostgreSQL:
-   - Click en "Add New Server"
-   - **Name:** `Mario DB` (o el que quieras)
-   - **Pestaña Connection:**
-     - **Host:** `postgres` (nombre del servicio Docker)
-     - **Port:** `5432`
-     - **Maintenance DB:** `mario_db`
-     - **Username:** `postgres`
-     - **Password:** `admin`
-   - Click "Save"
-
-Ahora puedes explorar la tabla `control_juego` y ver los datos en tiempo real mientras juegas.
-
-## Paso 3: Instalar dependencias Python
-
-```powershell
-pip install -r requirements.txt
-```
-
-Esto instala: `opencv-python`, `mediapipe`, `psycopg2-binary`, `flask`
-
-## Paso 4: Configurar la contrasena de PostgreSQL
-
-Si usas el Docker Compose (recomendado), **no necesitas cambiar nada**. La configuracion en `server.py` ya coincide:
-
-```python
-DB_HOST = "localhost"    # mario-postgres expuesto en localhost
-DB_PORT = 5432
-DB_NAME = "mario_db"
-DB_USER = "postgres"
-DB_PASSWORD = "admin"    # misma contrasena que en docker-compose.yml
-```
-
-## Paso 5: Iniciar el servidor
-
-```powershell
-python server.py
-```
-
-La primera vez descargara el modelo `hand_landmarker.task` (~15MB). Luego veras:
-
-```
-[SERVER] Camara iniciada
-[SERVER] Abre http://localhost:5000 en tu navegador
-```
-
-## Paso 6: Abrir el juego
-
-Ve a **http://localhost:5000**
-
-Veras dos paneles:
-- **Izquierda:** Stream de la camara con deteccion de mano y estado de cada dedo
-- **Derecha:** Juego plataformero (Doodle Jump)
 
 ## Controles del juego
 
-### Gestos de la mano
+### Gestos de mano
 
-| Dedo | Accion |
+| Dedo | Acción por defecto |
 |---|---|
-| Pulgar arriba | Saltar |
-| Indice arriba | Moverse derecha |
-| Medio arriba | Moverse izquierda |
+| Pulgar | Saltar |
+| Índice | Derecha |
+| Medio | Izquierda |
+
+Configurable por paciente en la interfaz.
 
 ### Teclado (alternativa)
 
-| Tecla | Accion |
+| Tecla | Acción |
 |---|---|
-| `Flecha arriba` | Saltar |
-| `Flecha derecha` | Derecha |
-| `Flecha izquierda` | Izquierda |
-| `1` - `5` | Cambiar nivel de dificultad |
-| `R` | Reiniciar despues de Game Over |
+| `↑` | Saltar |
+| `→` | Derecha |
+| `←` | Izquierda |
 
-### Niveles
-
-Cada nivel aumenta la dificultad reduciendo la separacion entre plataformas. La dificultad se refleja en el espaciado de las plataformas y la velocidad del juego.
-
-## Base de datos
-
-La tabla `control_juego` guarda:
-
-| Columna | Tipo | Descripcion |
-|---|---|---|
-| `id` | SERIAL | Identificador unico |
-| `timestamp` | TIMESTAMPTZ | Momento del registro |
-| `nivel` | INT (1-5) | Nivel actual del juego |
-| `pulgar` | INT (0/1) | Estado del pulgar |
-| `indice` | INT (0/1) | Estado del indice |
-| `medio` | INT (0/1) | Estado del medio |
-| `anular` | INT (0/1) | Estado del anular |
-| `menique` | INT (0/1) | Estado del menique |
-
-Los datos se guardan:
-- **Por cambio de estado:** cuando cualquier dedo cambia
-- **Heartbeat:** cada 200ms aunque no haya cambio
-
-## Comandos utiles
-
-### Docker
+## Comandos útiles
 
 ```powershell
-# Iniciar contenedores
-docker compose up -d
+# Docker
+docker compose up -d          # Iniciar servicios
+docker compose down           # Detener (conserva datos)
+docker compose down -v        # Detener y borrar datos
+docker compose logs -f        # Ver logs
+docker compose exec postgres psql -U postgres -d mario_db  # Acceder a DB
 
-# Ver logs
-docker compose logs -f
-
-# Detener (sin borrar datos)
-docker compose down
-
-# Detener y borrar datos de la DB
-docker compose down -v
-
-# Ver estado
-docker compose ps
-
-# Acceder a PostgreSQL dentro del contenedor
-docker compose exec postgres psql -U postgres -d mario_db
+# Servidor
+python server.py              # Iniciar (Ctrl+C para detener)
 ```
-
-### Servidor Python
-
-```powershell
-# Iniciar servidor
-python server.py
-
-# Detener servidor: Ctrl + C en la terminal
-```
-
-## Solucion de problemas
-
-**Error: "python" abre Microsoft Store**
-- Usa `py server.py` en lugar de `python server.py`
-- O desactiva los alias de Python en: Configuracion > Aplicaciones > Aliases de ejecucion
-
-**Error de conexion a PostgreSQL**
-- Verifica que Docker Desktop este corriendo
-- Verifica que los contenedores esten activos: `docker compose ps`
-- Revisa logs: `docker compose logs postgres`
-
-**Error de camara**
-- Cambia `cv2.VideoCapture(0)` a `1` o `2` en `server.py` si tienes multiples camaras
-- Revisa permisos de camara en Windows (Configuracion > Privacidad > Camara)

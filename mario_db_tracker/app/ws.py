@@ -17,7 +17,6 @@ def register_ws(sock, db_worker, config):
         detector = ht.create_detector(config.MODEL_PATH, config.NUM_HANDS)
         start_time = time.time()
         ultimo_estado = (0, 0, 0, 0, 0)
-        ultimo_envio = 0
         sens = [50, 50, 50, 50, 50]
         finger_state = [0, 0, 0, 0, 0]
         nivel = 1
@@ -106,8 +105,6 @@ def register_ws(sock, db_worker, config):
                 # DB logging — only on state change
                 estado = tuple(finger_state)
                 if estado != ultimo_estado:
-                    db_worker.send_legacy(nivel, *finger_state)
-
                     if session_id and landmarks_data:
                         db_worker.send_events_batch(session_id, finger_state, landmarks_data)
 
