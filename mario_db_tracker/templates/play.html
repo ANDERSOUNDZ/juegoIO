@@ -133,7 +133,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: clamp(320px, 60vh, 540px);
+    min-height: 0;
+    height: 100%;
 }
 #game-container {
     width: 100%;
@@ -142,9 +143,10 @@
     align-items: center;
     justify-content: center;
 }
+#game-container > div,
 #game-container canvas {
-    max-width: 100%;
-    max-height: 100%;
+    display: block;
+    margin: 0 auto;
 }
 .gear-btn,
 .fs-btn {
@@ -379,6 +381,9 @@ const actionLabels = [
     { key: 'jump', label: 'JUMP' },
     { key: 'right', label: 'RIGHT' },
     { key: 'left', label: 'LEFT' },
+    { key: 'up', label: 'UP' },
+    { key: 'down', label: 'DOWN' },
+    { key: 'interact', label: 'INTERACT' },
     { key: 'none', label: 'NONE' },
 ];
 
@@ -421,7 +426,6 @@ handInput.onFingers((fingers) => {
 handInput.onConnect(() => {
     if (SESSION_ID) {
         handInput._sessionId = SESSION_ID;
-        handInput.sendMessage({ type: 'start_session', session_id: SESSION_ID });
     }
 });
 
@@ -728,7 +732,7 @@ async function resolveSprites(config) {
 async function endGame(finalScore) {
     const score = finalScore ?? (gameInstance?.scene?.getScene('PlayScene')?.score || 0);
     if (SESSION_ID) {
-        handInput.sendMessage({ type: 'end_session' });
+        handInput._flushEvents();
         await fetch(`/api/sessions/${SESSION_ID}/end`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
