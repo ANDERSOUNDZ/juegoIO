@@ -40,6 +40,7 @@ class PatientModel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     name = db.Column(db.String(100), nullable=False)
+    birth_date = db.Column(db.Date)
     age = db.Column(db.Integer)
     diagnosis = db.Column(db.Text)
     notes = db.Column(db.Text)

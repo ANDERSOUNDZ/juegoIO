@@ -66,6 +66,7 @@ class PatientRepository(IPatientRepository):
             db.session.add(m)
         m.user_id = patient.user_id
         m.name = patient.name
+        m.birth_date = patient.birth_date
         m.age = patient.age
         m.diagnosis = patient.diagnosis
         m.notes = patient.notes
@@ -79,7 +80,8 @@ class PatientRepository(IPatientRepository):
     @staticmethod
     def _to_entity(m: PatientModel) -> Patient:
         return Patient(
-            id=m.id, user_id=m.user_id, name=m.name, age=m.age,
+            id=m.id, user_id=m.user_id, name=m.name,
+            birth_date=m.birth_date, age=m.age,
             diagnosis=m.diagnosis, notes=m.notes, created_at=m.created_at,
         )
 

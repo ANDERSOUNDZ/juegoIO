@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS patients (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE SET NULL,
     name VARCHAR(100) NOT NULL,
+    birth_date DATE,
     age INT,
     diagnosis TEXT,
     notes TEXT,

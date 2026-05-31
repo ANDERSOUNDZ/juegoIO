@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
@@ -15,10 +17,19 @@ _service = PatientService(
 )
 
 
+def _calc_age(birth_date):
+    if not birth_date:
+        return None
+    today = date.today()
+    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
+
 def _patient_to_dict(p):
     ps = PatientSensitivityRepository().find_by_patient_id(p.id)
+    age = _calc_age(p.birth_date) if p.birth_date else p.age
     return dict(
-        id=p.id, name=p.name, age=p.age,
+        id=p.id, name=p.name, age=age,
+        birth_date=p.birth_date.isoformat() if p.birth_date else None,
         diagnosis=p.diagnosis, notes=p.notes,
         user_id=p.user_id,
         created_at=p.created_at.isoformat() if p.created_at else None,
@@ -39,9 +50,13 @@ def create_patient():
     data = request.get_json()
     if not data or not data.get('name'):
         return jsonify(error='name es requerido'), 400
+    birth_date_str = data.get('birth_date')
+    birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
+    age = _calc_age(birth_date) if birth_date else data.get('age')
     p = _service.create(
         user_id=current_user.id, name=data['name'],
-        age=data.get('age'), diagnosis=data.get('diagnosis'), notes=data.get('notes'),
+        birth_date=birth_date, age=age,
+        diagnosis=data.get('diagnosis'), notes=data.get('notes'),
     )
     return jsonify(_patient_to_dict(p)), 201
 
@@ -62,6 +77,9 @@ def update_patient(pid):
     data = request.get_json()
     if not data:
         return jsonify(error='JSON requerido'), 400
+    if 'birth_date' in data and data['birth_date']:
+        data['birth_date'] = datetime.strptime(data['birth_date'], '%Y-%m-%d').date()
+        data['age'] = _calc_age(data['birth_date'])
     try:
         p = _service.update(pid, data)
         return jsonify(_patient_to_dict(p))

@@ -32,14 +32,14 @@ class PatientService:
             raise NotFoundError('Paciente', patient_id)
         return p
 
-    def create(self, user_id: int, name: str, age: Optional[int] = None,
+    def create(self, user_id: int, name: str, birth_date=None, age: Optional[int] = None,
                diagnosis: Optional[str] = None, notes: Optional[str] = None) -> Patient:
-        patient = Patient(user_id=user_id, name=name, age=age, diagnosis=diagnosis, notes=notes)
+        patient = Patient(user_id=user_id, name=name, birth_date=birth_date, age=age, diagnosis=diagnosis, notes=notes)
         return self._patient_repo.save(patient)
 
     def update(self, patient_id: int, data: dict) -> Patient:
         p = self.get_by_id(patient_id)
-        for field in ('name', 'age', 'diagnosis', 'notes'):
+        for field in ('name', 'birth_date', 'age', 'diagnosis', 'notes'):
             if field in data:
                 setattr(p, field, data[field])
         return self._patient_repo.save(p)

@@ -18,6 +18,7 @@ class Patient:
     id: Optional[int] = None
     user_id: Optional[int] = None
     name: str = ''
+    birth_date: Optional[str] = None
     age: Optional[int] = None
     diagnosis: Optional[str] = None
     notes: Optional[str] = None
