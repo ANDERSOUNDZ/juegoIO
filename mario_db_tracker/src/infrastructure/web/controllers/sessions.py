@@ -75,6 +75,31 @@ def get_session(sid):
         return jsonify(error='Sesión no encontrada'), 404
 
 
+@sessions_bp.route('/<int:sid>/events', methods=['POST'])
+@login_required
+def post_events(sid):
+    data = request.get_json()
+    if not data or not data.get('events'):
+        return jsonify(ok=True)
+    events = data['events']
+    db_worker = sessions_bp.db_worker
+    if not db_worker:
+        return jsonify(error='No db_worker configured'), 500
+    rows = []
+    for e in events:
+        rows.append((
+            sid,
+            e.get('finger_index'),
+            e.get('state'),
+            e.get('landmark_x'),
+            e.get('landmark_y'),
+            e.get('landmark_z'),
+        ))
+    if rows:
+        db_worker.enqueue_rows(rows)
+    return jsonify(ok=True)
+
+
 @sessions_bp.route('/<int:sid>/events', methods=['GET'])
 @login_required
 def get_events(sid):

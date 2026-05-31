@@ -1,5 +1,4 @@
 from flask import Flask
-from flask_sock import Sock
 
 from src.infrastructure.web.config import FlaskConfig
 from src.infrastructure.persistence.models import db
@@ -15,8 +14,6 @@ def create_app(settings=None, db_worker=None):
 
     db.init_app(app)
 
-    sock = Sock(app)
-
     from .controllers.auth import auth_bp
     app.register_blueprint(auth_bp)
 
@@ -27,6 +24,7 @@ def create_app(settings=None, db_worker=None):
     app.register_blueprint(games_bp)
 
     from .controllers.sessions import sessions_bp
+    sessions_bp.db_worker = db_worker
     app.register_blueprint(sessions_bp)
 
     from .controllers.sensitivity import sensitivity_bp
@@ -42,8 +40,6 @@ def create_app(settings=None, db_worker=None):
     app.register_blueprint(main_bp)
 
     if db_worker:
-        from .controllers.ws import register_ws
-        register_ws(sock, db_worker)
         from .controllers.auth import init_login_manager
         init_login_manager(app)
 

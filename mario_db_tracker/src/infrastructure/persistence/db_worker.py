@@ -57,6 +57,10 @@ class DBWorker:
             except queue.Full:
                 pass
 
+    def enqueue_rows(self, rows):
+        """Enqueue pre-built rows for bulk insert."""
+        self._enqueue(('events_batch', rows))
+
     def send_events_batch(self, session_id, finger_states, landmarks_data):
         rows = []
         tip_indices = [4, 8, 12, 16, 20]
