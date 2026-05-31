@@ -1,4 +1,5 @@
 const HYST_MARGIN = 0.02;
+const EVENT_FLUSH_INTERVAL = 2000; // ms
 
 class HandInput {
     constructor() {
@@ -9,20 +10,19 @@ class HandInput {
         this._onFingers = null;
         this._onConnect = null;
         this._video = null;
-        this._ws = null;
         this._hands = null;
         this._connected = false;
         this._running = false;
         this._stream = null;
         this._fSt = [0, 0, 0, 0, 0];
+        this._prevState = [0, 0, 0, 0, 0];
         this._sessionId = null;
+        this._eventBuffer = [];
+        this._flushTimer = null;
     }
 
     setSensitivity(arr) {
         this.sensitivity = arr.map(s => Math.max(0, Math.min(100, s)));
-        if (this._connected) {
-            this.sendMessage({ type: 'config', sensitivity: this.sensitivity });
-        }
     }
 
     onFrame(callback) {
@@ -42,7 +42,7 @@ class HandInput {
     }
 
     getMappedActions(fingerMap) {
-        const actions = { jump: false, right: false, left: false };
+        const actions = { jump: false, right: false, left: false, up: false, down: false, interact: false };
         for (let i = 0; i < 5; i++) {
             if (this.fingers[i] === 1) {
                 const action = fingerMap[String(i)] || fingerMap[i];
@@ -54,12 +54,6 @@ class HandInput {
         return actions;
     }
 
-    sendMessage(msg) {
-        if (this._ws && this._ws.readyState === WebSocket.OPEN) {
-            this._ws.send(JSON.stringify(msg));
-        }
-    }
-
     setSendFrame() {}
 
     getVideoElement() {
@@ -68,7 +62,11 @@ class HandInput {
 
     disconnect() {
         this._running = false;
-        if (this._ws) this._ws.close();
+        this._flushEvents();
+        if (this._flushTimer) {
+            clearInterval(this._flushTimer);
+            this._flushTimer = null;
+        }
         if (this._stream) {
             this._stream.getTracks().forEach(t => t.stop());
         }
@@ -102,13 +100,17 @@ class HandInput {
         await this._hands.initialize();
 
         this._running = true;
-        this._connectWS();
+        this._connected = true;
+
+        this._flushTimer = setInterval(() => this._flushEvents(), EVENT_FLUSH_INTERVAL);
 
         if (btn) {
             btn.disabled = false;
             btn.textContent = 'Desactivar camara';
             btn.classList.add('active');
         }
+
+        if (this._onConnect) this._onConnect();
 
         this._loop();
     }
@@ -124,34 +126,6 @@ class HandInput {
         await this._video.play();
     }
 
-    _connectWS() {
-        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        this._ws = new WebSocket(`${proto}//${location.host}/ws`);
-
-        this._ws.onopen = () => {
-            this._connected = true;
-            this.sendMessage({ type: 'config', sensitivity: this.sensitivity });
-            if (this._onConnect) this._onConnect();
-        };
-
-        this._ws.onmessage = (evt) => {
-            try {
-                const msg = JSON.parse(evt.data);
-                if (msg.type === 'session_created' && msg.session_id) {
-                    this._sessionId = msg.session_id;
-                }
-            } catch (e) {
-                console.error('[HandInput] Parse error:', e);
-            }
-        };
-
-        this._ws.onclose = () => {
-            this._connected = false;
-        };
-
-        this._ws.onerror = () => {};
-    }
-
     _onResults(results) {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
             const lm = results.multiHandLandmarks[0];
@@ -165,13 +139,14 @@ class HandInput {
                 this._onFingers(this.fingers);
             }
 
-            this._sendFingerUpdate();
+            this._recordStateChanges();
         } else {
             if (this._fSt.some(v => v !== 0)) {
                 this._fSt = [0, 0, 0, 0, 0];
                 this.fingers = [0, 0, 0, 0, 0];
                 this.landmarks = null;
                 if (this._onFingers) this._onFingers(this.fingers);
+                this._recordStateChanges();
             }
         }
     }
@@ -202,15 +177,40 @@ class HandInput {
         });
     }
 
-    _sendFingerUpdate() {
-        if (this._connected && this._sessionId) {
-            this._ws.send(JSON.stringify({
-                type: 'finger_update',
-                session_id: this._sessionId,
-                fingers: this.fingers,
-                landmarks: this.landmarks,
-            }));
+    /** Only buffer events when a finger's state actually changes */
+    _recordStateChanges() {
+        if (!this._sessionId) return;
+        const tipIndices = [4, 8, 12, 16, 20];
+        const now = Date.now();
+        for (let i = 0; i < 5; i++) {
+            if (this.fingers[i] !== this._prevState[i]) {
+                const lm = this.landmarks;
+                const tip = tipIndices[i];
+                this._eventBuffer.push({
+                    finger_index: i,
+                    state: this.fingers[i],
+                    landmark_x: lm ? lm[tip][0] : null,
+                    landmark_y: lm ? lm[tip][1] : null,
+                    landmark_z: lm ? lm[tip][2] : null,
+                    ts: now,
+                });
+            }
         }
+        this._prevState = [...this.fingers];
+    }
+
+    /** Flush buffered events to the server via HTTP POST */
+    _flushEvents() {
+        if (!this._sessionId || this._eventBuffer.length === 0) return;
+        const events = this._eventBuffer;
+        this._eventBuffer = [];
+        fetch(`/api/sessions/${this._sessionId}/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ events }),
+        }).catch(err => {
+            console.error('[HandInput] Error flushing events:', err);
+        });
     }
 
     _loop() {
