@@ -226,7 +226,7 @@ select.form-control {
     border-radius: 12px;
     padding: clamp(20px, 5vw, 40px);
     width: 100%;
-    max-width: min(400px, 94vw);
+    max-width: min(580px, 94vw);
     text-align: center;
 }
 
