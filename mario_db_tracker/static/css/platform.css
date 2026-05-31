@@ -157,9 +157,13 @@ p, h1, h2, h3, td, th, li, .card, .flash, .interpretation {
     text-decoration: none;
     transition: all .2s;
 }
-.btn-sm:hover {
+.btn-sm:hover:not(:disabled) {
     border-color: var(--accent-2);
     color: var(--accent-2);
+}
+.btn-sm:disabled {
+    opacity: .35;
+    pointer-events: none;
 }
 
 .btn-play {

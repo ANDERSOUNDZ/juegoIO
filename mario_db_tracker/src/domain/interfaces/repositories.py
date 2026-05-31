@@ -27,6 +27,9 @@ class IPatientRepository(ABC):
     def find_by_user_id(self, user_id: int) -> List[Patient]: ...
 
     @abstractmethod
+    def find_by_user_id_paginated(self, user_id: int, page: int, per_page: int) -> dict: ...
+
+    @abstractmethod
     def save(self, patient: Patient) -> Patient: ...
 
     @abstractmethod

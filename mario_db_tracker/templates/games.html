@@ -31,6 +31,7 @@
         </div>
 
         <div id="patient-select-list" class="uk-margin-top"></div>
+        <div id="patient-pagination" class="uk-flex uk-flex-center uk-flex-middle uk-margin-small-top" style="gap: .5rem;"></div>
 
         <div id="sensitivity-choice" class="uk-margin-medium-top" style="display:none;">
             <h3 class="section-heading"><span uk-icon="icon: settings; ratio: .85"></span>Sensibilidad a usar</h3>
@@ -78,12 +79,19 @@ async function loadGames() {
 async function openPlayModal(gameId) {
     selectedGameId = gameId;
     document.getElementById('modal-play').classList.add('active');
+    document.getElementById('sensitivity-choice').style.display = 'none';
+    loadModalPatients(1);
+}
 
-    const patients = await fetch('/api/patients').then(r => r.json());
+async function loadModalPatients(page = 1) {
+    const data = await fetch(`/api/patients?page=${page}&per_page=5`).then(r => r.json());
+    const patients = data.patients;
     const list = document.getElementById('patient-select-list');
+    const pagination = document.getElementById('patient-pagination');
 
-    if (patients.length === 0) {
+    if (data.total === 0) {
         list.innerHTML = '<div class="uk-alert"><p class="muted">No hay pacientes. <a href="/patients">Crear uno</a></p></div>';
+        pagination.innerHTML = '';
         return;
     }
 
@@ -98,6 +106,12 @@ async function openPlayModal(gameId) {
             </div>
         </div>
     `).join('');
+
+    if (data.total === 0) { pagination.innerHTML = ''; return; }
+    pagination.innerHTML = `
+        <button class="btn-sm" onclick="loadModalPatients(${data.page - 1})" ${data.page <= 1 ? 'disabled' : ''}>&#8249; Anterior</button>
+        <button class="btn-sm" onclick="loadModalPatients(${data.page + 1})" ${data.page >= data.pages ? 'disabled' : ''}>Siguiente &#8250;</button>
+    `;
 }
 
 async function selectPatient(patientId, patientName) {

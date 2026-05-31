@@ -58,6 +58,19 @@ class PatientRepository(IPatientRepository):
         models = PatientModel.query.filter_by(user_id=user_id).order_by(PatientModel.name).all()
         return [self._to_entity(m) for m in models]
 
+    def find_by_user_id_paginated(self, user_id: int, page: int, per_page: int) -> dict:
+        pagination = (PatientModel.query
+                      .filter_by(user_id=user_id)
+                      .order_by(PatientModel.name)
+                      .paginate(page=page, per_page=per_page, error_out=False))
+        return {
+            'items': [self._to_entity(m) for m in pagination.items],
+            'total': pagination.total,
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'pages': pagination.pages,
+        }
+
     def save(self, patient: Patient) -> Patient:
         if patient.id:
             m = PatientModel.query.get(patient.id)

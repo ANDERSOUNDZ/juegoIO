@@ -30,6 +30,7 @@
             </tbody>
         </table>
     </div>
+    <div id="pagination" class="uk-flex uk-flex-center uk-flex-middle uk-margin-small-top uk-margin-small-bottom" style="gap: .5rem; padding: 0 16px 12px;"></div>
 </div>
 
 <!-- Modal: Nuevo paciente -->
@@ -75,17 +76,22 @@
 function openModal() { document.getElementById('modal').classList.add('active'); }
 function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
-async function loadPatients() {
-    const res = await fetch('/api/patients');
-    const patients = await res.json();
+let currentPage = 1;
+const perPage = 5;
+
+async function loadPatients(page = 1) {
+    currentPage = page;
+    const res = await fetch(`/api/patients?page=${page}&per_page=${perPage}`);
+    const data = await res.json();
     const tbody = document.getElementById('patients-table');
 
-    if (patients.length === 0) {
+    if (data.total === 0) {
         tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p class="muted">No hay pacientes registrados</p></div></td></tr>';
+        document.getElementById('pagination').innerHTML = '';
         return;
     }
 
-    tbody.innerHTML = patients.map(p => {
+    tbody.innerHTML = data.patients.map(p => {
         const sens = p.sensitivity ? p.sensitivity.map(s => s).join(', ') : 'Sin config';
         return `<tr>
             <td><a href="/patients/${p.id}" class="pixo-list-title">${p.name}</a></td>
@@ -100,6 +106,18 @@ async function loadPatients() {
             </td>
         </tr>`;
     }).join('');
+
+    renderPagination(data.page, data.pages, data.total);
+}
+
+function renderPagination(page, pages, total) {
+    const container = document.getElementById('pagination');
+    if (total === 0) { container.innerHTML = ''; return; }
+
+    container.innerHTML = `
+        <button class="btn-sm" onclick="loadPatients(${page - 1})" ${page <= 1 ? 'disabled' : ''}>&#8249; Anterior</button>
+        <button class="btn-sm" onclick="loadPatients(${page + 1})" ${page >= pages ? 'disabled' : ''}>Siguiente &#8250;</button>
+    `;
 }
 
 document.getElementById('patient-form').addEventListener('submit', async (e) => {

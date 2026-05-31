@@ -40,8 +40,17 @@ def _patient_to_dict(p):
 @patients_bp.route('', methods=['GET'])
 @login_required
 def list_patients():
-    patients = _service.list_by_user(current_user.id)
-    return jsonify([_patient_to_dict(p) for p in patients])
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    per_page = min(per_page, 50)
+    result = _service.list_by_user_paginated(current_user.id, page, per_page)
+    return jsonify(
+        patients=[_patient_to_dict(p) for p in result['items']],
+        total=result['total'],
+        page=result['page'],
+        per_page=result['per_page'],
+        pages=result['pages'],
+    )
 
 
 @patients_bp.route('', methods=['POST'])
