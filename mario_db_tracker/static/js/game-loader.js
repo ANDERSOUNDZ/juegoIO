@@ -41,10 +41,15 @@ const GameLoader = {
             },
             scene: [
                 createBootScene(config, handInput),
+                createStartScene(config, handInput),
                 createPlayScene(config, handInput),
-                createGameOverScene(config, onGameOver),
+                createGameOverScene(config, handInput, onGameOver),
             ],
             pixelArt: true,
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH,
+            },
         };
 
         return new Phaser.Game(phaserConfig);
@@ -74,7 +79,116 @@ function createBootScene(config, handInput) {
             if (typeof SpriteRenderer !== 'undefined') {
                 SpriteRenderer.createTextures(this, sprites);
             }
-            this.scene.start('PlayScene');
+            this.scene.start('StartScene');
+        }
+    };
+}
+
+/**
+ * Shared overlay-screen renderer used by StartScene and GameOverScene.
+ * Draws a semi-transparent backdrop, title, subtitle, and a blinking prompt.
+ *
+ * @param {Phaser.Scene} scene
+ * @param {Object} opts - { title, titleColor, subtitle, subtitleColor, prompt, promptColor, backgroundColor, backgroundAlpha, handInput, onTrigger }
+ */
+function createOverlayScreen(scene, opts) {
+    const W = scene.scale.width;
+    const H = scene.scale.height;
+
+    // Background overlay
+    const bgColor = Phaser.Display.Color.HexStringToColor(opts.backgroundColor || '#1a0a2e').color;
+    const bg = scene.add.rectangle(W / 2, H / 2, W, H, bgColor, opts.backgroundAlpha ?? 0.92);
+    bg.setDepth(900);
+
+    // Decorative lines
+    const lineColor = Phaser.Display.Color.HexStringToColor(opts.titleColor || '#3ddc97').color;
+    const topLine = scene.add.rectangle(W / 2, H / 2 - 65, W * 0.6, 2, lineColor, 0.4).setDepth(901);
+    const botLine = scene.add.rectangle(W / 2, H / 2 + 65, W * 0.6, 2, lineColor, 0.4).setDepth(901);
+
+    // Title
+    const title = scene.add.text(W / 2, H / 2 - 35, opts.title || '', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: opts.titleSize || '14px',
+        color: opts.titleColor || '#3ddc97',
+        align: 'center',
+        wordWrap: { width: W * 0.85 },
+    }).setOrigin(0.5).setDepth(901);
+
+    // Subtitle
+    if (opts.subtitle) {
+        scene.add.text(W / 2, H / 2 + 10, opts.subtitle, {
+            fontFamily: '"Press Start 2P"',
+            fontSize: opts.subtitleSize || '7px',
+            color: opts.subtitleColor || '#ffd23f',
+            align: 'center',
+            wordWrap: { width: W * 0.85 },
+        }).setOrigin(0.5).setDepth(901);
+    }
+
+    // Prompt text (blinking)
+    const promptText = scene.add.text(W / 2, H / 2 + 45, opts.prompt || 'SPACE / Cierra un dedo', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: opts.promptSize || '6px',
+        color: opts.promptColor || '#a8a0c0',
+        align: 'center',
+    }).setOrigin(0.5).setDepth(901).setAlpha(0);
+
+    // Delay before allowing trigger (prevents accidental skips)
+    scene.time.delayedCall(opts.delay ?? 600, () => {
+        promptText.setAlpha(1);
+        scene.tweens.add({ targets: promptText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
+        let triggered = false;
+        const fire = () => {
+            if (triggered) return;
+            triggered = true;
+            opts.onTrigger();
+        };
+
+        // SPACE key
+        scene.input.keyboard.on('keydown-SPACE', fire);
+        // Click / tap
+        scene.input.on('pointerdown', fire);
+        // Hand input: any finger closed
+        if (opts.handInput) {
+            scene._overlayFingerCheck = scene.time.addEvent({
+                delay: 100,
+                loop: true,
+                callback: () => {
+                    const fingers = opts.handInput.getFingers();
+                    if (fingers && fingers.some(f => f === 1)) fire();
+                },
+            });
+        }
+    });
+}
+
+function createStartScene(config, handInput) {
+    const screens = config.screens || {};
+    const startCfg = screens.start || {};
+
+    return class StartScene extends Phaser.Scene {
+        constructor() {
+            super('StartScene');
+        }
+
+        create() {
+            createOverlayScreen(this, {
+                title: startCfg.title || config.metadata?.name || 'READY?',
+                titleColor: startCfg.titleColor,
+                titleSize: startCfg.titleSize,
+                subtitle: startCfg.subtitle || null,
+                subtitleColor: startCfg.subtitleColor,
+                subtitleSize: startCfg.subtitleSize,
+                prompt: startCfg.prompt || 'SPACE / Cierra un dedo',
+                promptColor: startCfg.promptColor,
+                promptSize: startCfg.promptSize,
+                backgroundColor: startCfg.backgroundColor || config.world?.backgroundColor || '#1a0a2e',
+                backgroundAlpha: startCfg.backgroundAlpha ?? 1,
+                delay: startCfg.delay ?? 300,
+                handInput,
+                onTrigger: () => this.scene.start('PlayScene'),
+            });
         }
     };
 }
@@ -85,17 +199,20 @@ function createPlayScene(config, handInput) {
     const rules = config.rules || {};
     const world = config.world || {};
     const sprites = config.sprites || {};
-    const fingerMap = controls.fingerMap || { '0': 'jump', '1': 'right', '2': 'left' };
+    const fingerMap = controls.fingerMap || { '0': 'jump', '1': 'right', '2': 'left', '3': 'up', '4': 'down' };
+    const gameType = config.metadata?.type || 'platformer';
 
     return class PlayScene extends Phaser.Scene {
         constructor() {
             super('PlayScene');
-            this.score = 0;
-            this.lives = rules.lives || 1;
-            this.gameTimer = null;
         }
 
         create() {
+            // Reset state on every (re)start
+            this.score = 0;
+            this.lives = rules.lives || 1;
+            this.gameTimer = null;
+            this.timeLeft = rules.timer || undefined;
             const W = this.scale.width;
             const H = this.scale.height;
 
@@ -165,6 +282,7 @@ function createPlayScene(config, handInput) {
                 this.physics.add.overlap(this.player, this.collectibles, (player, item) => {
                     item.destroy();
                     this.score += (entities.collectibles?.scoreValue || 100);
+                    this._totalCollected++;
                     this._updateHUD();
                 });
             }
@@ -228,32 +346,70 @@ function createPlayScene(config, handInput) {
             // Keyboard fallback
             this.cursors = this.input.keyboard.createCursorKeys();
             this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+            // Inventory
+            this._inventory = null;
+            this._inventoryText = this.add.text(this.scale.width - 10, 10, '', {
+                fontFamily: '"Press Start 2P"',
+                fontSize: '8px',
+                color: '#4fc3f7',
+            }).setScrollFactor(0).setDepth(100).setOrigin(1, 0);
+
+            // Create zones (interactable areas)
+            this._createZones();
+
+            // Event system
+            this._elapsedTime = 0;
+            this._totalCollected = 0;
+            this._initEvents();
         }
 
-        update() {
+        update(time, delta) {
             if (!this.player || !this.player.body) return;
+            this._elapsedTime += delta / 1000;
+            this._checkEvents();
 
             // Get actions from hand input OR keyboard
             const handActions = handInput ? handInput.getMappedActions(this._fingerMap) : {};
             const kbLeft = this.cursors.left.isDown;
             const kbRight = this.cursors.right.isDown;
-            const kbJump = this.cursors.up.isDown || this.spaceKey.isDown;
+            const kbUp = this.cursors.up.isDown;
+            const kbDown = this.cursors.down.isDown;
+            const kbJump = this.spaceKey.isDown;
 
             const moveLeft = handActions.left || kbLeft;
             const moveRight = handActions.right || kbRight;
+            const moveUp = handActions.up || kbUp;
+            const moveDown = handActions.down || kbDown;
             const jump = handActions.jump || kbJump;
+            const interact = handActions.interact || Phaser.Input.Keyboard.JustDown(this.interactKey);
 
-            // Apply movement
+            // Apply movement based on game type
             this.player.body.setVelocityX(0);
             if (moveLeft) this.player.body.setVelocityX(-this.playerSpeed);
             if (moveRight) this.player.body.setVelocityX(this.playerSpeed);
 
-            if (jump && this.player.body.onFloor()) {
-                this.player.body.setVelocityY(this.jumpForce);
+            if (gameType === 'topdown') {
+                // Top-down: 4-directional movement, no gravity
+                this.player.body.setVelocityY(0);
+                if (moveUp) this.player.body.setVelocityY(-this.playerSpeed);
+                if (moveDown) this.player.body.setVelocityY(this.playerSpeed);
+
+                // Diagonal normalization
+                if ((moveLeft || moveRight) && (moveUp || moveDown)) {
+                    this.player.body.velocity.normalize().scale(this.playerSpeed);
+                }
+            } else {
+                // Platformer/runner/catch: jump-based
+                if (jump && this.player.body.onFloor()) {
+                    this.player.body.setVelocityY(this.jumpForce);
+                }
             }
 
             // Player animation
-            this._animatePlayer(moveLeft, moveRight);
+            const isMoving = moveLeft || moveRight || moveUp || moveDown;
+            this._animatePlayer(moveLeft, moveRight, isMoving);
 
             // Enemy AI
             if (this.enemies) {
@@ -267,8 +423,17 @@ function createPlayScene(config, handInput) {
                         }
                     } else if (enemy.getData('ai') === 'chase') {
                         const dx = this.player.x - enemy.x;
+                        const dy = this.player.y - enemy.y;
                         const spd = enemy.getData('speed');
-                        enemy.body.setVelocityX(dx > 0 ? spd : -spd);
+                        if (gameType === 'topdown') {
+                            // 2D chase: normalize direction vector
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist > 0) {
+                                enemy.body.setVelocity((dx / dist) * spd, (dy / dist) * spd);
+                            }
+                        } else {
+                            enemy.body.setVelocityX(dx > 0 ? spd : -spd);
+                        }
                     }
                 });
             }
@@ -316,6 +481,9 @@ function createPlayScene(config, handInput) {
                 this._updateHUD();
             }
 
+            // Zones (interactable areas)
+            this._updateZones(interact);
+
             // Parallax background scroll
             this._scrollBackground();
         }
@@ -340,39 +508,50 @@ function createPlayScene(config, handInput) {
             const fc = sprite.frame_count;
 
             // Create anims: idle (frame 0), run (frames 1..fc-2), jump (last frame)
+            // Guard against re-creation on scene restart
             if (fc >= 4) {
-                this.anims.create({
-                    key: 'player-idle',
-                    frames: [{ key: textureKey, frame: 0 }],
-                    frameRate: 1,
-                });
-                this.anims.create({
-                    key: 'player-run',
-                    frames: this.anims.generateFrameNumbers(textureKey, { start: 1, end: fc - 2 }),
-                    frameRate: 8,
-                    repeat: -1,
-                });
-                this.anims.create({
-                    key: 'player-jump',
-                    frames: [{ key: textureKey, frame: fc - 1 }],
-                    frameRate: 1,
-                });
+                if (!this.anims.exists('player-idle')) {
+                    this.anims.create({
+                        key: 'player-idle',
+                        frames: [{ key: textureKey, frame: 0 }],
+                        frameRate: 1,
+                    });
+                }
+                if (!this.anims.exists('player-run')) {
+                    this.anims.create({
+                        key: 'player-run',
+                        frames: this.anims.generateFrameNumbers(textureKey, { start: 1, end: fc - 2 }),
+                        frameRate: 8,
+                        repeat: -1,
+                    });
+                }
+                if (!this.anims.exists('player-jump')) {
+                    this.anims.create({
+                        key: 'player-jump',
+                        frames: [{ key: textureKey, frame: fc - 1 }],
+                        frameRate: 1,
+                    });
+                }
             } else if (fc >= 2) {
-                this.anims.create({
-                    key: 'player-idle',
-                    frames: [{ key: textureKey, frame: 0 }],
-                    frameRate: 1,
-                });
-                this.anims.create({
-                    key: 'player-run',
-                    frames: this.anims.generateFrameNumbers(textureKey, { start: 0, end: fc - 1 }),
-                    frameRate: 8,
-                    repeat: -1,
-                });
+                if (!this.anims.exists('player-idle')) {
+                    this.anims.create({
+                        key: 'player-idle',
+                        frames: [{ key: textureKey, frame: 0 }],
+                        frameRate: 1,
+                    });
+                }
+                if (!this.anims.exists('player-run')) {
+                    this.anims.create({
+                        key: 'player-run',
+                        frames: this.anims.generateFrameNumbers(textureKey, { start: 0, end: fc - 1 }),
+                        frameRate: 8,
+                        repeat: -1,
+                    });
+                }
             }
         }
 
-        _animatePlayer(moveLeft, moveRight) {
+        _animatePlayer(moveLeft, moveRight, isMoving) {
             const tex = this._getSpriteKey('player');
             if (!tex || !this.player.anims) return;
 
@@ -380,12 +559,20 @@ function createPlayScene(config, handInput) {
             if (moveLeft) this.player.setFlipX(true);
             else if (moveRight) this.player.setFlipX(false);
 
-            if (!this.player.body.onFloor() && this.anims.exists('player-jump')) {
-                this.player.anims.play('player-jump', true);
-            } else if ((moveLeft || moveRight) && this.anims.exists('player-run')) {
-                this.player.anims.play('player-run', true);
-            } else if (this.anims.exists('player-idle')) {
-                this.player.anims.play('player-idle', true);
+            if (gameType === 'topdown') {
+                if (isMoving && this.anims.exists('player-run')) {
+                    this.player.anims.play('player-run', true);
+                } else if (this.anims.exists('player-idle')) {
+                    this.player.anims.play('player-idle', true);
+                }
+            } else {
+                if (!this.player.body.onFloor() && this.anims.exists('player-jump')) {
+                    this.player.anims.play('player-jump', true);
+                } else if ((moveLeft || moveRight) && this.anims.exists('player-run')) {
+                    this.player.anims.play('player-run', true);
+                } else if (this.anims.exists('player-idle')) {
+                    this.player.anims.play('player-idle', true);
+                }
             }
         }
 
@@ -400,7 +587,6 @@ function createPlayScene(config, handInput) {
             if (bgSprite) {
                 const bgKey = this._getSpriteKey('background');
                 if (bgKey) {
-                    // Use sprite as tiling background with parallax
                     const bg = this.add.tileSprite(W / 2, H / 2, W, H, bgKey);
                     bg.setScrollFactor(0);
                     bg.setDepth(-10);
@@ -409,7 +595,80 @@ function createPlayScene(config, handInput) {
                 }
             }
 
-            // Fallback: no background sprite, use world.backgroundColor (already set in config)
+            // Procedural background for topdown games
+            if (gameType === 'topdown') {
+                this._createProceduralBackground(W, H);
+                return;
+            }
+        }
+
+        _createProceduralBackground(W, H) {
+            const gfx = this.add.graphics();
+            gfx.setDepth(-10);
+
+            const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+            // Base ground
+            gfx.fillStyle(0x1a2e1a);
+            gfx.fillRect(0, 0, W, H);
+
+            // Dirt patches
+            const dirtColors = [0x2d1f0e, 0x3a2a14, 0x1e1508];
+            for (let i = 0; i < 15; i++) {
+                gfx.fillStyle(pick(dirtColors), 0.4);
+                const dx = 20 + Math.random() * (W - 40);
+                const dy = 20 + Math.random() * (H - 40);
+                const rw = 20 + Math.random() * 40;
+                const rh = 15 + Math.random() * 25;
+                gfx.fillRoundedRect(dx - rw / 2, dy - rh / 2, rw, rh, 6);
+            }
+
+            // Grass tufts
+            const grassColors = [0x2d5a1e, 0x3a7a2e, 0x1e4a14, 0x4a8c3f];
+            for (let i = 0; i < 50; i++) {
+                gfx.fillStyle(pick(grassColors), 0.6);
+                const gx = Math.random() * W;
+                const gy = Math.random() * H;
+                gfx.fillRect(gx, gy, 3 + Math.random() * 6, 1 + Math.random() * 3);
+            }
+
+            // Small flowers
+            const flowerColors = [0xff6b1a, 0xffd23f, 0xc84b31, 0x9b59b6];
+            for (let i = 0; i < 10; i++) {
+                gfx.fillStyle(pick(flowerColors), 0.7);
+                const fx = 25 + Math.random() * (W - 50);
+                const fy = 25 + Math.random() * (H - 50);
+                gfx.fillCircle(fx, fy, 2);
+                // Tiny leaf
+                gfx.fillStyle(0x2d5a1e, 0.5);
+                gfx.fillRect(fx + 2, fy + 1, 3, 1);
+            }
+
+            // Dirt path trails
+            gfx.lineStyle(3, 0x3a2a14, 0.25);
+            for (let i = 0; i < 2; i++) {
+                const sx = Math.random() * W;
+                const sy = Math.random() * H;
+                gfx.beginPath();
+                gfx.moveTo(sx, sy);
+                for (let j = 0; j < 5; j++) {
+                    gfx.lineTo(
+                        sx + (Math.random() - 0.5) * 150,
+                        sy + (Math.random() - 0.5) * 150
+                    );
+                }
+                gfx.strokePath();
+            }
+
+            // Small stones
+            for (let i = 0; i < 6; i++) {
+                gfx.fillStyle(0x555555, 0.3);
+                gfx.fillCircle(
+                    20 + Math.random() * (W - 40),
+                    20 + Math.random() * (H - 40),
+                    1.5 + Math.random() * 2
+                );
+            }
         }
 
         _scrollBackground() {
@@ -420,6 +679,503 @@ function createPlayScene(config, handInput) {
                     layer.obj.tilePositionY = camY * layer.scrollFactor;
                 }
             }
+        }
+
+        // ── Zones (interactable areas) ──
+
+        _createZones() {
+            const zonesCfg = entities.zones;
+            if (!zonesCfg || !Array.isArray(zonesCfg) || zonesCfg.length === 0) return;
+
+            this._zones = [];
+            for (const zCfg of zonesCfg) {
+                const states = zCfg.states || {};
+                const initialState = zCfg.initialState || Object.keys(states)[0] || 'default';
+                const stateData = states[initialState] || {};
+                const color = stateData.color
+                    ? Phaser.Display.Color.HexStringToColor(stateData.color).color
+                    : 0x5b3a29;
+
+                // Visual
+                const rect = this.add.rectangle(zCfg.x, zCfg.y, zCfg.w || 40, zCfg.h || 40, color);
+                rect.setStrokeStyle(2, 0x000000, 0.4);
+
+                // Label (hidden by default)
+                const label = this.add.text(zCfg.x, zCfg.y - (zCfg.h || 40) / 2 - 10, '', {
+                    fontFamily: '"Press Start 2P"',
+                    fontSize: '6px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 2,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    padding: { x: 3, y: 2 },
+                }).setOrigin(0.5).setDepth(50).setVisible(false);
+
+                const zone = {
+                    id: zCfg.id,
+                    cfg: zCfg,
+                    rect,
+                    label,
+                    currentState: initialState,
+                    states,
+                    autoTimer: null,
+                    nearby: false,
+                };
+
+                // Set initial label
+                label.setText(stateData.label || zCfg.id);
+
+                // Start autoNext timer if initial state has one
+                if (stateData.autoNext) {
+                    zone.autoTimer = this.time.delayedCall(stateData.autoNext * 1000, () => {
+                        this._advanceZoneState(zone);
+                    });
+                }
+
+                this._zones.push(zone);
+            }
+        }
+
+        _updateZones(interact) {
+            if (!this._zones || !this.player) return;
+
+            const px = this.player.x;
+            const py = this.player.y;
+            const interactDist = 40;
+
+            for (const zone of this._zones) {
+                const dx = px - zone.rect.x;
+                const dy = py - zone.rect.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const isNear = dist < interactDist + Math.max(zone.cfg.w || 40, zone.cfg.h || 40) / 2;
+
+                if (isNear && !zone.nearby) {
+                    zone.nearby = true;
+                    zone.label.setVisible(true);
+                    zone.rect.setStrokeStyle(2, 0xffd23f, 0.8);
+                } else if (!isNear && zone.nearby) {
+                    zone.nearby = false;
+                    zone.label.setVisible(false);
+                    zone.rect.setStrokeStyle(2, 0x000000, 0.4);
+                }
+
+                if (isNear && interact) {
+                    this._interactWithZone(zone);
+                }
+            }
+        }
+
+        _interactWithZone(zone) {
+            const stateData = zone.states[zone.currentState];
+            if (!stateData || !stateData.onInteract) return;
+
+            const action = stateData.onInteract;
+
+            switch (action.type) {
+                case 'give_item': {
+                    this._inventory = action.item;
+                    this._updateInventoryHUD();
+                    this._executeAction({
+                        type: 'flash_text',
+                        text: `+${action.item.toUpperCase()}`,
+                        color: '#4fc3f7',
+                        size: '8px',
+                        duration: 1000,
+                    });
+                    break;
+                }
+
+                case 'need_item': {
+                    if (this._inventory !== action.item) {
+                        this._executeAction({
+                            type: 'flash_text',
+                            text: `Necesitas: ${action.item}`,
+                            color: '#ff5c8a',
+                            size: '7px',
+                            duration: 1200,
+                        });
+                        return;
+                    }
+                    if (action.consume) this._inventory = null;
+                    this._updateInventoryHUD();
+                    this._advanceZoneState(zone);
+                    break;
+                }
+
+                case 'next_state': {
+                    this._advanceZoneState(zone);
+                    break;
+                }
+
+                case 'harvest': {
+                    this.score += (action.score || 100);
+                    this._updateHUD();
+                    this._executeAction({
+                        type: 'flash_text',
+                        text: `+${action.score || 100}`,
+                        color: '#3ddc97',
+                        size: '10px',
+                        duration: 1200,
+                    });
+                    const resetTo = action.resetTo || 'empty';
+                    this._setZoneState(zone, resetTo);
+                    break;
+                }
+
+                case 'unlock': {
+                    const cost = action.cost || 0;
+                    if (this.score < cost) {
+                        this._executeAction({
+                            type: 'flash_text',
+                            text: `Necesitas ${cost} pts`,
+                            color: '#ff5c8a',
+                            size: '7px',
+                            duration: 1200,
+                        });
+                        return;
+                    }
+                    this.score -= cost;
+                    this._updateHUD();
+                    this._advanceZoneState(zone);
+                    this._executeAction({
+                        type: 'flash_text',
+                        text: 'Desbloqueado!',
+                        color: '#ffd23f',
+                        size: '9px',
+                        duration: 1500,
+                    });
+                    break;
+                }
+            }
+        }
+
+        _advanceZoneState(zone) {
+            const stateNames = Object.keys(zone.states);
+            const idx = stateNames.indexOf(zone.currentState);
+            const nextIdx = idx + 1;
+            if (nextIdx < stateNames.length) {
+                this._setZoneState(zone, stateNames[nextIdx]);
+            }
+        }
+
+        _setZoneState(zone, stateName) {
+            if (!zone.states[stateName]) return;
+
+            // Cancel existing auto timer
+            if (zone.autoTimer) {
+                zone.autoTimer.remove(false);
+                zone.autoTimer = null;
+            }
+
+            zone.currentState = stateName;
+            const stateData = zone.states[stateName];
+
+            // Update visual
+            if (stateData.color) {
+                const c = Phaser.Display.Color.HexStringToColor(stateData.color).color;
+                zone.rect.setFillStyle(c);
+            }
+
+            // Update label
+            zone.label.setText(stateData.label || stateName);
+
+            // Auto-advance timer
+            if (stateData.autoNext) {
+                zone.autoTimer = this.time.delayedCall(stateData.autoNext * 1000, () => {
+                    this._advanceZoneState(zone);
+                });
+            }
+        }
+
+        _updateInventoryHUD() {
+            if (!this._inventoryText) return;
+            if (this._inventory) {
+                const icons = { water: 'AGUA', seeds: 'SEMILLA', wood: 'MADERA' };
+                this._inventoryText.setText(icons[this._inventory] || this._inventory.toUpperCase());
+            } else {
+                this._inventoryText.setText('');
+            }
+        }
+
+        // ── Event System ──
+
+        _initEvents() {
+            this._eventWatchers = [];
+            this._eventTimers = [];
+            const evts = config.events;
+            if (!evts || !Array.isArray(evts)) return;
+
+            for (const evt of evts) {
+                const trigger = evt.trigger;
+                const actions = evt.actions;
+                if (!trigger || !actions) continue;
+
+                if (trigger.type === 'timer') {
+                    const delaySec = trigger.delay || 10;
+                    const startAfter = (trigger.startAfter || 0) * 1000;
+                    const setup = () => {
+                        const timerEvt = this.time.addEvent({
+                            delay: delaySec * 1000,
+                            callback: () => this._executeActions(actions),
+                            loop: trigger.repeat === true,
+                        });
+                        this._eventTimers.push(timerEvt);
+                    };
+                    if (startAfter > 0) {
+                        this.time.delayedCall(startAfter, setup);
+                    } else {
+                        setup();
+                    }
+                } else {
+                    // Conditional watcher — checked every frame in _checkEvents
+                    this._eventWatchers.push({
+                        trigger,
+                        actions,
+                        fired: false,
+                    });
+                }
+            }
+        }
+
+        _checkEvents() {
+            if (!this._eventWatchers) return;
+            for (const w of this._eventWatchers) {
+                if (w.fired) continue;
+                let met = false;
+                const t = w.trigger;
+
+                switch (t.type) {
+                    case 'score':
+                        met = this.score >= t.value;
+                        break;
+                    case 'time':
+                        met = this._elapsedTime >= t.seconds;
+                        break;
+                    case 'lives':
+                        met = this.lives <= t.value;
+                        break;
+                    case 'enemy_count':
+                        met = this.enemies
+                            ? this.enemies.countActive() <= t.value
+                            : true;
+                        break;
+                    case 'collect_count':
+                        met = this._totalCollected >= t.value;
+                        break;
+                }
+
+                if (met) {
+                    w.fired = true;
+                    this._executeActions(w.actions);
+                }
+            }
+        }
+
+        _executeActions(actions) {
+            if (!actions || !Array.isArray(actions)) return;
+            for (const a of actions) {
+                this._executeAction(a);
+            }
+        }
+
+        _executeAction(a) {
+            const W = this.scale.width;
+            const H = this.scale.height;
+
+            switch (a.type) {
+                // ── Spawn entities ──
+                case 'spawn': {
+                    const count = a.count || 1;
+                    for (let i = 0; i < count; i++) {
+                        const sx = a.x ?? (30 + Math.random() * (W - 60));
+                        const sy = a.y ?? (30 + Math.random() * (H - 60));
+                        if (a.entity === 'enemies') {
+                            this._spawnEnemy(sx, sy, {
+                                speed: a.speed,
+                                ai: a.ai,
+                                color: a.color,
+                                width: a.width,
+                                height: a.height,
+                            });
+                        } else if (a.entity === 'collectibles') {
+                            this._spawnCoin(sx, sy);
+                        }
+                    }
+                    break;
+                }
+
+                // ── Set property on target ──
+                case 'set_property': {
+                    if (a.target === 'player') {
+                        if (a.property === 'speed') this.playerSpeed = a.value;
+                        else if (a.property === 'scale') this.player.setScale(a.value);
+                        else if (a.property === 'jumpForce') this.jumpForce = a.value;
+                    } else if (a.target === 'enemies' && this.enemies) {
+                        this.enemies.children.iterate(e => {
+                            if (!e || !e.active) return;
+                            if (a.property === 'speed') e.setData('speed', a.value);
+                            else if (a.property === 'ai') e.setData('ai', a.value);
+                            else if (a.property === 'scale') e.setScale(a.value);
+                        });
+                    }
+                    break;
+                }
+
+                // ── Flash text on screen ──
+                case 'flash_text': {
+                    const txt = this.add.text(W / 2, H / 2, a.text || '', {
+                        fontFamily: '"Press Start 2P"',
+                        fontSize: a.size || '12px',
+                        color: a.color || '#ffffff',
+                        stroke: '#000000',
+                        strokeThickness: 3,
+                    }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+
+                    this.tweens.add({
+                        targets: txt,
+                        alpha: { from: 1, to: 0 },
+                        y: txt.y - 30,
+                        duration: a.duration || 2000,
+                        ease: 'Power2',
+                        onComplete: () => txt.destroy(),
+                    });
+                    break;
+                }
+
+                // ── Camera shake ──
+                case 'shake_camera': {
+                    this.cameras.main.shake(
+                        a.duration || 200,
+                        a.intensity || 0.01
+                    );
+                    break;
+                }
+
+                // ── Tint entities ──
+                case 'tint': {
+                    const color = typeof a.color === 'string'
+                        ? Phaser.Display.Color.HexStringToColor(a.color).color
+                        : a.color;
+                    const dur = a.duration || 2000;
+
+                    const applyTint = (obj) => {
+                        if (!obj || !obj.active) return;
+                        if (obj.setTint) obj.setTint(color);
+                        this.time.delayedCall(dur, () => {
+                            if (obj.active && obj.clearTint) obj.clearTint();
+                        });
+                    };
+
+                    if (a.target === 'player') {
+                        applyTint(this.player);
+                    } else if (a.target === 'enemies' && this.enemies) {
+                        this.enemies.children.iterate(applyTint);
+                    } else if (a.target === 'collectibles' && this.collectibles) {
+                        this.collectibles.children.iterate(applyTint);
+                    }
+                    break;
+                }
+
+                // ── Modify score ──
+                case 'add_score': {
+                    this.score += (a.value || 0);
+                    this._updateHUD();
+                    break;
+                }
+
+                // ── Modify lives ──
+                case 'add_lives': {
+                    this.lives += (a.value || 0);
+                    this._updateHUD();
+                    break;
+                }
+
+                // ── Modify game timer ──
+                case 'set_timer': {
+                    if (this.timeLeft !== undefined) {
+                        this.timeLeft += (a.value || 0);
+                        this._updateHUD();
+                    }
+                    break;
+                }
+
+                // ── Change background color ──
+                case 'change_background': {
+                    if (a.color) {
+                        this.cameras.main.setBackgroundColor(a.color);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // ── Spawn single enemy (reusable) ──
+
+        _spawnEnemy(x, y, overrides) {
+            const enemyCfg = entities.enemies || {};
+            const ov = overrides || {};
+            const speed = ov.speed || enemyCfg.speed || 60;
+            const ai = ov.ai || enemyCfg.ai || 'patrol';
+            const W = this.scale.width;
+
+            if (!this.enemies) {
+                this.enemies = this.physics.add.group();
+                // Setup collisions for newly created group
+                if (this.platforms) {
+                    this.physics.add.collider(this.enemies, this.platforms);
+                }
+                this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
+                    this.lives--;
+                    if (this.lives <= 0) {
+                        this.scene.start('GameOverScene', { score: this.score });
+                    } else {
+                        this.tweens.add({
+                            targets: this.player,
+                            alpha: 0.3,
+                            duration: 100,
+                            yoyo: true,
+                            repeat: 3,
+                        });
+                        enemy.destroy();
+                        this._updateHUD();
+                    }
+                });
+            }
+
+            const enemyTex = this._getSpriteKey('enemy');
+            const colorHex = ov.color || enemyCfg.color || '#ff5c8a';
+            const color = Phaser.Display.Color.HexStringToColor(colorHex).color;
+            const ew = ov.width || enemyCfg.width || 16;
+            const eh = ov.height || enemyCfg.height || 16;
+
+            let enemy;
+            if (enemyTex) {
+                enemy = this.add.sprite(x, y, enemyTex);
+                enemy.setDisplaySize(ew, eh);
+            } else {
+                enemy = this.add.rectangle(x, y, ew, eh, color);
+            }
+
+            this.physics.add.existing(enemy);
+            enemy.body.setCollideWorldBounds(true);
+            if (gameType === 'topdown') {
+                enemy.body.setBounce(1, 1);
+                enemy.body.setAllowGravity(false);
+                if (ai === 'patrol') {
+                    const angle = Math.random() * Math.PI * 2;
+                    enemy.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                }
+            } else {
+                enemy.body.setBounce(1, 0);
+                enemy.body.setVelocityX(speed * (Math.random() > 0.5 ? 1 : -1));
+                enemy.body.setAllowGravity(true);
+            }
+            enemy.setData('ai', ai);
+            enemy.setData('speed', speed);
+            enemy.setData('minX', 20);
+            enemy.setData('maxX', W - 20);
+            this.enemies.add(enemy);
+            return enemy;
         }
 
         // ── HUD ──
@@ -503,10 +1259,35 @@ function createPlayScene(config, handInput) {
         }
 
         _createPlatformObj(x, y, w, h, color, textureKey) {
-            if (textureKey) {
-                const p = this.add.tileSprite(x, y, w, h, textureKey);
-                return p;
+            if (textureKey && w >= h && h <= 20) {
+                return this.add.tileSprite(x, y, w, h, textureKey);
             }
+
+            // For topdown: draw styled wall as texture, return a rectangle with that texture
+            if (gameType === 'topdown') {
+                const key = `wall_${w}x${h}`;
+                if (!this.textures.exists(key)) {
+                    const gfx = this.add.graphics();
+                    // Shadow
+                    gfx.fillStyle(0x000000, 0.3);
+                    gfx.fillRect(2, 2, w, h);
+                    // Body
+                    gfx.fillStyle(0x3a2a14);
+                    gfx.fillRect(0, 0, w, h);
+                    // Inner
+                    gfx.fillStyle(0x5b3a29);
+                    gfx.fillRect(2, 2, w - 4, h - 4);
+                    // Top highlight
+                    gfx.fillStyle(0x8b6b4a, 0.6);
+                    gfx.fillRect(0, 0, w, 2);
+                    gfx.generateTexture(key, w + 2, h + 2);
+                    gfx.destroy();
+                }
+                const img = this.add.image(x, y, key);
+                img.setDisplaySize(w, h);
+                return img;
+            }
+
             return this.add.rectangle(x, y, w, h, color);
         }
 
@@ -607,6 +1388,40 @@ function createPlayScene(config, handInput) {
                     });
                 }
             }
+
+            // Fixed positions from studio editor
+            if (collCfg.positions && collCfg.positions.length > 0) {
+                for (const pos of collCfg.positions) {
+                    this._spawnCoin(pos.x, pos.y);
+                }
+            }
+
+            // For topdown/catch: spawn collectibles across the map
+            if (gameType === 'topdown' || gameType === 'catch') {
+                const W = this.scale.width;
+                const H = this.scale.height;
+                const count = collCfg.initialCount || Math.floor((collCfg.spawnRate || 0.3) * 30);
+                for (let i = 0; i < count; i++) {
+                    const cx = 30 + Math.random() * (W - 60);
+                    const cy = 30 + Math.random() * (H - 60);
+                    this._spawnCoin(cx, cy);
+                }
+
+                // Respawn collectibles periodically
+                if (collCfg.spawnRate) {
+                    this.time.addEvent({
+                        delay: 3000,
+                        callback: () => {
+                            if (this.collectibles.countActive() < count) {
+                                const rx = 30 + Math.random() * (W - 60);
+                                const ry = 30 + Math.random() * (H - 60);
+                                this._spawnCoin(rx, ry);
+                            }
+                        },
+                        loop: true,
+                    });
+                }
+            }
         }
 
         _spawnCoin(x, y) {
@@ -634,7 +1449,7 @@ function createPlayScene(config, handInput) {
 
         _createEnemies() {
             const enemyCfg = entities.enemies;
-            if (!enemyCfg || !enemyCfg.count) return;
+            if (!enemyCfg || (!enemyCfg.count && !enemyCfg.positions?.length)) return;
 
             this.enemies = this.physics.add.group();
             const W = this.scale.width;
@@ -644,10 +1459,21 @@ function createPlayScene(config, handInput) {
             const enemyTex = this._getSpriteKey('enemy');
 
             for (let i = 0; i < enemyCfg.count; i++) {
-                const x = 50 + Math.random() * (W - 100);
-                const y = H - 60 - (i + 1) * 120;
-                let enemy;
+                let x, y;
+                if (gameType === 'topdown') {
+                    // Scatter enemies across the map, avoiding player spawn area
+                    const spawnX = entities.player?.spawn?.x || W / 2;
+                    const spawnY = entities.player?.spawn?.y || H / 2;
+                    do {
+                        x = 40 + Math.random() * (W - 80);
+                        y = 40 + Math.random() * (H - 80);
+                    } while (Math.abs(x - spawnX) < 80 && Math.abs(y - spawnY) < 80);
+                } else {
+                    x = 50 + Math.random() * (W - 100);
+                    y = H - 60 - (i + 1) * 120;
+                }
 
+                let enemy;
                 if (enemyTex) {
                     enemy = this.add.sprite(x, y, enemyTex);
                     enemy.setDisplaySize(enemyCfg.width || 16, enemyCfg.height || 16);
@@ -657,19 +1483,64 @@ function createPlayScene(config, handInput) {
 
                 this.physics.add.existing(enemy);
                 enemy.body.setCollideWorldBounds(true);
-                enemy.body.setBounce(1, 0);
-                enemy.body.setVelocityX(speed * (Math.random() > 0.5 ? 1 : -1));
+                if (gameType === 'topdown') {
+                    enemy.body.setBounce(1, 1);
+                    // Give patrol enemies random 2D velocity
+                    if ((enemyCfg.ai || 'patrol') === 'patrol') {
+                        const angle = Math.random() * Math.PI * 2;
+                        enemy.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                    }
+                } else {
+                    enemy.body.setBounce(1, 0);
+                    enemy.body.setVelocityX(speed * (Math.random() > 0.5 ? 1 : -1));
+                }
+                enemy.body.setAllowGravity(gameType === 'topdown' ? false : true);
                 enemy.setData('ai', enemyCfg.ai || 'patrol');
                 enemy.setData('speed', speed);
                 enemy.setData('minX', 20);
                 enemy.setData('maxX', W - 20);
                 this.enemies.add(enemy);
             }
+
+            // Fixed positions from studio editor
+            if (enemyCfg.positions && enemyCfg.positions.length > 0) {
+                for (const pos of enemyCfg.positions) {
+                    let enemy;
+                    if (enemyTex) {
+                        enemy = this.add.sprite(pos.x, pos.y, enemyTex);
+                        enemy.setDisplaySize(enemyCfg.width || 16, enemyCfg.height || 16);
+                    } else {
+                        enemy = this.add.rectangle(pos.x, pos.y, enemyCfg.width || 16, enemyCfg.height || 16, color);
+                    }
+                    this.physics.add.existing(enemy);
+                    enemy.body.setCollideWorldBounds(true);
+                    if (gameType === 'topdown') {
+                        enemy.body.setBounce(1, 1);
+                        enemy.body.setAllowGravity(false);
+                        if ((enemyCfg.ai || 'patrol') === 'patrol') {
+                            const angle = Math.random() * Math.PI * 2;
+                            enemy.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                        }
+                    } else {
+                        enemy.body.setBounce(1, 0);
+                        enemy.body.setVelocityX(speed * (Math.random() > 0.5 ? 1 : -1));
+                    }
+                    enemy.body.setAllowGravity(gameType === 'topdown' ? false : true);
+                    enemy.setData('ai', enemyCfg.ai || 'patrol');
+                    enemy.setData('speed', speed);
+                    enemy.setData('minX', 20);
+                    enemy.setData('maxX', W - 20);
+                    this.enemies.add(enemy);
+                }
+            }
         }
     };
 }
 
-function createGameOverScene(config, onGameOver) {
+function createGameOverScene(config, handInput, onGameOver) {
+    const screens = config.screens || {};
+    const gameOverCfg = screens.gameOver || {};
+
     return class GameOverScene extends Phaser.Scene {
         constructor() {
             super('GameOverScene');
@@ -683,31 +1554,31 @@ function createGameOverScene(config, onGameOver) {
         create() {
             const W = this.scale.width;
             const H = this.scale.height;
+            const cfg = this.won
+                ? { title: gameOverCfg.winTitle || 'GANASTE!', titleColor: gameOverCfg.winTitleColor || '#3ddc97', prompt: gameOverCfg.winPrompt || 'SPACE / Click para salir' }
+                : { title: gameOverCfg.loseTitle || 'GAME OVER', titleColor: gameOverCfg.loseTitleColor || '#ff5c8a', prompt: gameOverCfg.losePrompt || 'SPACE / Cierra un dedo para reiniciar' };
 
-            this.add.text(W / 2, H / 2 - 40, this.won ? 'GANASTE!' : 'GAME OVER', {
-                fontFamily: '"Press Start 2P"',
-                fontSize: '16px',
-                color: this.won ? '#3ddc97' : '#ff5c8a',
-            }).setOrigin(0.5);
-
-            this.add.text(W / 2, H / 2 + 10, `Score: ${this.finalScore}`, {
-                fontFamily: '"Press Start 2P"',
-                fontSize: '10px',
-                color: '#ffd23f',
-            }).setOrigin(0.5);
-
-            this.add.text(W / 2, H / 2 + 50, this.won ? 'Click para salir' : 'Click para reiniciar', {
-                fontFamily: '"Press Start 2P"',
-                fontSize: '8px',
-                color: '#a8a0c0',
-            }).setOrigin(0.5);
-
-            this.input.on('pointerdown', () => {
-                if (this.won && onGameOver) {
-                    onGameOver(this.finalScore, this.won);
-                } else if (!this.won) {
-                    this.scene.start('PlayScene');
-                }
+            createOverlayScreen(this, {
+                title: cfg.title,
+                titleColor: cfg.titleColor,
+                titleSize: gameOverCfg.titleSize || '14px',
+                subtitle: `Score: ${this.finalScore}`,
+                subtitleColor: gameOverCfg.subtitleColor || '#ffd23f',
+                subtitleSize: gameOverCfg.subtitleSize,
+                prompt: cfg.prompt,
+                promptColor: gameOverCfg.promptColor,
+                promptSize: gameOverCfg.promptSize,
+                backgroundColor: gameOverCfg.backgroundColor || config.world?.backgroundColor || '#1a0a2e',
+                backgroundAlpha: gameOverCfg.backgroundAlpha ?? 0.92,
+                delay: gameOverCfg.delay ?? 800,
+                handInput,
+                onTrigger: () => {
+                    if (this.won && onGameOver) {
+                        onGameOver(this.finalScore, this.won);
+                    } else {
+                        this.scene.start('PlayScene');
+                    }
+                },
             });
         }
     };
