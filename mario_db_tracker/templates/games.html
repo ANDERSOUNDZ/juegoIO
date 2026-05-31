@@ -2,6 +2,36 @@
 {% block title %}Juegos - PIXO Therapy{% endblock %}
 
 {% block content %}
+<style>
+.pixo-dropdown { position: relative; }
+.pixo-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1010;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--pixo-surface-strong, #fff);
+    border: 1px solid var(--pixo-border, #e2e8f0);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    box-shadow: var(--pixo-shadow-sm, 0 8px 24px rgba(15,23,42,.06));
+}
+.pixo-dropdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .55rem .85rem;
+    cursor: pointer;
+    font-size: .9rem;
+    transition: background .15s;
+}
+.pixo-dropdown-item:hover {
+    background: rgba(37,99,235,.06);
+}
+</style>
 <section class="uk-margin-medium-bottom">
     <span class="page-kicker"><span uk-icon="icon: thumbnails; ratio: .9"></span>Biblioteca terapeutica</span>
     <div class="card-header uk-margin-remove-bottom">
@@ -30,8 +60,14 @@
             <button class="uk-modal-close-default" type="button" uk-close onclick="closePlayModal()"></button>
         </div>
 
-        <div id="patient-select-list" class="uk-margin-top"></div>
-        <div id="patient-pagination" class="uk-flex uk-flex-center uk-flex-middle uk-margin-small-top" style="gap: .5rem;"></div>
+        <div class="uk-margin-top" style="position:relative;">
+            <div class="pixo-dropdown" id="patient-dropdown">
+                <input class="uk-input" type="text" id="patient-search" placeholder="Buscar paciente por nombre..." autocomplete="off"
+                    oninput="filterPatients()" onfocus="showDropdown()" />
+                <div class="pixo-dropdown-menu" id="patient-dropdown-menu"></div>
+            </div>
+            <div id="patient-selected" class="uk-margin-small-top" style="display:none;"></div>
+        </div>
 
         <div id="sensitivity-choice" class="uk-margin-medium-top" style="display:none;">
             <h3 class="section-heading"><span uk-icon="icon: settings; ratio: .85"></span>Sensibilidad a usar</h3>
@@ -48,6 +84,7 @@
 {% block scripts %}
 <script>
 let selectedGameId = null;
+let allPatients = [];
 
 async function loadGames() {
     const games = await fetch('/api/games').then(r => r.json());
@@ -80,44 +117,68 @@ async function openPlayModal(gameId) {
     selectedGameId = gameId;
     document.getElementById('modal-play').classList.add('active');
     document.getElementById('sensitivity-choice').style.display = 'none';
-    loadModalPatients(1);
+    document.getElementById('patient-search').value = '';
+    await loadAllPatients();
 }
 
-async function loadModalPatients(page = 1) {
-    const data = await fetch(`/api/patients?page=${page}&per_page=5`).then(r => r.json());
-    const patients = data.patients;
-    const list = document.getElementById('patient-select-list');
-    const pagination = document.getElementById('patient-pagination');
+async function loadAllPatients() {
+    const data = await fetch('/api/patients?page=1&per_page=1000').then(r => r.json());
+    allPatients = data.patients || [];
+    renderPatientOptions(allPatients);
+}
 
-    if (data.total === 0) {
-        list.innerHTML = '<div class="uk-alert"><p class="muted">No hay pacientes. <a href="/patients">Crear uno</a></p></div>';
-        pagination.innerHTML = '';
+function renderPatientOptions(patients) {
+    const menu = document.getElementById('patient-dropdown-menu');
+    if (patients.length === 0) {
+        menu.innerHTML = '<div class="pixo-dropdown-item muted" style="pointer-events:none;">No hay pacientes</div>';
         return;
     }
-
-    list.innerHTML = patients.map(p => `
-        <div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" onclick="selectPatient(${p.id}, '${p.name.replace(/'/g, "\\'")}')">
-            <div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>
-                <div>
-                    <div class="pixo-list-title">${p.name} ${p.age ? '(' + p.age + ')' : ''}</div>
-                    <div class="pixo-list-meta">Paciente seleccionado para la sesion</div>
-                </div>
-                <span class="uk-label pixo-label">${p.sensitivity ? '[' + p.sensitivity.join(',') + ']' : 'Sin config'}</span>
-            </div>
-        </div>
-    `).join('');
-
-    if (data.total === 0) { pagination.innerHTML = ''; return; }
-    pagination.innerHTML = `
-        <button class="btn-sm" onclick="loadModalPatients(${data.page - 1})" ${data.page <= 1 ? 'disabled' : ''}>&#8249; Anterior</button>
-        <button class="btn-sm" onclick="loadModalPatients(${data.page + 1})" ${data.page >= data.pages ? 'disabled' : ''}>Siguiente &#8250;</button>
-    `;
+    menu.innerHTML = patients.map(p => {
+        const age = p.age ? ' (' + p.age + ')' : '';
+        const sens = p.sensitivity ? '[' + p.sensitivity.join(',') + ']' : 'Sin config';
+        const safeName = p.name.replace(/'/g, "\\'");
+        return '<div class="pixo-dropdown-item" onclick="pickPatient(' + p.id + ', \'' + safeName + '\')">'
+            + '<span>' + p.name + age + '</span>'
+            + '<span class="uk-label pixo-label" style="font-size:.7rem;">' + sens + '</span>'
+            + '</div>';
+    }).join('');
 }
 
+function filterPatients() {
+    const query = document.getElementById('patient-search').value.toLowerCase();
+    const filtered = allPatients.filter(p => p.name.toLowerCase().includes(query));
+    renderPatientOptions(filtered);
+    showDropdown();
+}
+
+function showDropdown() {
+    document.getElementById('patient-dropdown-menu').style.display = 'block';
+}
+
+function hideDropdown() {
+    document.getElementById('patient-dropdown-menu').style.display = 'none';
+}
+
+function pickPatient(patientId, patientName) {
+    hideDropdown();
+    document.getElementById('patient-search').value = patientName;
+    document.getElementById('patient-selected').style.display = 'block';
+    document.getElementById('patient-selected').innerHTML =
+        '<div class="uk-alert uk-alert-success" style="padding:.6rem 1rem;border-radius:10px;">'
+        + '<span uk-icon="icon:check;ratio:.85"></span> <strong>' + patientName + '</strong> seleccionado'
+        + '</div>';
+    selectPatient(patientId, patientName);
+}
+
+document.addEventListener('click', function(e) {
+    if (!document.getElementById('patient-dropdown').contains(e.target)) {
+        hideDropdown();
+    }
+});
+
 async function selectPatient(patientId, patientName) {
-    // Load sensitivity info
     const [sens, presets] = await Promise.all([
-        fetch(`/api/patients/${patientId}/sensitivity`).then(r => r.json()),
+        fetch('/api/patients/' + patientId + '/sensitivity').then(r => r.json()),
         fetch('/api/sensitivity/presets').then(r => r.json()),
     ]);
 
@@ -127,44 +188,38 @@ async function selectPatient(patientId, patientName) {
 
     let html = '';
 
-    // Current patient sensitivity
     if (sens.sensitivities) {
-        html += `<div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" style="border-color:rgba(20,184,166,.45);" onclick="startGame(${patientId}, ${JSON.stringify(sens.sensitivities)})">
-            <div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>
-                <span class="pixo-list-title text-accent">Config actual de ${patientName}</span>
-                <span class="uk-label pixo-label">[${sens.sensitivities.join(', ')}]</span>
-            </div>
-        </div>`;
+        html += '<div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" style="border-color:rgba(20,184,166,.45);" onclick="startGame(' + patientId + ', ' + JSON.stringify(sens.sensitivities) + ')">'
+            + '<div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>'
+            + '<span class="pixo-list-title text-accent">Config actual de ' + patientName + '</span>'
+            + '<span class="uk-label pixo-label">[' + sens.sensitivities.join(', ') + ']</span>'
+            + '</div></div>';
     }
 
-    // Presets
-    html += presets.map(p => `
-        <div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" onclick="startGame(${patientId}, ${JSON.stringify(p.sensitivities)})">
-            <div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>
-                <span class="pixo-list-title">${p.name}</span>
-                <span class="uk-label pixo-label">[${p.sensitivities.join(', ')}]</span>
-            </div>
-        </div>
-    `).join('');
+    html += presets.map(p =>
+        '<div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" onclick="startGame(' + patientId + ', ' + JSON.stringify(p.sensitivities) + ')">'
+        + '<div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>'
+        + '<span class="pixo-list-title">' + p.name + '</span>'
+        + '<span class="uk-label pixo-label">[' + p.sensitivities.join(', ') + ']</span>'
+        + '</div></div>'
+    ).join('');
 
     optsDiv.innerHTML = html;
 }
 
 async function startGame(patientId, sensitivities) {
-    // Create session
     const session = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patient_id: patientId, game_id: selectedGameId }),
     }).then(r => r.json());
 
-    // Store sensitivity + session in URL params
     const params = new URLSearchParams({
         patient_id: patientId,
         session_id: session.id,
         sensitivity: JSON.stringify(sensitivities),
     });
-    window.location.href = `/play/${selectedGameId}?${params}`;
+    window.location.href = '/play/' + selectedGameId + '?' + params;
 }
 
 function closePlayModal() {
