@@ -19,30 +19,60 @@
         <div class="modal-head">
             <div>
                 <h2>Seleccionar paciente</h2>
-                <p class="page-sub" style="margin-top:4px;">Elige el paciente que va a jugar.</p>
+                <p class="page-sub" style="margin-top:4px;">
+                    Elige el paciente que va a jugar.
+                </p>
             </div>
-            <button class="close-x" type="button" onclick="closePlayModal()"><svg class="ic"><use href="#i-x"/></svg></button>
+            <button class="close-x" type="button" onclick="closePlayModal()">
+                <svg class="ic"><use href="#i-x"/></svg>
+            </button>
         </div>
 
-        <div class="ui form" style="margin-top:14px;position:relative;">
-            <div class="pixo-dropdown" id="patient-dropdown">
-                <div class="ui icon input" style="width:100%;">
-                    <input type="text" id="patient-search" placeholder="Buscar paciente por nombre…" autocomplete="off"
-                        oninput="filterPatients()" onfocus="showDropdown()">
+        <div class="ui form" style="margin-top:14px;">
+
+            <div class="field">
+                <label>Paciente</label>
+
+                <div class="ui fluid search selection dropdown" id="patient-dropdown">
+                    <input type="hidden" id="patient-id">
+
+                    <i class="dropdown icon"></i>
+
+                    <div class="default text">
+                        Selecciona un paciente
+                    </div>
+
+                    <div class="menu" id="patient-dropdown-menu">
+                    </div>
                 </div>
-                <div class="pixo-dropdown-menu" id="patient-dropdown-menu"></div>
             </div>
-            <div id="patient-selected" style="margin-top:10px;display:none;"></div>
+
+            <div id="patient-selected"
+                 style="margin-top:10px;display:none;">
+            </div>
+
         </div>
 
-        <div id="sensitivity-choice" style="margin-top:22px;display:none;">
-            <h3 class="section-title"><svg class="ic"><use href="#i-settings"/></svg>Sensibilidad a usar</h3>
+        <div id="sensitivity-choice"
+             style="margin-top:22px;display:none;">
+
+            <h3 class="section-title">
+                <svg class="ic">
+                    <use href="#i-settings"/>
+                </svg>
+                Sensibilidad a usar
+            </h3>
+
             <div class="ui divider"></div>
+
             <div id="sens-options"></div>
         </div>
 
         <div style="display:flex;justify-content:flex-end;margin-top:18px;">
-            <button class="ui basic button" onclick="closePlayModal()">Cancelar</button>
+            <button class="ui basic button"
+                    onclick="closePlayModal()">
+                Cancelar
+            </button>
         </div>
     </div>
 </div>
@@ -85,56 +115,83 @@ async function openPlayModal(gameId) {
     document.getElementById('modal-play').classList.add('active');
     document.getElementById('sensitivity-choice').style.display = 'none';
     document.getElementById('patient-selected').style.display = 'none';
-    document.getElementById('patient-search').value = '';
+    $('#patient-dropdown').dropdown('clear');
     await loadAllPatients();
 }
 
 async function loadAllPatients() {
-    const data = await fetch('/api/patients?page=1&per_page=1000').then(r => r.json());
+    const data = await fetch('/api/patients?page=1&per_page=1000')
+        .then(r => r.json());
+
     allPatients = data.patients || [];
+
     renderPatientOptions(allPatients);
+
+    $('#patient-dropdown').dropdown({
+        fullTextSearch: true,
+        clearable: true,
+
+        onChange: function(value, text, $choice) {
+
+            if (!value) return;
+
+            const patientName = $choice.data('name');
+
+            const sel = document.getElementById('patient-selected');
+
+            sel.style.display = 'block';
+
+            sel.innerHTML = `
+                <div class="ui positive message"
+                     style="margin:0;padding:.7rem 1rem;">
+                    <strong>${patientName}</strong> seleccionado
+                </div>
+            `;
+
+            selectPatient(parseInt(value), patientName);
+        }
+    });
 }
 
 function renderPatientOptions(patients) {
+
     const menu = document.getElementById('patient-dropdown-menu');
+
     if (patients.length === 0) {
-        menu.innerHTML = '<div class="pixo-dropdown-item muted" style="pointer-events:none;">No hay pacientes</div>';
+        menu.innerHTML = `
+            <div class="item disabled">
+                No hay pacientes
+            </div>
+        `;
         return;
     }
+
     menu.innerHTML = patients.map(p => {
-        const age = p.age ? ' (' + p.age + ')' : '';
-        const sens = p.sensitivity ? '[' + p.sensitivity.join(',') + ']' : 'Sin config';
-        const safeName = p.name.replace(/'/g, "\\'");
-        return '<div class="pixo-dropdown-item" onclick="pickPatient(' + p.id + ', \'' + safeName + '\')">'
-            + '<span>' + p.name + age + '</span>'
-            + '<span class="ui basic label" style="font-size:.7rem;">' + sens + '</span>'
-            + '</div>';
+
+        const age = p.age ? ` (${p.age})` : '';
+
+        const sens = p.sensitivity
+            ? p.sensitivity.join(', ')
+            : 'Sin configuración';
+
+        return `
+            <div class="item"
+                 data-value="${p.id}"
+                 data-name="${p.name}">
+
+                <div style="display:flex;justify-content:space-between;width:100%;">
+                    <span>${p.name}${age}</span>
+                    <span class="ui basic label">
+                        ${sens}
+                    </span>
+                </div>
+
+            </div>
+        `;
     }).join('');
+
+    $('#patient-dropdown').dropdown('refresh');
 }
-
-function filterPatients() {
-    const query = document.getElementById('patient-search').value.toLowerCase();
-    const filtered = allPatients.filter(p => p.name.toLowerCase().includes(query));
-    renderPatientOptions(filtered);
-    showDropdown();
-}
-
-function showDropdown() { document.getElementById('patient-dropdown-menu').style.display = 'block'; }
-function hideDropdown() { document.getElementById('patient-dropdown-menu').style.display = 'none'; }
-
-function pickPatient(patientId, patientName) {
-    hideDropdown();
-    document.getElementById('patient-search').value = patientName;
-    const sel = document.getElementById('patient-selected');
-    sel.style.display = 'block';
-    sel.innerHTML = '<div class="ui positive message" style="margin:0;padding:.7rem 1rem;">'
-        + '<svg class="ic" style="color:var(--pos);"><use href="#i-check"/></svg> <strong>' + patientName + '</strong> seleccionado</div>';
-    selectPatient(patientId, patientName);
-}
-
-document.addEventListener('click', function (e) {
-    if (!document.getElementById('patient-dropdown').contains(e.target)) hideDropdown();
-});
 
 async function selectPatient(patientId, patientName) {
     const [sens, presets] = await Promise.all([
