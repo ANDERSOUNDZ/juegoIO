@@ -1,12 +1,28 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user, LoginManager
 
-from src.infrastructure.persistence.models import UserModel, db
+from src.infrastructure.persistence.models import UserModel, RoleModel, db
 from src.infrastructure.web.middleware import role_required
 
 auth_bp = Blueprint('auth', __name__)
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
+
+
+VALID_ROLES = ('admin', 'therapist', 'viewer')
+
+
+def _set_role_id(user, role_name):
+    """Look up role_id from roles table and set it on the user."""
+    user.role = role_name
+    role = RoleModel.query.filter_by(name=role_name).first()
+    if role:
+        user.role_id = role.id
+
+
+def _validate_role(role_name):
+    """Check if role exists in DB table."""
+    return RoleModel.query.filter_by(name=role_name).first() is not None
 
 
 @login_manager.user_loader
@@ -46,7 +62,8 @@ def register():
         if UserModel.query.filter_by(email=email).first():
             flash('El email ya está registrado', 'error')
             return render_template('register.html')
-        user = UserModel(email=email, name=name, role=role)
+        user = UserModel(email=email, name=name)
+        _set_role_id(user, role)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -86,7 +103,8 @@ def api_register():
         return jsonify(error='email, name y password son requeridos'), 400
     if UserModel.query.filter_by(email=email).first():
         return jsonify(error='El email ya está registrado'), 409
-    user = UserModel(email=email, name=name, role=data.get('role', 'therapist'))
+    user = UserModel(email=email, name=name)
+    _set_role_id(user, data.get('role', 'therapist'))
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
@@ -128,11 +146,12 @@ def api_create_user():
     role = data.get('role', 'therapist')
     if not all([email, name, password]):
         return jsonify(error='email, name y password son requeridos'), 400
-    if role not in ('admin', 'therapist', 'viewer'):
-        return jsonify(error='Rol inválido: debe ser admin, therapist o viewer'), 400
+    if not _validate_role(role):
+        return jsonify(error='Rol inválido'), 400
     if UserModel.query.filter_by(email=email).first():
         return jsonify(error='El email ya está registrado'), 409
-    user = UserModel(email=email, name=name, role=role)
+    user = UserModel(email=email, name=name)
+    _set_role_id(user, role)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
@@ -156,9 +175,9 @@ def api_update_user(uid):
             return jsonify(error='El email ya está registrado'), 409
         user.email = data['email']
     if 'role' in data:
-        if data['role'] not in ('admin', 'therapist', 'viewer'):
+        if not _validate_role(data['role']):
             return jsonify(error='Rol inválido'), 400
-        user.role = data['role']
+        _set_role_id(user, data['role'])
     if 'password' in data and data['password']:
         user.set_password(data['password'])
     db.session.commit()

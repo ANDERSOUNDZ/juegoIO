@@ -4,12 +4,20 @@ from typing import Optional
 
 
 @dataclass
+class Role:
+    id: Optional[int] = None
+    name: str = ''
+    description: Optional[str] = None
+
+
+@dataclass
 class User:
     id: Optional[int] = None
     email: str = ''
     password_hash: str = ''
     name: str = ''
     role: str = 'therapist'
+    role_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
 

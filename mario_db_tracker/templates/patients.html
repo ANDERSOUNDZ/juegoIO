@@ -66,11 +66,20 @@
 {% block scripts %}
 <script>
 const USER_ROLE = '{{ current_user.role }}';
+const PER_PAGE = 10;
 let currentPage = 1;
+
+function openModal() {
+    document.getElementById('modal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.remove('active');
+}
 
 async function loadPatients(page = 1) {
     currentPage = page;
-    const res = await fetch(`/api/patients?page=${page}&per_page=${perPage}`);
+    const res = await fetch(`/api/patients?page=${page}&per_page=${PER_PAGE}`);
     const data = await res.json();
     const tbody = document.getElementById('patients-table');
 

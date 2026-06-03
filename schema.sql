@@ -15,13 +15,27 @@ CREATE TABLE IF NOT EXISTS control_juego (
 );
 CREATE INDEX IF NOT EXISTS idx_control_juego_timestamp ON control_juego(timestamp DESC);
 
--- ─── USUARIOS (genérica con roles) ─────────────────────────────
+-- ─── ROLES ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(30) UNIQUE NOT NULL,
+    description TEXT
+);
+
+INSERT INTO roles (name, description) VALUES
+    ('admin', 'Acceso total al sistema'),
+    ('therapist', 'Gestión de pacientes y sesiones'),
+    ('viewer', 'Solo lectura de dashboards y reportes')
+ON CONFLICT (name) DO NOTHING;
+
+-- ─── USUARIOS ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
     role VARCHAR(30) NOT NULL DEFAULT 'therapist',  -- therapist, admin, viewer
+    role_id INT REFERENCES roles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -269,3 +283,13 @@ CREATE TABLE IF NOT EXISTS player_game_config (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(patient_id, game_id)
 );
+
+-- ─── MIGRACIONES IDEMPOTENTES (se ejecutan siempre) ──────────
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'role_id'
+    ) THEN
+        ALTER TABLE users ADD COLUMN role_id INT REFERENCES roles(id);
+    END IF;
+END $$;

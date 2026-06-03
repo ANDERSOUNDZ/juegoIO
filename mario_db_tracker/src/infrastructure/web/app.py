@@ -1,7 +1,48 @@
 from flask import Flask
+from sqlalchemy import text as sa_text
 
 from src.infrastructure.web.config import FlaskConfig
 from src.infrastructure.persistence.models import db
+
+
+def _run_migrations(app):
+    """Run idempotent DB migrations on startup."""
+    with app.app_context():
+        try:
+            db.session.execute(sa_text("""
+                DO $$ BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'roles' AND column_name = 'id'
+                    ) THEN
+                        CREATE TABLE IF NOT EXISTS roles (
+                            id SERIAL PRIMARY KEY,
+                            name VARCHAR(30) UNIQUE NOT NULL,
+                            description TEXT
+                        );
+                        INSERT INTO roles (name, description) VALUES
+                            ('admin', 'Acceso total al sistema'),
+                            ('therapist', 'Gestión de pacientes y sesiones'),
+                            ('viewer', 'Solo lectura de dashboards y reportes')
+                        ON CONFLICT (name) DO NOTHING;
+                    END IF;
+                END $$;
+            """))
+            db.session.execute(sa_text("""
+                DO $$ BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'users' AND column_name = 'role_id'
+                    ) THEN
+                        ALTER TABLE users ADD COLUMN role_id INT REFERENCES roles(id);
+                    END IF;
+                END $$;
+            """))
+            db.session.commit()
+            print('[MIGRACION] Base de datos actualizada correctamente')
+        except Exception as e:
+            db.session.rollback()
+            print(f'[MIGRACION] Warning (no crítico): {e}')
 
 
 def create_app(settings=None, db_worker=None):
@@ -13,6 +54,7 @@ def create_app(settings=None, db_worker=None):
     app.config.from_object(FlaskConfig)
 
     db.init_app(app)
+    _run_migrations(app)
 
     from .controllers.auth import auth_bp
     app.register_blueprint(auth_bp)

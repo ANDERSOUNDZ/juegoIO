@@ -6,6 +6,16 @@ from werkzeug.security import generate_password_hash, check_password_hash
 db = SQLAlchemy()
 
 
+class RoleModel(db.Model):
+    __tablename__ = 'roles'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(30), unique=True, nullable=False)
+    description = db.Column(db.Text)
+
+    users = db.relationship('UserModel', backref='role_rel', lazy='dynamic')
+
+
 class UserModel(UserMixin, db.Model):
     __tablename__ = 'users'
 
@@ -14,6 +24,7 @@ class UserModel(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(30), nullable=False, default='therapist')
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     patients = db.relationship('PatientModel', backref='user', lazy='dynamic')

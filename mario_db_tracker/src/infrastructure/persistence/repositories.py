@@ -1,7 +1,7 @@
 from typing import Optional, List
 
 from src.domain.entities import (
-    User, Patient, Game, GameSession, FingerEvent,
+    Role, User, Patient, Game, GameSession, FingerEvent,
     SensitivityPreset, PatientSensitivity, SensitivityHistory,
     PlayerGameConfig, Sprite,
 )
@@ -13,10 +13,24 @@ from src.domain.interfaces.repositories import (
     ISpriteRepository,
 )
 from .models import (
-    db, UserModel, PatientModel, GameModel, GameSessionModel,
+    db, UserModel, RoleModel, PatientModel, GameModel, GameSessionModel,
     FingerEventModel, SensitivityPresetModel, PatientSensitivityModel,
     SensitivityHistoryModel, PlayerGameConfigModel, SpriteModel,
 )
+
+
+class RoleRepository:
+    def find_all(self) -> List[Role]:
+        models = RoleModel.query.order_by(RoleModel.id).all()
+        return [self._to_entity(m) for m in models]
+
+    def find_by_name(self, name: str) -> Optional[Role]:
+        m = RoleModel.query.filter_by(name=name).first()
+        return self._to_entity(m) if m else None
+
+    @staticmethod
+    def _to_entity(m: RoleModel) -> Role:
+        return Role(id=m.id, name=m.name, description=m.description)
 
 
 class UserRepository(IUserRepository):
@@ -38,6 +52,12 @@ class UserRepository(IUserRepository):
         m.password_hash = user.password_hash
         m.name = user.name
         m.role = user.role
+        if user.role_id:
+            m.role_id = user.role_id
+        elif user.role:
+            role_model = RoleModel.query.filter_by(name=user.role).first()
+            if role_model:
+                m.role_id = role_model.id
         db.session.commit()
         return self._to_entity(m)
 
@@ -45,7 +65,8 @@ class UserRepository(IUserRepository):
     def _to_entity(m: UserModel) -> User:
         return User(
             id=m.id, email=m.email, password_hash=m.password_hash,
-            name=m.name, role=m.role, created_at=m.created_at,
+            name=m.name, role=m.role, role_id=m.role_id,
+            created_at=m.created_at,
         )
 
 
