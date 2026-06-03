@@ -3,6 +3,7 @@ from sqlalchemy import text as sa_text
 
 from src.infrastructure.web.config import FlaskConfig
 from src.infrastructure.persistence.models import db
+from src.infrastructure.persistence.seed_data import SEED_SQL
 
 
 def _run_migrations(app):
@@ -39,6 +40,13 @@ def _run_migrations(app):
                 END $$;
             """))
             db.session.commit()
+
+            # ─── Seed default games/sprites (idempotente) ───
+            # Cada INSERT tiene WHERE NOT EXISTS, solo inserta lo que falta
+            db.session.execute(sa_text(SEED_SQL))
+            db.session.commit()
+            print('[MIGRACION] Juegos y sprites por defecto sincronizados')
+
             print('[MIGRACION] Base de datos actualizada correctamente')
         except Exception as e:
             db.session.rollback()

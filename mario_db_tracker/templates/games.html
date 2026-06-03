@@ -7,6 +7,10 @@
         <h1 class="ui header page-title">Catálogo de juegos</h1>
         <p class="page-sub">Selecciona una actividad y asígnala a un paciente para iniciar una sesión.</p>
     </div>
+    <div class="acts">
+        <span id="refresh-indicator" style="font-size:.8rem;color:var(--muted);display:none;"></span>
+        <button class="ui mini basic button" onclick="refreshGames()"><svg class="ic"><use href="#i-refresh"/></svg> Refrescar</button>
+    </div>
 </div>
 
 <div class="card-grid" id="games-grid">
@@ -83,12 +87,28 @@
 /* ===== LOGICA JS (conservada del template original) ===== */
 let selectedGameId = null;
 let allPatients = [];
+let lastGameCount = 0;
+let refreshTimer = null;
 
 async function loadGames() {
-    const games = await fetch('/api/games').then(r => r.json());
     const grid = document.getElementById('games-grid');
+    grid.style.opacity = '0.6';
+    let games;
+    try {
+        const res = await fetch('/api/games');
+        if (!res.ok) {
+            console.error('Error al cargar juegos:', res.status);
+            grid.style.opacity = '1';
+            return;
+        }
+        games = await res.json();
+    } catch (e) {
+        console.error('Error al cargar juegos:', e);
+        grid.style.opacity = '1';
+        return;
+    }
 
-    if (games.length === 0) {
+    if (!Array.isArray(games) || games.length === 0) {
         grid.innerHTML = `
             <div class="ui segment empty-state">
                 <div>
@@ -97,8 +117,12 @@ async function loadGames() {
                     <p class="muted" style="font-size:.82rem;">Usa /create-game en Claude Code para generar juegos</p>
                 </div>
             </div>`;
+        grid.style.opacity = '1';
         return;
     }
+
+    const isNew = games.length > lastGameCount;
+    lastGameCount = games.length;
 
     grid.innerHTML = games.map(g => `
         <div class="game-card" onclick="openPlayModal(${g.id})">
@@ -108,7 +132,31 @@ async function loadGames() {
             <button class="ui primary button" style="width:100%;"><svg class="ic"><use href="#i-play"/></svg>Jugar</button>
         </div>
     `).join('');
+    grid.style.opacity = '1';
+
+    if (isNew) {
+        const indicator = document.getElementById('refresh-indicator');
+        indicator.textContent = 'Nuevos juegos detectados';
+        indicator.style.display = 'inline';
+        setTimeout(() => { indicator.style.display = 'none'; }, 3000);
+    }
 }
+
+function refreshGames() {
+    const indicator = document.getElementById('refresh-indicator');
+    indicator.textContent = 'Actualizando…';
+    indicator.style.display = 'inline';
+    loadGames().then(() => {
+        indicator.textContent = 'Actualizado';
+        setTimeout(() => { indicator.style.display = 'none'; }, 2000);
+    }).catch(() => {
+        indicator.textContent = 'Error al actualizar';
+        setTimeout(() => { indicator.style.display = 'none'; }, 3000);
+    });
+}
+
+// Auto-refresh cada 30s
+refreshTimer = setInterval(loadGames, 30000);
 
 async function openPlayModal(gameId) {
     selectedGameId = gameId;
