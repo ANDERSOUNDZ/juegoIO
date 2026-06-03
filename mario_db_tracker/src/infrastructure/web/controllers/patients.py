@@ -64,8 +64,12 @@ def create_patient():
     birth_date_str = data.get('birth_date')
     birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
     age = _calc_age(birth_date) if birth_date else data.get('age')
+    # Admin can assign patient to any therapist; therapist always assigns to themselves
+    owner_id = data.get('user_id') if current_user.role == 'admin' else None
+    if owner_id is None:
+        owner_id = current_user.id
     p = _service.create(
-        user_id=current_user.id, name=data['name'],
+        user_id=owner_id, name=data['name'],
         birth_date=birth_date, age=age,
         diagnosis=data.get('diagnosis'), notes=data.get('notes'),
     )
@@ -106,6 +110,20 @@ def delete_patient(pid):
     try:
         _service.delete(pid)
         return jsonify(ok=True)
+    except NotFoundError:
+        return jsonify(error='Paciente no encontrado'), 404
+
+
+@patients_bp.route('/<int:pid>/transfer', methods=['PUT'])
+@login_required
+@role_required('admin', 'therapist')
+def transfer_patient(pid):
+    data = request.get_json()
+    if not data or 'user_id' not in data:
+        return jsonify(error='user_id es requerido'), 400
+    try:
+        p = _service.transfer(pid, data['user_id'])
+        return jsonify(ok=True, message='Paciente transferido correctamente')
     except NotFoundError:
         return jsonify(error='Paciente no encontrado'), 404
 

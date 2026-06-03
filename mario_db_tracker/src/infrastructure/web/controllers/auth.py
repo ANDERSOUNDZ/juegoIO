@@ -119,6 +119,22 @@ def api_logout():
     return jsonify(ok=True)
 
 
+# ─── Therapists list ──────────────────────────────────────────────
+
+
+@auth_bp.route('/api/users/therapists', methods=['GET'])
+@login_required
+@role_required('admin', 'therapist')
+def api_list_therapists():
+    therapists = UserModel.query.filter(
+        UserModel.role.in_(['therapist', 'admin'])
+    ).order_by(UserModel.name).all()
+    return jsonify([
+        dict(id=u.id, name=u.name, email=u.email, role=u.role)
+        for u in therapists
+    ])
+
+
 # ─── Admin: User Management ────────────────────────────────────────
 
 

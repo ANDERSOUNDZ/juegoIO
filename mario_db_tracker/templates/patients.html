@@ -54,6 +54,14 @@
                 <label>Notas</label>
                 <textarea id="f-notes" rows="2"></textarea>
             </div>
+            {% if current_user.role == 'admin' %}
+            <div class="field">
+                <label>Asignar a terapeuta</label>
+                <select id="f-therapist" class="ui dropdown" style="width:100%;padding:8px 10px;border:1px solid var(--bor);border-radius:6px;background:var(--bg);color:var(--fg);">
+                    <option value="">Seleccionar terapeuta…</option>
+                </select>
+            </div>
+            {% endif %}
             <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
                 <button type="button" class="ui basic button" onclick="closeModal()">Cancelar</button>
                 <button type="submit" class="ui primary button"><svg class="ic"><use href="#i-check"/></svg>Guardar</button>
@@ -69,8 +77,14 @@ const USER_ROLE = '{{ current_user.role }}';
 const PER_PAGE = 10;
 let currentPage = 1;
 
-function openModal() {
+async function openModal() {
     document.getElementById('modal').classList.add('active');
+    if (USER_ROLE === 'admin') {
+        const therapists = await fetch('/api/users/therapists').then(r => r.json());
+        const sel = document.getElementById('f-therapist');
+        sel.innerHTML = '<option value="">Seleccionar terapeuta…</option>'
+            + therapists.map(t => `<option value="${t.id}">${t.name} (${t.email})</option>`).join('');
+    }
 }
 
 function closeModal() {
@@ -125,6 +139,10 @@ document.getElementById('patient-form').addEventListener('submit', async (e) => 
         diagnosis: document.getElementById('f-diagnosis').value || null,
         notes: document.getElementById('f-notes').value || null,
     };
+    if (USER_ROLE === 'admin') {
+        const therapistId = document.getElementById('f-therapist').value;
+        if (therapistId) data.user_id = parseInt(therapistId);
+    }
     await fetch('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

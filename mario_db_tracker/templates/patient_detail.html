@@ -6,6 +6,23 @@
     <div class="ui segment loading-pad">Cargando…</div>
 </div>
 
+{% if current_user.role != 'viewer' %}
+<div class="ui segment" style="margin-top:16px;">
+    <div class="toolbar" style="margin:0;">
+        <div>
+            <h3 class="section-title" style="margin:0;"><svg class="ic"><use href="#i-users"/></svg>Transferir paciente</h3>
+            <p class="page-sub" style="margin:0;">Asigna este paciente a otro terapeuta.</p>
+        </div>
+        <div class="acts" style="gap:8px;">
+            <select id="transfer-therapist" class="ui dropdown" style="padding:6px 10px;border:1px solid var(--bor);border-radius:6px;background:var(--bg);color:var(--fg);font-size:.85rem;">
+                <option value="">Seleccionar terapeuta…</option>
+            </select>
+            <button class="ui basic button" onclick="transferPatient()"><svg class="ic"><use href="#i-send"/></svg>Transferir</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="two-col" style="margin-top:16px;">
     <div class="ui segment">
         <h3 class="section-title"><svg class="ic"><use href="#i-settings"/></svg>Sensibilidad actual</h3>
@@ -117,6 +134,16 @@ async function loadAll() {
         }).join('');
     }
 
+    // Load therapists into transfer dropdown
+    if (USER_ROLE !== 'viewer') {
+        const therapists = await fetch('/api/users/therapists').then(r => r.json());
+        const sel = document.getElementById('transfer-therapist');
+        if (sel) {
+            sel.innerHTML = '<option value="">Seleccionar terapeuta…</option>'
+                + therapists.map(t => `<option value="${t.id}">${t.name} (${t.email})</option>`).join('');
+        }
+    }
+
     const tbody = document.getElementById('sessions-table');
     if (sessions.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">Sin sesiones</div></td></tr>';
@@ -159,6 +186,25 @@ async function saveSensitivity() {
         body: JSON.stringify({ sensitivities, reason }),
     });
     loadAll();
+}
+
+async function transferPatient() {
+    const sel = document.getElementById('transfer-therapist');
+    const newUserId = sel.value;
+    if (!newUserId) { alert('Selecciona un terapeuta'); return; }
+    if (!confirm('¿Transferir este paciente al terapeuta seleccionado?')) return;
+    const res = await fetch(`/api/patients/${PID}/transfer`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: parseInt(newUserId) }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+        alert('Paciente transferido correctamente');
+        loadAll();
+    } else {
+        alert(data.error || 'Error al transferir');
+    }
 }
 
 loadAll();

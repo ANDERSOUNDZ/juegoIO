@@ -16,10 +16,13 @@
 </div>
 
 <div class="ui segment" style="padding:24px 8px;">
-    <div class="ui three statistics">
+    <div class="ui {{ 'four' if current_user.role == 'admin' else 'three' }} statistics">
         <div class="statistic"><div class="value" id="stat-patients">-</div><div class="label">Pacientes</div></div>
         <div class="statistic"><div class="value" id="stat-sessions">-</div><div class="label">Sesiones</div></div>
         <div class="statistic"><div class="value" id="stat-games">-</div><div class="label">Juegos</div></div>
+        {% if current_user.role == 'admin' %}
+        <div class="statistic"><div class="value" id="stat-therapists">-</div><div class="label">Terapeutas</div></div>
+        {% endif %}
     </div>
 </div>
 
@@ -43,7 +46,8 @@
 
 {% block scripts %}
 <script>
-/* ===== LOGICA JS (conservada) ===== */
+const USER_ROLE = '{{ current_user.role }}';
+
 async function loadDashboard() {
     try {
         const [patients, sessions, games] = await Promise.all([
@@ -55,6 +59,12 @@ async function loadDashboard() {
         document.getElementById('stat-patients').textContent = patients.patients.length;
         document.getElementById('stat-sessions').textContent = sessions.length;
         document.getElementById('stat-games').textContent = games.length;
+
+        // Admin: fetch therapist count
+        if (USER_ROLE === 'admin') {
+            const therapists = await fetch('/api/users/therapists').then(r => r.json());
+            document.getElementById('stat-therapists').textContent = therapists.length;
+        }
 
         const rp = document.getElementById('recent-patients');
 
