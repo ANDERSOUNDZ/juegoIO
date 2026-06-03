@@ -2,8 +2,11 @@ from flask import Blueprint, render_template, redirect, url_for, abort
 from flask_login import login_required, current_user
 
 from src.infrastructure.web.middleware import role_required
+from src.application.game_service import GameService
+from src.infrastructure.persistence.repositories import GameRepository, PlayerGameConfigRepository
 
 main_bp = Blueprint('pages', __name__)
+_game_service = GameService(GameRepository(), PlayerGameConfigRepository())
 
 
 @main_bp.route('/')
@@ -42,6 +45,12 @@ def games_page():
 @login_required
 @role_required('admin', 'therapist')
 def play_game(game_id):
+    try:
+        game = _game_service.get_by_id(game_id)
+        if game and game.config and game.config.get('metadata', {}).get('type') == 'prince':
+            return render_template('play_prince.html', game_id=game_id)
+    except Exception:
+        pass
     return render_template('play.html', game_id=game_id)
 
 

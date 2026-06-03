@@ -154,4 +154,31 @@ UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_ob
     'background', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Fondo Granja Noche' LIMIT 1))
 ))
 WHERE name = 'Pumpkin Panic - Granja Embrujada' AND NOT (config ? 'sprites');
+
+-- ─── JUEGO: Prince of Persia (WASM) ────────────────────────────
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Prince of Persia',
+       'El cl\u00e1sico Prince of Persia de 1990 convertido a WebAssembly. Controla al pr\u00edncipe con gestos de los dedos para escapar del calabozo.',
+       'prince',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Prince of Persia",
+           "type": "prince",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Prince of Persia original corriendo en WebAssembly con control por gestos.",
+           "estimatedDuration": 3600
+         },
+         "controls": {
+           "fingerMap": {
+             "0": "left",
+             "1": "jump",
+             "2": "right",
+             "3": "down",
+             "4": "action"
+           }
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Prince of Persia');
 """
