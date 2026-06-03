@@ -3,7 +3,6 @@
 {% block main_class %}{% endblock %}
 
 {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
 <script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
 <script src="{{ url_for('static', filename='js/play-common.js') }}"></script>
 <script src="{{ url_for('static', filename='games/prince/bridge.js') }}"></script>
@@ -371,6 +370,16 @@ async function initPrince() {
 
         // Inicializar Emscripten Module
         const container = document.getElementById('game-container');
+
+        // Pre-cargar el WASM de MediaPipe ANTES de definir window.Module de Prince.
+        // tasks-vision lee window.Module al instanciar su WASM; si Prince ya lo
+        // definio, capturaria el Module equivocado y abortaria (preloadPlugins).
+        // Al instanciarlo aqui, MediaPipe usa su propio modulo y se reutiliza luego.
+        try {
+            await handInput.preload();
+        } catch (e) {
+            console.warn('[Hand] Pre-carga de MediaPipe fallida; se reintentara al activar la camara', e);
+        }
 
         // Definir Module global antes de cargar prince.js
         window.Module = {
