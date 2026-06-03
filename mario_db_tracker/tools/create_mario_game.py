@@ -614,7 +614,26 @@ def build_game_config(sprite_ids):
     }
 
 
+# ─── HELPERS ────────────────────────────────────────────────────
+
+def fix_sprite_rows(sprite_data):
+    """Pad/truncate pixelmap grid rows to match sprite width."""
+    w = sprite_data.get("width", 0)
+    data = sprite_data.get("data")
+    if not data or not w:
+        return
+    for frame in data.get("frames", []):
+        grid = frame.get("grid", [])
+        for i, row in enumerate(grid):
+            if len(row) < w:
+                grid[i] = row + "." * (w - len(row))
+            elif len(row) > w:
+                grid[i] = row[:w]
+
+
 # ─── API CLIENT ─────────────────────────────────────────────────
+
+class ApiClient:
 
 class ApiClient:
     def __init__(self, base_url, email, password):
@@ -730,6 +749,7 @@ def main():
                     print(f"  Sprite '{name}' ya existe (ID {s['id']}), reutilizando")
                     break
         else:
+            fix_sprite_rows(sprite_data)  # Ensure all rows match sprite width
             result = client.create_sprite(sprite_data)
             sprite_ids[key] = result["id"]
 
