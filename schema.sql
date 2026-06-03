@@ -302,6 +302,138 @@ SELECT 'Mario Bros Terapeutico',
        '{"controls":{"fingerMap":{"0":"jump","1":"right","2":"left","3":"up","4":"down"},"keyboardFallback":true},"entities":{"collectibles":{"color":"#ffd23f","positions":[{"x":55,"y":82},{"x":345,"y":82},{"x":40,"y":262},{"x":200,"y":262},{"x":360,"y":262},{"x":70,"y":422},{"x":330,"y":422}],"scoreValue":100,"spawnRate":0},"enemies":{"ai":"patrol","color":"#30b030","count":0,"height":16,"positions":[{"x":55,"y":88},{"x":345,"y":88},{"x":40,"y":268},{"x":360,"y":268},{"x":70,"y":428},{"x":330,"y":428}],"speed":40,"width":16},"platforms":{"color":"#c84b31","height":14,"layout":"positions","oneWay":true,"positions":[{"h":14,"w":110,"x":55,"y":100},{"h":14,"w":110,"x":345,"y":100},{"h":14,"w":100,"x":40,"y":280},{"h":14,"w":100,"x":200,"y":280},{"h":14,"w":100,"x":360,"y":280},{"h":14,"w":140,"x":70,"y":440},{"h":14,"w":140,"x":330,"y":440},{"h":14,"w":400,"x":200,"y":570}],"static":true,"width":80},"player":{"color":"#dc2020","height":26,"jumpForce":-380,"physics":{"bounce":0,"collideWorldBounds":true},"spawn":{"x":200,"y":520},"speed":160,"width":20}},"events":[{"actions":[{"ai":"patrol","color":"#30b030","count":1,"entity":"enemies","speed":50,"type":"spawn"},{"color":"#ff5c8a","duration":1500,"size":"12px","text":"CUIDADO!","type":"flash_text"}],"trigger":{"delay":25,"repeat":true,"type":"timer"}},{"actions":[{"color":"#ffd23f","duration":2000,"size":"10px","text":"MITAD DEL NIVEL!","type":"flash_text"}],"trigger":{"type":"score","value":500}},{"actions":[{"color":"#ff5c8a","duration":2000,"size":"12px","text":"ULTIMA VIDA!","type":"flash_text"},{"color":"#ff0000","duration":3000,"target":"player","type":"tint"}],"trigger":{"type":"lives","value":1}}],"metadata":{"description":"Juego terapeutico inspirado en Mario Bros. Salta entre plataformas, evita enemigos y colecciona monedas. Ejercita los 5 dedos: pulgar(salto), indice(derecha), medio(izquierda), anular(arriba), menique(abajo).","difficulty":"easy","estimatedDuration":300,"name":"Mario Bros Terapeutico","targetFingers":[0,1,2,3,4],"type":"platformer"},"physics":{"debug":false,"gravity":{"x":0,"y":400},"type":"arcade"},"rules":{"lives":3,"loseCondition":{"type":"fall_off"},"timer":null,"winCondition":{"target":1000,"type":"score"}},"screens":{"gameOver":{"backgroundColor":"#1a0a2e","losePrompt":"SPACE / Cierra un dedo para reintentar","loseTitle":"GAME OVER","loseTitleColor":"#ff5c8a","subtitleColor":"#ffd23f","winPrompt":"SPACE / Cierra un dedo para continuar","winTitle":"NIVEL COMPLETADO!","winTitleColor":"#3ddc97"},"start":{"backgroundColor":"#1a0a2e","delay":400,"prompt":"Salta! [SPACE / dedo pulgar]","promptColor":"#ffffff","promptSize":"7px","subtitle":"Terapeutico","subtitleColor":"#ffd23f","subtitleSize":"10px","title":"MARIO BROS","titleColor":"#dc2020","titleSize":"18px"}},"sprites":{"background":{"sprite_id":10},"coin":{"sprite_id":8},"enemy":{"sprite_id":9},"platform":{"sprite_id":7},"player":{"sprite_id":6}},"version":"1.0","world":{"backgroundColor":"#1a0a2e","camera":{"follow":null,"scrollX":false,"scrollY":false},"height":600,"width":400}}'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Mario Bros Terapeutico');
 
+-- ─── SPRITES: Pumpkin Panic ────────────────────────────────────
+INSERT INTO sprites (name, category, type, width, height, data, image_url, frame_count)
+SELECT * FROM (VALUES
+    ('Granjero Asustado', 'player', 'pixelmap', 16, 20,
+     '{"palette":["#8b4513","#deb887","#f4c896","#2e8b57","#1a5c2e","#4169e1","#2a3d8f","#000000","#ffffff","#ff6347","#c84b31"],"frames":[{"grid":["....00000000....","....00000000....","....08880888....","....08880888....","..22222222222222","..22222222222222","..33333333333333","..33333333333333","..44444444444444","..33333333333333","..33333333333333","..33333333333333","..55555555555555","..55555555555555","..66666666666666","..66666666666666","....5555..5555..","....5555..5555..","....aaaa..aaaa..","....aaaa..aaaa.."]},{"grid":["....00000000....","....00000000....","....08880888....","....08880888....","..22222222222222","..22222222222222","..33333333333333","..33333333333333","..44444444444444","..33333333333333","..33333333333333","..33333333333333","..55555555555555","..55555555555555","..66666666666666","..66666666666666","....5555..5555..","....aaaa..5555..","....aaaa..aaaa..","..........aaaa.."]},{"grid":["....00000000....","....00000000....","....08980898....","....08880888....","..22222222222222","..22222222222222","..33333333333333","..33333333333333","..44444444444444","..33333333333333","..33333333333333","..33333333333333","..55555555555555","..55555555555555","..66666666666666","..66666666666666","....5555..5555..","....5555..5555..","....aaaa..aaaa..","....aaaa..aaaa.."]}]}'::jsonb,
+     NULL::text, 3),
+    ('Calabaza', 'coin', 'pixelmap', 14, 14,
+     '{"palette":["#ff8c00","#ff6600","#2e8b57","#1a5c2e","#000000","#ffa500"],"frames":[{"grid":["......2222......","....22332222....","..000000000000..","..000000000000..","..005500055000..","..005500055000..","..000000000000..","..000000000000..","..000044000000..","..000044000000..","..000000000000..","..111111111111..","....11111111....","......1111......"]},{"grid":["......3322......","....22332222....","..555000005500..","..000000000000..","..005500055000..","..005500055000..","..000000000000..","..000000000000..","..000044000000..","..000044000000..","..000000000000..","..111111111111..","....11111111....","......1111......"]},{"grid":["......2222......","....33332222....","..000000000000..","..550000000055..","..005500055000..","..005500055000..","..000000000000..","..000000000000..","..000044000000..","..000044000000..","..000000000000..","..111111111111..","....11111111....","......1111......"]}]}'::jsonb,
+     NULL::text, 3),
+    ('Fantasma', 'enemy', 'pixelmap', 16, 18,
+     '{"palette":["#e8e8ff","#c8c8e8","#6a0dad","#4b0082","#ff0000","#000000"],"frames":[{"grid":["....00000000....","..000000000000..","..000000000000..","0000000000000000","0000550000550000","0000550000550000","0004440004440000","0000000000000000","0000000000000000","0000033333300000","0000033333300000","0000000000000000","0000000000000000","0000000000000000","0011000000001100","0011000000001100","0011001100110011","0011001100110011"]},{"grid":["....00000000....","..000000000000..","..000000000000..","0000000000000000","0000055000055000","0000055000055000","0000044400044000","0000000000000000","0000000000000000","0000033333300000","0000033333300000","0000000000000000","0000000000000000","0000000000000000","0000110000110000","0000110000110000","0011001100110011","0011001100110011"]}]}'::jsonb,
+     NULL::text, 2),
+    ('Tierra Granja', 'platform', 'pixelmap', 16, 16,
+     '{"palette":["#8b4513","#654321","#2e8b57","#a0522d","#556b2f"],"frames":[{"grid":["2222222222222222","2244224422442244","0000000000000000","0033003300330033","0000000000000000","0000000000000000","1111111111111111","1100110011001100","1111111111111111","1100110011001100","1111111111111111","1111111111111111","1100110011001100","1111111111111111","1100110011001100","1111111111111111"]}]}'::jsonb,
+     NULL::text, 1),
+    ('Cerca Madera', 'other', 'pixelmap', 16, 16,
+     '{"palette":["#8b4513","#a0522d","#654321","#deb887"],"frames":[{"grid":["..00....00....00","..00....00....00","..00....00....00","1111111111111111","1111111111111111","..00....00....00","..00....00....00","..00....00....00","2222222222222222","2222222222222222","..00....00....00","..00....00....00","..00....00....00","..00....00....00","..00....00....00","..00....00....00"]}]}'::jsonb,
+     NULL::text, 1),
+    ('Fondo Granja Noche', 'background', 'pixelmap', 20, 20,
+     '{"palette":["#0a0a2e","#1a1a3e","#2a1a4e","#ffd700","#c0c0c0","#1a3a1a"],"frames":[{"grid":["00000000000000000000","00000000030000000000","00000000000000000000","00100000000000000040","00000000000000000000","00000000000000001000","00000300000000000000","00000000000000000000","11111111111111111111","11111111111111111111","22222222222222222222","22222222222222222222","55555555555555555555","55555555555555555555","55555555555555555555","55555555555555555555","55555555555555555555","55555555555555555555","55555555555555555555","55555555555555555555"]}]}'::jsonb,
+     NULL::text, 1)
+) AS v(name, category, type, width, height, data, image_url, frame_count)
+WHERE NOT EXISTS (SELECT 1 FROM sprites WHERE name = 'Granjero Asustado');
+
+-- ─── JUEGO POR DEFECTO: Pumpkin Panic ─────────────────────────
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Pumpkin Panic - Granja Embrujada',
+       'Recoge calabazas en una granja embrujada mientras esquivas fantasmas. Usa todos los dedos para moverte, saltar y agacharte.',
+       'platformer',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Pumpkin Panic - Granja Embrujada",
+           "type": "platformer",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Recoge calabazas en la granja embrujada esquivando fantasmas. Ejercita todos los dedos.",
+           "estimatedDuration": 300,
+           "theme": "halloween"
+         },
+         "physics": {
+           "type": "arcade",
+           "gravity": { "x": 0, "y": 500 },
+           "debug": false
+         },
+         "world": {
+           "width": 600,
+           "height": 400,
+           "backgroundColor": "#0a0a2e",
+           "camera": {
+             "follow": "player",
+             "scrollY": false,
+             "scrollX": true
+           }
+         },
+         "entities": {
+           "player": {
+             "spawn": { "x": 50, "y": 300 },
+             "width": 16,
+             "height": 20,
+             "color": "#deb887",
+             "speed": 140,
+             "jumpForce": -380,
+             "physics": {
+               "bounce": 0.1,
+               "collideWorldBounds": true
+             }
+           },
+           "platforms": {
+             "static": true,
+             "color": "#8b4513",
+             "width": 80,
+             "height": 16,
+             "layout": "procedural",
+             "procedural": {
+               "count": 20,
+               "minGap": 30,
+               "maxGap": 70,
+               "minWidth": 50,
+               "maxWidth": 140
+             }
+           },
+           "collectibles": {
+             "color": "#ff8c00",
+             "spawnRate": 0.6,
+             "scoreValue": 100,
+             "name": "calabaza"
+           },
+           "enemies": {
+             "count": 5,
+             "color": "#e8e8ff",
+             "width": 16,
+             "height": 18,
+             "ai": "float",
+             "speed": 50,
+             "name": "fantasma"
+           }
+         },
+         "controls": {
+           "fingerMap": {
+             "0": "jump",
+             "1": "right",
+             "2": "left",
+             "3": "duck",
+             "4": "action"
+           },
+           "keyboardFallback": true
+         },
+         "rules": {
+           "winCondition": {
+             "type": "score",
+             "target": 1000
+           },
+           "loseCondition": {
+             "type": "enemy_touch"
+           },
+           "lives": 3,
+           "timer": 180
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Pumpkin Panic - Granja Embrujada');
+
+-- Link sprites to Pumpkin Panic game config
+UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_object(
+    'player', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Granjero Asustado' LIMIT 1)),
+    'platform', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Tierra Granja' LIMIT 1)),
+    'coin', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Calabaza' LIMIT 1)),
+    'enemy', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Fantasma' LIMIT 1)),
+    'background', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Fondo Granja Noche' LIMIT 1))
+))
+WHERE name = 'Pumpkin Panic - Granja Embrujada' AND NOT (config ? 'sprites');
+
 -- ─── CONFIG DE CONTROLES POR PACIENTE+JUEGO ───────────────────
 CREATE TABLE IF NOT EXISTS player_game_config (
     id SERIAL PRIMARY KEY,
