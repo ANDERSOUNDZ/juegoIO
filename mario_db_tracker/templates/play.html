@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Jugar - PIXO Therapy{% endblock %}
+{% block main_class %}{% endblock %}
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
@@ -8,320 +9,89 @@
 <script src="{{ url_for('static', filename='js/sprite-generator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/game-loader.js') }}"></script>
 <style>
-.play-wrapper {
-    display: grid;
-    grid-template-columns: minmax(280px, 320px) 1fr;
-    gap: 12px;
-    height: calc(100vh - 80px);
-}
-.play-wrapper.fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    background: var(--bg-0);
-    padding: 0;
-    grid-template-columns: minmax(240px, 280px) 1fr;
-    height: 100vh;
-}
-
-@media (max-width: 1024px) {
-    .play-wrapper { grid-template-columns: 1fr; }
-    .play-wrapper.fullscreen { grid-template-columns: 1fr; }
-    .navbar-hide { display: none; }
-}
-.play-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    overflow-y: auto;
-    min-width: 0;
-}
-.play-panel-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    color: var(--pixo-ink);
-    font-weight: 800;
-}
-.video-wrap {
-    position: relative;
-    background: #020617;
-    border: 1px solid rgba(148, 163, 184, .24);
-    border-radius: 18px;
-    overflow: hidden;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
-}
-.video-wrap video {
-    width: 100%;
-    display: none;
-}
-.video-wrap canvas.landmarks-canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-}
-.video-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 190px;
-    gap: 10px;
-    padding: 18px;
-    color: #94a3b8;
-    text-align: center;
-}
-.video-placeholder p {
-    color: #94a3b8;
-    font-size: .88rem;
-    margin: 0;
-}
-.btn-cam-toggle {
-    position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 5;
-    min-height: 34px;
-    padding: 0 14px;
-    border-radius: 999px;
-    border: 1px solid rgba(148, 163, 184, .36);
-    background: rgba(15, 23, 42, .82);
-    color: #e2e8f0;
-    font-family: 'Inter', system-ui, sans-serif;
-    font-weight: 800;
-    font-size: .78rem;
-    cursor: pointer;
-    transition: all .15s ease;
-}
-.btn-cam-toggle:hover { border-color: var(--pixo-accent); color: #ffffff; }
-.btn-cam-toggle.active { background: rgba(20,184,166,0.22); border-color: var(--pixo-accent); color: #ccfbf1; }
-.fingers-row {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 7px;
-}
-.finger-ind {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 38px;
-    border-radius: 12px;
-    font-size: .72rem;
-    font-weight: 900;
-    text-align: center;
-    color: var(--pixo-muted);
-    background: #f8fafc;
-    border: 1px solid var(--pixo-border);
-    transition: all .15s ease;
-}
-.finger-ind.active {
-    background: linear-gradient(135deg, var(--pixo-accent), #22c55e);
-    color: #ffffff;
-    border-color: transparent;
-    box-shadow: 0 10px 22px rgba(20,184,166,.22);
-}
-.game-area {
-    position: relative;
-    background: #000;
-    border: 2px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 0;
-    height: 100%;
-}
-#game-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-#game-container > div,
-#game-container canvas {
-    display: block;
-    margin: 0 auto;
-}
-.gear-btn,
-.fs-btn {
-    position: absolute;
-    z-index: 10;
-    width: 42px;
-    height: 42px;
-    background: rgba(15,23,42,.72);
-    border: 1px solid rgba(148,163,184,.34);
-    border-radius: 14px;
-    color: #cbd5e1;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all .15s ease;
-    backdrop-filter: blur(12px);
-}
-.gear-btn { bottom: 16px; right: 16px; }
-.fs-btn { top: 16px; right: 16px; }
-.gear-btn:hover,
-.fs-btn:hover { color: #ffffff; border-color: var(--pixo-accent); background: rgba(20,184,166,.22); }
-.config-overlay {
-    display: none;
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    background: rgba(15, 23, 42, 0.96);
-    padding: 28px;
-    overflow-y: auto;
-    color: #e2e8f0;
-}
-.config-overlay.active { display: flex; flex-direction: column; }
-.config-overlay h2 {
-    color: #ffffff;
-    font-size: 1.35rem;
-    font-weight: 900;
-    text-align: center;
-    margin: 0 0 4px;
-}
-.config-overlay .config-subtitle {
-    color: #94a3b8;
-    font-size: .78rem;
-    font-weight: 800;
-    letter-spacing: .12em;
-    text-align: center;
-    text-transform: uppercase;
-    margin-bottom: 22px;
-}
-.config-row {
-    display: grid;
-    grid-template-columns: 100px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-    padding: 14px;
-    border: 1px solid rgba(148,163,184,.18);
-    border-radius: 16px;
-    background: rgba(255,255,255,.04);
-}
-.config-finger-name {
-    font-size: .86rem;
-    font-weight: 900;
-}
-.config-slider-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.config-slider-wrap input[type="range"] {
-    flex: 1;
-    accent-color: var(--pixo-accent);
-    height: 6px;
-}
-.config-val {
-    width: 38px;
-    text-align: right;
-    font-size: .9rem;
-    font-weight: 900;
-    color: #5eead4;
-}
-.config-actions {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-}
-.config-actions button {
-    min-height: 32px;
-    padding: 0 10px;
-    font-family: 'Inter', system-ui, sans-serif;
-    font-weight: 900;
-    font-size: .72rem;
-    border: 1px solid rgba(148,163,184,.28);
-    border-radius: 10px;
-    background: rgba(15,23,42,.65);
-    color: #cbd5e1;
-    cursor: pointer;
-    transition: all .12s ease;
-}
-.config-actions button.selected {
-    background: linear-gradient(135deg, #f97316, #dc2626);
-    color: #ffffff;
-    border-color: transparent;
-}
-.config-actions button:hover:not(.selected) {
-    border-color: var(--pixo-accent);
-    color: #ffffff;
-}
-.config-bottom {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 18px;
-    flex-wrap: wrap;
-}
-.config-status {
-    font-size: .85rem;
-    font-weight: 800;
-    color: #5eead4;
-    text-align: center;
-    margin-top: 12px;
-    min-height: 20px;
-}
-.play-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-}
-#session-timer {
-    display: inline-flex;
-    align-items: center;
-    min-height: 38px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: #eef2ff;
-    color: var(--pixo-primary);
-    font-weight: 900;
-    letter-spacing: .02em;
-}
-@media (max-width: 980px) {
-    .play-wrapper,
-    .play-wrapper.fullscreen {
-        grid-template-columns: 1fr;
-    }
-    .play-wrapper.fullscreen { overflow-y: auto; }
-    .game-area { min-height: 420px; }
-    .config-row { grid-template-columns: 1fr; }
-    .config-actions { justify-content: flex-start; }
+.play-wrapper{display:grid;grid-template-columns:minmax(280px,320px) 1fr;gap:14px;
+  max-width:1180px;margin:0 auto;padding:16px 20px 24px;height:calc(100vh - 60px);}
+.play-wrapper.fullscreen{position:fixed;inset:0;z-index:200;max-width:none;background:var(--bg);
+  padding:12px;grid-template-columns:minmax(240px,280px) 1fr;height:100vh;}
+.play-sidebar{display:flex;flex-direction:column;gap:12px;overflow-y:auto;min-width:0;}
+.play-sidebar .ui.segment{margin:0;}
+.panel-title{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-weight:700;color:var(--ink);font-size:.96rem;}
+.panel-title .ic{width:17px;height:17px;color:var(--muted);}
+.video-wrap{position:relative;background:#020617;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.video-wrap video{width:100%;display:none;}
+.video-wrap canvas.landmarks-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.video-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:190px;
+  gap:10px;padding:18px;color:#94a3b8;text-align:center;}
+.video-placeholder .ic{width:30px;height:30px;}
+.video-placeholder p{color:#94a3b8;font-size:.86rem;margin:0;}
+.btn-cam-toggle{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:5;min-height:34px;
+  padding:0 14px;border-radius:999px;border:1px solid rgba(148,163,184,.36);background:rgba(15,23,42,.82);
+  color:#e2e8f0;font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer;transition:all .15s ease;}
+.btn-cam-toggle:hover{border-color:var(--teal);color:#fff;}
+.btn-cam-toggle.active{background:rgba(14,159,142,.22);border-color:var(--teal);color:#ccfbf1;}
+.fingers-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;}
+.finger-ind{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:10px;
+  font-size:.72rem;font-weight:800;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);transition:all .15s ease;}
+.finger-ind.active{background:linear-gradient(135deg,var(--teal),#22c55e);color:#fff;border-color:transparent;box-shadow:0 8px 18px var(--teal-soft);}
+.play-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+#session-timer{display:inline-flex;align-items:center;min-height:38px;padding:0 14px;border-radius:999px;
+  background:var(--brand-soft);color:var(--brand);font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums;}
+.game-area{position:relative;background:#000;border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+#game-container > div,#game-container canvas{display:block;margin:0 auto;}
+.gear-btn,.fs-btn{position:absolute;z-index:10;width:42px;height:42px;background:rgba(15,23,42,.72);
+  border:1px solid rgba(148,163,184,.34);border-radius:12px;color:#cbd5e1;cursor:pointer;display:inline-flex;
+  align-items:center;justify-content:center;transition:all .15s ease;backdrop-filter:blur(12px);}
+.gear-btn{bottom:16px;right:16px;}
+.fs-btn{top:16px;right:16px;}
+.gear-btn .ic,.fs-btn .ic{width:20px;height:20px;}
+.gear-btn:hover,.fs-btn:hover{color:#fff;border-color:var(--teal);background:rgba(14,159,142,.22);}
+.config-overlay{display:none;position:absolute;inset:0;z-index:20;background:rgba(15,23,42,.96);padding:28px;overflow-y:auto;color:#e2e8f0;}
+.config-overlay.active{display:flex;flex-direction:column;}
+.config-overlay h2{color:#fff;font-size:1.3rem;font-weight:800;text-align:center;margin:0 0 4px;}
+.config-overlay .config-subtitle{color:#94a3b8;font-size:.74rem;font-weight:700;letter-spacing:.12em;text-align:center;text-transform:uppercase;margin-bottom:22px;}
+.config-row{display:grid;grid-template-columns:100px minmax(0,1fr) auto;align-items:center;gap:12px;margin-bottom:12px;
+  padding:14px;border:1px solid rgba(148,163,184,.18);border-radius:14px;background:rgba(255,255,255,.04);}
+.config-finger-name{font-size:.86rem;font-weight:800;}
+.config-slider-wrap{display:flex;align-items:center;gap:10px;}
+.config-slider-wrap input[type="range"]{flex:1;accent-color:var(--teal);height:6px;}
+.config-val{width:38px;text-align:right;font-size:.9rem;font-weight:800;color:#5eead4;}
+.config-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;}
+.config-actions button{min-height:32px;padding:0 10px;font-family:inherit;font-weight:800;font-size:.7rem;
+  border:1px solid rgba(148,163,184,.28);border-radius:9px;background:rgba(15,23,42,.65);color:#cbd5e1;cursor:pointer;transition:all .12s ease;}
+.config-actions button.selected{background:linear-gradient(135deg,#f97316,#dc2626);color:#fff;border-color:transparent;}
+.config-actions button:hover:not(.selected){border-color:var(--teal);color:#fff;}
+.config-bottom{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.config-status{font-size:.85rem;font-weight:700;color:#5eead4;text-align:center;margin-top:12px;min-height:20px;}
+@media(max-width:1024px){
+  .play-wrapper,.play-wrapper.fullscreen{grid-template-columns:1fr;height:auto;}
+  .play-wrapper.fullscreen{overflow-y:auto;}
+  .game-area{min-height:420px;}
+  .config-row{grid-template-columns:1fr;}
+  .config-actions{justify-content:flex-start;}
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="play-wrapper" id="play-wrapper">
-    <!-- SIDEBAR -->
     <div class="play-sidebar">
-        <!-- Video -->
-        <div class="card uk-card uk-card-default uk-card-small">
-            <div class="play-panel-title"><span uk-icon="icon: video-camera; ratio: .9"></span>Camara y seguimiento</div>
+        <div class="ui segment">
+            <div class="panel-title"><svg class="ic"><use href="#i-video"/></svg>Cámara y seguimiento</div>
             <div class="video-wrap" id="video-container">
                 <video id="camera" autoplay playsinline muted></video>
                 <canvas class="landmarks-canvas" id="landmarks-canvas"></canvas>
                 <div class="video-placeholder" id="camera-placeholder">
-                    <span uk-icon="icon: camera; ratio: 1.4"></span>
-                    <p id="camera-status-text">Camara desactivada</p>
+                    <svg class="ic"><use href="#i-camera"/></svg>
+                    <p id="camera-status-text">Cámara desactivada</p>
                 </div>
-                <button class="btn-cam-toggle" id="btn-camera" onclick="toggleCamera()">Activar camara</button>
+                <button class="btn-cam-toggle" id="btn-camera" onclick="toggleCamera()">Activar cámara</button>
             </div>
         </div>
 
-        <!-- Finger indicators -->
-        <div class="card uk-card uk-card-default uk-card-small">
-            <div class="play-panel-title"><span uk-icon="icon: bolt; ratio: .9"></span>Dedos activos</div>
+        <div class="ui segment">
+            <div class="panel-title"><svg class="ic"><use href="#i-bolt"/></svg>Dedos activos</div>
             <div class="fingers-row">
                 <div class="finger-ind" data-finger="0">PUL</div>
                 <div class="finger-ind" data-finger="1">IND</div>
@@ -331,37 +101,29 @@
             </div>
         </div>
 
-        <!-- Toolbar -->
-        <div class="card uk-card uk-card-default uk-card-small">
-            <div class="play-toolbar" style="flex-wrap:wrap;">
+        <div class="ui segment">
+            <div class="play-toolbar">
                 <span id="session-timer">00:00</span>
-                <div class="uk-flex uk-flex-middle uk-grid-small" uk-grid>
-                    <div><button class="btn" onclick="restartGame()" title="Reiniciar juego"><span uk-icon="icon: refresh; ratio: .85"></span>Reiniciar</button></div>
-                    <div><button class="btn btn-danger" onclick="endGame()">Salir</button></div>
+                <div style="display:flex;gap:8px;">
+                    <button class="ui basic button" onclick="restartGame()" title="Reiniciar juego"><svg class="ic"><use href="#i-refresh"/></svg>Reiniciar</button>
+                    <button class="ui red button" onclick="endGame()">Salir</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- GAME AREA -->
     <div class="game-area" id="game-area">
         <div id="game-container"></div>
-
-        <!-- Gear icon (inside game) -->
-        <button class="gear-btn" onclick="toggleConfig()" title="Configuracion"><span uk-icon="icon: settings; ratio: 1.05"></span></button>
-
-        <!-- Fullscreen btn (inside game) -->
-        <button class="fs-btn" onclick="toggleFullscreen()" title="Pantalla completa (F11)"><span uk-icon="icon: expand; ratio: 1.05"></span></button>
-
-        <!-- Config overlay (inside game) -->
+        <button class="gear-btn" onclick="toggleConfig()" title="Configuración"><svg class="ic"><use href="#i-settings"/></svg></button>
+        <button class="fs-btn" onclick="toggleFullscreen()" title="Pantalla completa (F11)"><svg class="ic"><use href="#i-expand"/></svg></button>
         <div class="config-overlay" id="config-overlay">
             <h2>CONFIG</h2>
             <p class="config-subtitle">Sensibilidad y controles</p>
             <div id="config-rows"></div>
             <div class="config-bottom">
-                <button class="btn" onclick="resetConfig()">Reset</button>
-                <button class="btn btn-primary" onclick="saveConfig()">Guardar</button>
-                <button class="btn" onclick="toggleConfig()">Cerrar</button>
+                <button class="ui basic button" onclick="resetConfig()">Reset</button>
+                <button class="ui primary button" onclick="saveConfig()">Guardar</button>
+                <button class="ui basic button" onclick="toggleConfig()">Cerrar</button>
             </div>
             <p class="config-status" id="config-status"></p>
         </div>
@@ -371,6 +133,7 @@
 
 {% block scripts %}
 <script>
+/* ===== LOGICA JS (conservada del template original) ===== */
 const GAME_ID = {{ game_id }};
 const params = new URLSearchParams(window.location.search);
 const SESSION_ID = parseInt(params.get('session_id'));
@@ -378,32 +141,22 @@ const PATIENT_ID = parseInt(params.get('patient_id'));
 
 const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
 const actionLabels = [
-    { key: 'jump', label: 'JUMP' },
-    { key: 'right', label: 'RIGHT' },
-    { key: 'left', label: 'LEFT' },
-    { key: 'up', label: 'UP' },
-    { key: 'down', label: 'DOWN' },
-    { key: 'interact', label: 'INTERACT' },
-    { key: 'none', label: 'NONE' },
+    { key: 'jump', label: 'JUMP' }, { key: 'right', label: 'RIGHT' }, { key: 'left', label: 'LEFT' },
+    { key: 'up', label: 'UP' }, { key: 'down', label: 'DOWN' }, { key: 'interact', label: 'INTERACT' }, { key: 'none', label: 'NONE' },
 ];
 
 let currentSensitivity = [50, 50, 50, 50, 50];
-let currentFingerMap = { 0:'jump', 1:'right', 2:'left', 3:'none', 4:'none' };
+let currentFingerMap = { 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' };
 let defaultFingerMap = {};
 let sessionStartTime = Date.now();
 let gameInstance = null;
 let cameraEnabled = false;
 
-// HAND LANDMARK CONNECTIONS
 const CONNECTIONS = [
-    [0,1],[1,2],[2,3],[3,4],
-    [0,5],[5,6],[6,7],[7,8],
-    [0,9],[9,10],[10,11],[11,12],
-    [0,13],[13,14],[14,15],[15,16],
-    [0,17],[17,18],[18,19],[19,20],
+    [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],
+    [0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],
 ];
 
-// TIMER
 setInterval(() => {
     const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
     const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
@@ -411,44 +164,27 @@ setInterval(() => {
     document.getElementById('session-timer').textContent = `${m}:${s}`;
 }, 1000);
 
-// HAND INPUT
 const handInput = new HandInput();
 
 handInput.onFingers((fingers) => {
     const inds = document.querySelectorAll('.finger-ind');
-    fingers.forEach((f, i) => {
-        if (inds[i]) inds[i].classList.toggle('active', f === 1);
-    });
-    // Draw landmarks on canvas overlay
+    fingers.forEach((f, i) => { if (inds[i]) inds[i].classList.toggle('active', f === 1); });
     drawLandmarks(handInput.landmarks, fingers);
 });
 
-handInput.onConnect(() => {
-    if (SESSION_ID) {
-        handInput._sessionId = SESSION_ID;
-    }
-});
+handInput.onConnect(() => { if (SESSION_ID) handInput._sessionId = SESSION_ID; });
 
-// LANDMARKS DRAWING
 function drawLandmarks(lm, fingers) {
     const canvas = document.getElementById('landmarks-canvas');
     const video = document.getElementById('camera');
     if (!canvas || !video || video.style.display === 'none') return;
-
-    // Match canvas size to video
     const rect = video.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
-
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     if (!lm || lm.length < 21) return;
-
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // Draw connections
+    const w = canvas.width, h = canvas.height;
     ctx.strokeStyle = 'rgba(0, 128, 255, 0.6)';
     ctx.lineWidth = 2;
     for (const [a, b] of CONNECTIONS) {
@@ -457,15 +193,11 @@ function drawLandmarks(lm, fingers) {
         ctx.lineTo(lm[b][0] * w, lm[b][1] * h);
         ctx.stroke();
     }
-
-    // Draw points
-    // Finger tip indices: 4(thumb), 8(index), 12(middle), 16(ring), 20(pinky)
     const tips = [4, 8, 12, 16, 20];
     for (let i = 0; i < lm.length; i++) {
         const isTip = tips.indexOf(i);
         const isActive = isTip >= 0 && fingers && fingers[isTip] === 1;
         const radius = isTip >= 0 ? 5 : 3;
-
         ctx.beginPath();
         ctx.arc(lm[i][0] * w, lm[i][1] * h, radius, 0, Math.PI * 2);
         ctx.fillStyle = isActive ? '#3ddc97' : (isTip >= 0 ? '#ffd23f' : '#00ff00');
@@ -473,18 +205,15 @@ function drawLandmarks(lm, fingers) {
     }
 }
 
-// CAMERA TOGGLE
 async function toggleCamera() {
     const videoEl = document.getElementById('camera');
     const placeholder = document.getElementById('camera-placeholder');
     const btn = document.getElementById('btn-camera');
     const statusText = document.getElementById('camera-status-text');
-
     if (!cameraEnabled) {
         btn.disabled = true;
-        btn.textContent = 'Activando...';
-        statusText.textContent = 'Inicializando camara...';
-
+        btn.textContent = 'Activando…';
+        statusText.textContent = 'Inicializando cámara…';
         try {
             await handInput.connect();
             cameraEnabled = true;
@@ -492,8 +221,8 @@ async function toggleCamera() {
             placeholder.style.display = 'none';
             updateCameraButtons();
         } catch (err) {
-            statusText.textContent = 'Error: no se pudo acceder a la camara';
-            statusText.style.color = 'var(--accent-2)';
+            statusText.textContent = 'No se pudo acceder a la cámara';
+            statusText.style.color = 'var(--danger)';
             btn.textContent = 'Reintentar';
             btn.disabled = false;
             console.error('[Camera]', err);
@@ -504,39 +233,30 @@ async function toggleCamera() {
         cameraEnabled = false;
         handInput.disconnect();
         videoEl.style.display = 'none';
-        // Clear landmarks
         const lc = document.getElementById('landmarks-canvas');
         if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
         placeholder.style.display = 'flex';
-        statusText.textContent = 'Camara desactivada';
-        statusText.style.color = 'var(--ink-dim)';
-        btn.textContent = 'Activar camara';
+        statusText.textContent = 'Cámara desactivada';
+        statusText.style.color = '#94a3b8';
+        btn.textContent = 'Activar cámara';
         updateCameraButtons();
     }
 }
 
 function updateCameraButtons() {
     const btn = document.getElementById('btn-camera');
-    if (cameraEnabled) {
-        btn.textContent = 'Desactivar camara';
-        btn.classList.add('active');
-    } else {
-        btn.textContent = 'Activar camara';
-        btn.classList.remove('active');
-    }
+    if (cameraEnabled) { btn.textContent = 'Desactivar cámara'; btn.classList.add('active'); }
+    else { btn.textContent = 'Activar cámara'; btn.classList.remove('active'); }
 }
 
-// FULLSCREEN
 function toggleFullscreen() {
     const wrapper = document.getElementById('play-wrapper');
-    const nav = document.querySelector('.navbar');
-
+    const nav = document.querySelector('.pixo-nav');
     if (!document.fullscreenElement) {
         wrapper.requestFullscreen().then(() => {
             wrapper.classList.add('fullscreen');
             if (nav) nav.style.display = 'none';
         }).catch(() => {
-            // Fallback: CSS fullscreen
             wrapper.classList.toggle('fullscreen');
             if (nav) nav.style.display = wrapper.classList.contains('fullscreen') ? 'none' : '';
         });
@@ -550,44 +270,33 @@ function toggleFullscreen() {
 
 document.addEventListener('fullscreenchange', () => {
     const wrapper = document.getElementById('play-wrapper');
-    const nav = document.querySelector('.navbar');
+    const nav = document.querySelector('.pixo-nav');
     if (!document.fullscreenElement) {
         wrapper.classList.remove('fullscreen');
         if (nav) nav.style.display = '';
     }
 });
 
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'F11') {
-        e.preventDefault();
-        toggleFullscreen();
-    }
-});
+document.addEventListener('keydown', (e) => { if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); } });
 
-// CONFIG OVERLAY
-function toggleConfig() {
-    document.getElementById('config-overlay').classList.toggle('active');
-}
+function toggleConfig() { document.getElementById('config-overlay').classList.toggle('active'); }
 
 function buildConfigUI() {
     const container = document.getElementById('config-rows');
     container.innerHTML = fingerNames.map((name, i) => {
-        const fingerColor = handInput.fingers[i] ? 'var(--accent-3)' : 'var(--accent)';
+        const fingerColor = handInput.fingers[i] ? 'var(--teal)' : 'var(--brand)';
         return `
         <div class="config-row">
             <span class="config-finger-name" style="color:${fingerColor}">${name}</span>
             <div class="config-slider-wrap">
-                <input type="range" min="0" max="100" value="${currentSensitivity[i]}"
-                    oninput="onSensChange(${i}, this.value)">
+                <input type="range" min="0" max="100" value="${currentSensitivity[i]}" oninput="onSensChange(${i}, this.value)">
                 <span class="config-val" id="sens-val-${i}">${currentSensitivity[i]}</span>
             </div>
             <div class="config-actions">
                 ${actionLabels.map(a => `
                     <button data-finger="${i}" data-action="${a.key}"
                         class="${currentFingerMap[i] === a.key ? 'selected' : ''}"
-                        onclick="onActionChange(${i}, '${a.key}', this)">
-                        ${a.label}
-                    </button>
+                        onclick="onActionChange(${i}, '${a.key}', this)">${a.label}</button>
                 `).join('')}
             </div>
         </div>`;
@@ -608,9 +317,7 @@ function onActionChange(finger, action, btn) {
     btn.classList.add('selected');
     if (gameInstance) {
         const scene = gameInstance.scene.getScene('PlayScene');
-        if (scene && scene._fingerMap) {
-            scene._fingerMap[String(finger)] = action;
-        }
+        if (scene && scene._fingerMap) scene._fingerMap[String(finger)] = action;
     }
 }
 
@@ -625,23 +332,17 @@ function resetConfig() {
 async function saveConfig() {
     const fingerMapObj = {};
     for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
-
-    // Apply to live scene immediately
     if (gameInstance) {
         const scene = gameInstance.scene.getScene('PlayScene');
-        if (scene && scene._fingerMap) {
-            Object.assign(scene._fingerMap, fingerMapObj);
-        }
+        if (scene && scene._fingerMap) Object.assign(scene._fingerMap, fingerMapObj);
     }
     handInput.setSensitivity(currentSensitivity);
-
-    // Persist to DB
     await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sensitivities: currentSensitivity, finger_map: fingerMapObj }),
     });
-    showStatus('Config guardada!');
+    showStatus('¡Config guardada!');
 }
 
 function showStatus(msg) {
@@ -650,29 +351,23 @@ function showStatus(msg) {
     setTimeout(() => { el.textContent = ''; }, 2000);
 }
 
-// RESTART GAME
 function restartGame() {
     if (!gameInstance) return;
     const scene = gameInstance.scene.getScene('PlayScene');
-    if (scene) {
-        scene.scene.restart();
-    }
+    if (scene) scene.scene.restart();
 }
 
-// INIT GAME
 async function initGame() {
     try {
         const gameConfig = await fetch(`/api/games/${GAME_ID}/config`).then(r => r.json());
         const playerConfig = await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`).then(r => r.json());
 
         const gameControls = gameConfig.controls || {};
-        defaultFingerMap = gameControls.fingerMap || { 0:'jump', 1:'right', 2:'left', 3:'none', 4:'none' };
+        defaultFingerMap = gameControls.fingerMap || { 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' };
 
         currentSensitivity = playerConfig.sensitivities || [50, 50, 50, 50, 50];
         const fm = playerConfig.finger_map || defaultFingerMap;
-        for (let i = 0; i < 5; i++) {
-            currentFingerMap[i] = fm[String(i)] || fm[i] || 'none';
-        }
+        for (let i = 0; i < 5; i++) currentFingerMap[i] = fm[String(i)] || fm[i] || 'none';
 
         handInput.setSensitivity(currentSensitivity);
 
@@ -681,37 +376,24 @@ async function initGame() {
         for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
         gameConfig.controls.fingerMap = fingerMapObj;
 
-        // Resolve sprite_ids to full sprite data
         await resolveSprites(gameConfig);
 
         buildConfigUI();
-        gameInstance = GameLoader.load(gameConfig, 'game-container', handInput, (score, won) => {
-            endGame(score);
-        });
+        gameInstance = GameLoader.load(gameConfig, 'game-container', handInput, (score, won) => { endGame(score); });
     } catch (e) {
         console.error('Error loading game:', e);
         document.getElementById('game-container').innerHTML =
-            '<div class="uk-alert uk-alert-danger">Error cargando el juego</div>';
+            '<div class="ui negative message" style="max-width:340px;">Error cargando el juego</div>';
     }
 }
 
-/**
- * Resolve sprite_id references in config.sprites to full sprite objects.
- * config.sprites = { player: { sprite_id: 3 }, ... }
- *   -> config.sprites = { player: { id:3, type:"pixelmap", data:{...}, ... }, ... }
- */
 async function resolveSprites(config) {
     if (!config.sprites) return;
-    const ids = [];
-    const roles = [];
+    const ids = [], roles = [];
     for (const [role, ref] of Object.entries(config.sprites)) {
-        if (ref && ref.sprite_id) {
-            ids.push(ref.sprite_id);
-            roles.push(role);
-        }
+        if (ref && ref.sprite_id) { ids.push(ref.sprite_id); roles.push(role); }
     }
     if (!ids.length) return;
-
     const res = await fetch('/api/sprites/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -720,12 +402,9 @@ async function resolveSprites(config) {
     const spritesData = await res.json();
     const byId = {};
     for (const s of spritesData) byId[s.id] = s;
-
     for (const role of roles) {
         const sid = config.sprites[role].sprite_id;
-        if (byId[sid]) {
-            config.sprites[role] = byId[sid];
-        }
+        if (byId[sid]) config.sprites[role] = byId[sid];
     }
 }
 

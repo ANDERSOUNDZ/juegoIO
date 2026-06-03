@@ -3,51 +3,45 @@
 
 {% block content %}
 <div id="patient-info">
-    <div class="card uk-card uk-card-default empty-state"><p class="muted">Cargando...</p></div>
+    <div class="ui segment loading-pad">Cargando…</div>
 </div>
 
-<div class="pixo-grid-2 uk-margin-medium-top">
-    <!-- Sensibilidad -->
-    <div class="card uk-card uk-card-default uk-card-small">
-        <h2 class="section-heading"><span uk-icon="icon: settings; ratio: .9"></span>Sensibilidad actual</h2>
-        <div id="sensitivity-config">
-            <p class="muted">Cargando...</p>
-        </div>
-        <div class="uk-margin-medium-top">
-            <h3 class="section-heading" style="font-size:.92rem;"><span uk-icon="icon: list; ratio: .85"></span>Presets disponibles</h3>
+<div class="two-col" style="margin-top:16px;">
+    <div class="ui segment">
+        <h3 class="section-title"><svg class="ic"><use href="#i-settings"/></svg>Sensibilidad actual</h3>
+        <div class="ui divider"></div>
+        <div id="sensitivity-config"><p class="muted">Cargando…</p></div>
+        <div style="margin-top:22px;">
+            <h3 class="section-title" style="font-size:.92rem;"><svg class="ic"><use href="#i-list"/></svg>Presets disponibles</h3>
+            <div class="ui divider"></div>
             <div id="presets-list"></div>
         </div>
     </div>
 
-    <!-- Historial de sensibilidad -->
-    <div class="card uk-card uk-card-default uk-card-small">
-        <h2 class="section-heading"><span uk-icon="icon: history; ratio: .9"></span>Historial de cambios</h2>
-        <div id="sensitivity-history">
-            <p class="muted">Cargando...</p>
-        </div>
+    <div class="ui segment">
+        <h3 class="section-title"><svg class="ic"><use href="#i-history"/></svg>Historial de cambios</h3>
+        <div class="ui divider"></div>
+        <div id="sensitivity-history"><p class="muted">Cargando…</p></div>
     </div>
 </div>
 
-<!-- Sesiones -->
-<div class="card uk-card uk-card-default uk-card-small uk-margin-medium-top">
-    <div class="card-header">
-        <h2 class="section-heading"><span uk-icon="icon: play-circle; ratio: .9"></span>Sesiones de juego</h2>
-    </div>
-    <div class="uk-overflow-auto">
-        <table class="uk-table uk-table-divider uk-table-middle uk-table-small">
-            <thead>
-                <tr><th>Juego</th><th>Fecha</th><th>Score</th><th>Duracion</th><th></th></tr>
-            </thead>
-            <tbody id="sessions-table">
-                <tr><td colspan="5" class="muted">Cargando...</td></tr>
-            </tbody>
-        </table>
-    </div>
+<div class="ui segment" style="margin-top:16px;">
+    <h3 class="section-title"><svg class="ic"><use href="#i-play"/></svg>Sesiones de juego</h3>
+    <div class="ui divider"></div>
+    <table class="ui very basic table" style="margin:0;">
+        <thead>
+            <tr><th>Juego</th><th>Fecha</th><th>Score</th><th>Duración</th><th class="right aligned"></th></tr>
+        </thead>
+        <tbody id="sessions-table">
+            <tr><td colspan="5" class="muted">Cargando…</td></tr>
+        </tbody>
+    </table>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+/* ===== LOGICA JS (conservada del template original) ===== */
 const PID = {{ patient_id }};
 const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
 
@@ -60,25 +54,24 @@ async function loadAll() {
         fetch(`/api/patients/${PID}/sensitivity/history`).then(r => r.json()),
     ]);
 
-    // Patient info
     document.getElementById('patient-info').innerHTML = `
-        <section class="card uk-card uk-card-default uk-card-small">
-            <div class="card-header uk-margin-remove-bottom">
+        <div class="ui segment">
+            <div class="toolbar" style="margin:0;">
                 <div>
-                    <span class="page-kicker"><span uk-icon="icon: user; ratio: .85"></span>Ficha del paciente</span>
-                    <h1 class="page-title">${patient.name}</h1>
-                    <p class="page-subtitle">
+                    <h1 class="ui header page-title">${patient.name}</h1>
+                    <p class="page-sub">
                         ${patient.age ? 'Edad: ' + patient.age : 'Edad no registrada'}
-                        ${patient.diagnosis ? ' | ' + patient.diagnosis : ''}
+                        ${patient.diagnosis ? ' · ' + patient.diagnosis : ''}
                     </p>
                 </div>
-                <a href="/games" class="btn btn-play"><span uk-icon="icon: play-circle; ratio: .85"></span>Jugar</a>
+                <div class="acts">
+                    <a href="/games" class="ui primary button"><svg class="ic"><use href="#i-play"/></svg>Jugar</a>
+                </div>
             </div>
-        </section>
-        ${patient.notes ? '<div class="card uk-card uk-card-default uk-card-small uk-margin-medium-top"><h2 class="section-heading"><span uk-icon="icon: file-text; ratio: .9"></span>Notas clinicas</h2><p class="muted uk-margin-remove-bottom">' + patient.notes + '</p></div>' : ''}
+            ${patient.notes ? `<div class="ui divider"></div><div style="display:flex;gap:9px;align-items:flex-start;color:var(--muted);font-size:.92rem;"><svg class="ic" style="width:16px;height:16px;margin-top:3px;color:var(--faint);"><use href="#i-file"/></svg><span>${patient.notes}</span></div>` : ''}
+        </div>
     `;
 
-    // Sensitivity
     const sensDiv = document.getElementById('sensitivity-config');
     const currentSens = sens.sensitivities || [50, 50, 50, 50, 50];
     sensDiv.innerHTML = fingerNames.map((name, i) => `
@@ -88,43 +81,42 @@ async function loadAll() {
             <span class="sens-value">${currentSens[i]}</span>
         </div>
     `).join('') + `
-        <div class="form-group uk-margin-medium-top">
-            <label>Razon del cambio</label>
-            <input type="text" id="sens-reason" class="form-control uk-input" placeholder="Opcional">
+        <div class="ui form" style="margin-top:16px;">
+            <div class="field">
+                <label>Razón del cambio</label>
+                <input type="text" id="sens-reason" placeholder="Opcional">
+            </div>
         </div>
-        <button class="btn btn-primary" onclick="saveSensitivity()"><span uk-icon="icon: check; ratio: .85"></span>Guardar sensibilidad</button>
+        <button class="ui primary button" style="margin-top:6px;" onclick="saveSensitivity()"><svg class="ic"><use href="#i-check"/></svg>Guardar sensibilidad</button>
     `;
 
-    // Presets
     const presetsDiv = document.getElementById('presets-list');
     presetsDiv.innerHTML = presets.map(p => `
-        <div class="pixo-list-item">
-            <div>
-                <span class="pixo-list-title text-accent">${p.name}</span>
-                <span class="uk-label pixo-label uk-margin-small-left">[${p.sensitivities.join(', ')}]</span>
+        <div class="pixo-row">
+            <div class="t">
+                <span class="text-accent">${p.name}</span>
+                <span class="ui basic label" style="margin-left:9px;">${p.sensitivities.join(', ')}</span>
             </div>
-            <button class="btn-sm" onclick="applyPreset(${JSON.stringify(p.sensitivities).replace(/"/g, '&quot;')}, ${p.id})" style="cursor:pointer;">Aplicar</button>
+            <button class="ui mini basic button" onclick="applyPreset(${JSON.stringify(p.sensitivities).replace(/"/g, '&quot;')}, ${p.id})">Aplicar</button>
         </div>
     `).join('');
 
-    // History
     const histDiv = document.getElementById('sensitivity-history');
     if (history.length === 0) {
-        histDiv.innerHTML = '<div class="empty-state"><p class="muted">Sin cambios registrados</p></div>';
+        histDiv.innerHTML = '<div class="empty-state">Sin cambios registrados</div>';
     } else {
         histDiv.innerHTML = history.slice(0, 10).map(h => {
             const date = new Date(h.changed_at).toLocaleDateString('es');
-            return `<div class="pixo-list-item uk-display-block">
-                <div class="pixo-list-meta">${date} ${h.reason ? '- ' + h.reason : ''}</div>
-                <div class="pixo-list-title uk-margin-small-top">[${(h.old_sensitivities || []).join(', ')}] &rarr; [${h.new_sensitivities.join(', ')}]</div>
+            return `<div class="pixo-row" style="display:block;">
+                <div class="d">${date} ${h.reason ? '· ' + h.reason : ''}</div>
+                <div class="t" style="margin-top:3px;font-variant-numeric:tabular-nums;">[${(h.old_sensitivities || []).join(', ')}] → [${h.new_sensitivities.join(', ')}]</div>
             </div>`;
         }).join('');
     }
 
-    // Sessions
     const tbody = document.getElementById('sessions-table');
     if (sessions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p class="muted">Sin sesiones</p></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">Sin sesiones</div></td></tr>';
     } else {
         tbody.innerHTML = sessions.map(s => {
             const date = new Date(s.started_at).toLocaleDateString('es');
@@ -134,11 +126,11 @@ async function loadAll() {
                 dur = `${Math.floor(secs/60)}m ${secs%60}s`;
             }
             return `<tr>
-                <td><span class="pixo-list-title">${s.game_name || 'Juego'}</span></td>
+                <td style="font-weight:700;">${s.game_name || 'Juego'}</td>
                 <td>${date}</td>
-                <td><span class="uk-label pixo-label">${s.score || 0}</span></td>
+                <td><span class="ui label score">${s.score || 0}</span></td>
                 <td>${dur}</td>
-                <td><a href="/sessions/${s.id}/report" class="btn-sm">Reporte</a></td>
+                <td class="right aligned"><a href="/sessions/${s.id}/report" class="ui mini basic button">Reporte</a></td>
             </tr>`;
         }).join('');
     }
@@ -158,7 +150,6 @@ async function saveSensitivity() {
     const sliders = document.querySelectorAll('.sens-slider input[type="range"]');
     const sensitivities = Array.from(sliders).map(s => parseInt(s.value));
     const reason = document.getElementById('sens-reason').value;
-
     await fetch(`/api/patients/${PID}/sensitivity`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

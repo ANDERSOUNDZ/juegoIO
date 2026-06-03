@@ -2,80 +2,47 @@
 {% block title %}Juegos - PIXO Therapy{% endblock %}
 
 {% block content %}
-<style>
-.pixo-dropdown { position: relative; }
-.pixo-dropdown-menu {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 1010;
-    max-height: 220px;
-    overflow-y: auto;
-    background: var(--pixo-surface-strong, #fff);
-    border: 1px solid var(--pixo-border, #e2e8f0);
-    border-top: none;
-    border-radius: 0 0 12px 12px;
-    box-shadow: var(--pixo-shadow-sm, 0 8px 24px rgba(15,23,42,.06));
-}
-.pixo-dropdown-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: .55rem .85rem;
-    cursor: pointer;
-    font-size: .9rem;
-    transition: background .15s;
-}
-.pixo-dropdown-item:hover {
-    background: rgba(37,99,235,.06);
-}
-</style>
-<section class="uk-margin-medium-bottom">
-    <span class="page-kicker"><span uk-icon="icon: thumbnails; ratio: .9"></span>Biblioteca terapeutica</span>
-    <div class="card-header uk-margin-remove-bottom">
-        <div>
-            <h1 class="page-title">Catalogo de juegos</h1>
-            <p class="page-subtitle">Selecciona una actividad y asignala a un paciente para iniciar una sesion.</p>
-        </div>
-    </div>
-</section>
-
-<div class="card-grid" id="games-grid">
-    <div class="card uk-card uk-card-default empty-state">
-        <p class="muted">Cargando...</p>
+<div class="toolbar">
+    <div>
+        <h1 class="ui header page-title">Catálogo de juegos</h1>
+        <p class="page-sub">Selecciona una actividad y asígnala a un paciente para iniciar una sesión.</p>
     </div>
 </div>
 
-<!-- Modal: Seleccionar paciente para jugar -->
+<div class="card-grid" id="games-grid">
+    <div class="ui segment loading-pad">Cargando…</div>
+</div>
+
+<!-- Modal: seleccionar paciente para jugar -->
 <div class="modal-overlay" id="modal-play">
-    <div class="modal uk-card uk-card-default uk-card-body">
-        <div class="card-header">
+    <div class="modal-card">
+        <div class="modal-head">
             <div>
-                <span class="page-kicker"><span uk-icon="icon: user; ratio: .85"></span>Inicio de sesion</span>
                 <h2>Seleccionar paciente</h2>
-                <p class="page-subtitle">Elige el paciente que va a jugar.</p>
+                <p class="page-sub" style="margin-top:4px;">Elige el paciente que va a jugar.</p>
             </div>
-            <button class="uk-modal-close-default" type="button" uk-close onclick="closePlayModal()"></button>
+            <button class="close-x" type="button" onclick="closePlayModal()"><svg class="ic"><use href="#i-x"/></svg></button>
         </div>
 
-        <div class="uk-margin-top" style="position:relative;">
+        <div class="ui form" style="margin-top:14px;position:relative;">
             <div class="pixo-dropdown" id="patient-dropdown">
-                <input class="uk-input" type="text" id="patient-search" placeholder="Buscar paciente por nombre..." autocomplete="off"
-                    oninput="filterPatients()" onfocus="showDropdown()" />
+                <div class="ui icon input" style="width:100%;">
+                    <input type="text" id="patient-search" placeholder="Buscar paciente por nombre…" autocomplete="off"
+                        oninput="filterPatients()" onfocus="showDropdown()">
+                </div>
                 <div class="pixo-dropdown-menu" id="patient-dropdown-menu"></div>
             </div>
-            <div id="patient-selected" class="uk-margin-small-top" style="display:none;"></div>
+            <div id="patient-selected" style="margin-top:10px;display:none;"></div>
         </div>
 
-        <div id="sensitivity-choice" class="uk-margin-medium-top" style="display:none;">
-            <h3 class="section-heading"><span uk-icon="icon: settings; ratio: .85"></span>Sensibilidad a usar</h3>
+        <div id="sensitivity-choice" style="margin-top:22px;display:none;">
+            <h3 class="section-title"><svg class="ic"><use href="#i-settings"/></svg>Sensibilidad a usar</h3>
+            <div class="ui divider"></div>
             <div id="sens-options"></div>
         </div>
 
-        <div class="uk-flex uk-flex-right uk-margin-medium-top">
-            <button class="btn" onclick="closePlayModal()">Cancelar</button>
+        <div style="display:flex;justify-content:flex-end;margin-top:18px;">
+            <button class="ui basic button" onclick="closePlayModal()">Cancelar</button>
         </div>
     </div>
 </div>
@@ -83,6 +50,7 @@
 
 {% block scripts %}
 <script>
+/* ===== LOGICA JS (conservada del template original) ===== */
 let selectedGameId = null;
 let allPatients = [];
 
@@ -92,23 +60,22 @@ async function loadGames() {
 
     if (games.length === 0) {
         grid.innerHTML = `
-            <div class="card uk-card uk-card-default uk-card-body empty-state">
+            <div class="ui segment empty-state">
                 <div>
-                    <span uk-icon="icon: thumbnails; ratio: 1.4" class="text-primary"></span>
-                    <p class="muted uk-margin-small-top uk-margin-small-bottom">No hay juegos disponibles</p>
-                    <p class="muted uk-text-small">Usa /create-game en Claude Code para generar juegos</p>
+                    <svg class="ic" style="width:34px;height:34px;color:var(--brand);"><use href="#i-gamepad"/></svg>
+                    <p class="muted" style="margin:10px 0 2px;">No hay juegos disponibles</p>
+                    <p class="muted" style="font-size:.82rem;">Usa /create-game en Claude Code para generar juegos</p>
                 </div>
-            </div>
-        `;
+            </div>`;
         return;
     }
 
     grid.innerHTML = games.map(g => `
-        <div class="card uk-card uk-card-default uk-card-hover game-card card-clickable" onclick="openPlayModal(${g.id})">
-            <div class="game-type uk-label pixo-label">${g.game_type}</div>
-            <h3 class="uk-card-title uk-margin-small-top uk-margin-small-bottom">${g.name}</h3>
-            <p class="muted uk-margin-small-bottom">${g.description || 'Sin descripcion'}</p>
-            <button class="btn btn-play uk-width-1-1" style="margin-top:16px;">Jugar</button>
+        <div class="game-card" onclick="openPlayModal(${g.id})">
+            <span class="game-type">${g.game_type}</span>
+            <h3>${g.name}</h3>
+            <p>${g.description || 'Sin descripción'}</p>
+            <button class="ui primary button" style="width:100%;"><svg class="ic"><use href="#i-play"/></svg>Jugar</button>
         </div>
     `).join('');
 }
@@ -117,6 +84,7 @@ async function openPlayModal(gameId) {
     selectedGameId = gameId;
     document.getElementById('modal-play').classList.add('active');
     document.getElementById('sensitivity-choice').style.display = 'none';
+    document.getElementById('patient-selected').style.display = 'none';
     document.getElementById('patient-search').value = '';
     await loadAllPatients();
 }
@@ -139,7 +107,7 @@ function renderPatientOptions(patients) {
         const safeName = p.name.replace(/'/g, "\\'");
         return '<div class="pixo-dropdown-item" onclick="pickPatient(' + p.id + ', \'' + safeName + '\')">'
             + '<span>' + p.name + age + '</span>'
-            + '<span class="uk-label pixo-label" style="font-size:.7rem;">' + sens + '</span>'
+            + '<span class="ui basic label" style="font-size:.7rem;">' + sens + '</span>'
             + '</div>';
     }).join('');
 }
@@ -151,29 +119,21 @@ function filterPatients() {
     showDropdown();
 }
 
-function showDropdown() {
-    document.getElementById('patient-dropdown-menu').style.display = 'block';
-}
-
-function hideDropdown() {
-    document.getElementById('patient-dropdown-menu').style.display = 'none';
-}
+function showDropdown() { document.getElementById('patient-dropdown-menu').style.display = 'block'; }
+function hideDropdown() { document.getElementById('patient-dropdown-menu').style.display = 'none'; }
 
 function pickPatient(patientId, patientName) {
     hideDropdown();
     document.getElementById('patient-search').value = patientName;
-    document.getElementById('patient-selected').style.display = 'block';
-    document.getElementById('patient-selected').innerHTML =
-        '<div class="uk-alert uk-alert-success" style="padding:.6rem 1rem;border-radius:10px;">'
-        + '<span uk-icon="icon:check;ratio:.85"></span> <strong>' + patientName + '</strong> seleccionado'
-        + '</div>';
+    const sel = document.getElementById('patient-selected');
+    sel.style.display = 'block';
+    sel.innerHTML = '<div class="ui positive message" style="margin:0;padding:.7rem 1rem;">'
+        + '<svg class="ic" style="color:var(--pos);"><use href="#i-check"/></svg> <strong>' + patientName + '</strong> seleccionado</div>';
     selectPatient(patientId, patientName);
 }
 
-document.addEventListener('click', function(e) {
-    if (!document.getElementById('patient-dropdown').contains(e.target)) {
-        hideDropdown();
-    }
+document.addEventListener('click', function (e) {
+    if (!document.getElementById('patient-dropdown').contains(e.target)) hideDropdown();
 });
 
 async function selectPatient(patientId, patientName) {
@@ -187,23 +147,18 @@ async function selectPatient(patientId, patientName) {
     choiceDiv.style.display = 'block';
 
     let html = '';
-
     if (sens.sensitivities) {
-        html += '<div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" style="border-color:rgba(20,184,166,.45);" onclick="startGame(' + patientId + ', ' + JSON.stringify(sens.sensitivities) + ')">'
-            + '<div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>'
-            + '<span class="pixo-list-title text-accent">Config actual de ' + patientName + '</span>'
-            + '<span class="uk-label pixo-label">[' + sens.sensitivities.join(', ') + ']</span>'
-            + '</div></div>';
+        html += '<div class="choice-card current" onclick="startGame(' + patientId + ', ' + JSON.stringify(sens.sensitivities) + ')">'
+            + '<span class="text-accent" style="font-weight:700;">Config actual de ' + patientName + '</span>'
+            + '<span class="ui basic label">' + sens.sensitivities.join(', ') + '</span>'
+            + '</div>';
     }
-
     html += presets.map(p =>
-        '<div class="card uk-card uk-card-default uk-card-small card-clickable uk-margin-small-bottom" onclick="startGame(' + patientId + ', ' + JSON.stringify(p.sensitivities) + ')">'
-        + '<div class="uk-flex uk-flex-between uk-flex-middle uk-grid-small" uk-grid>'
-        + '<span class="pixo-list-title">' + p.name + '</span>'
-        + '<span class="uk-label pixo-label">[' + p.sensitivities.join(', ') + ']</span>'
-        + '</div></div>'
+        '<div class="choice-card" onclick="startGame(' + patientId + ', ' + JSON.stringify(p.sensitivities) + ')">'
+        + '<span style="font-weight:700;">' + p.name + '</span>'
+        + '<span class="ui basic label">' + p.sensitivities.join(', ') + '</span>'
+        + '</div>'
     ).join('');
-
     optsDiv.innerHTML = html;
 }
 

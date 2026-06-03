@@ -2,71 +2,46 @@
 {% block title %}Dashboard - PIXO Therapy{% endblock %}
 
 {% block content %}
-<section class="uk-margin-medium-bottom">
-    <span class="page-kicker"><span uk-icon="icon: bolt; ratio: .9"></span>Panel principal</span>
-    <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap uk-grid-small" uk-grid>
-        <div>
-            <h1 class="page-title">Hola, {{ current_user.name }}</h1>
-            <p class="page-subtitle">Resumen operativo de pacientes, sesiones y juegos disponibles.</p>
-        </div>
-        <div class="uk-flex uk-flex-middle uk-grid-small" uk-grid>
-            <div><a href="/patients" class="btn btn-primary"><span uk-icon="icon: plus; ratio: .85"></span>Nuevo paciente</a></div>
-            <div><a href="/games" class="btn"><span uk-icon="icon: play-circle; ratio: .85"></span>Ver juegos</a></div>
-        </div>
+<div class="toolbar">
+    <div>
+        <h1 class="ui header page-title">Hola, {{ current_user.name }}</h1>
+        <p class="page-sub">Resumen de pacientes, sesiones y actividad reciente.</p>
     </div>
-</section>
-
-<div class="stats-row" id="stats">
-    <div class="stat-card uk-card uk-card-default">
-        <span class="stat-label">Pacientes</span>
-        <span class="stat-value" id="stat-patients">-</span>
-        <span class="pixo-list-meta">Registrados en plataforma</span>
-    </div>
-    <div class="stat-card uk-card uk-card-default">
-        <span class="stat-label">Sesiones</span>
-        <span class="stat-value" id="stat-sessions">-</span>
-        <span class="pixo-list-meta">Sesiones terapeuticas</span>
-    </div>
-    <div class="stat-card uk-card uk-card-default">
-        <span class="stat-label">Juegos</span>
-        <span class="stat-value" id="stat-games">-</span>
-        <span class="pixo-list-meta">Actividades disponibles</span>
+    <div class="acts">
+        <a href="{{ url_for('pages.patients_page') }}" class="ui primary button"><svg class="ic"><use href="#i-plus"/></svg>Nuevo paciente</a>
+        <a href="{{ url_for('pages.games_page') }}" class="ui basic button"><svg class="ic"><use href="#i-play"/></svg>Ver juegos</a>
     </div>
 </div>
 
-<div class="pixo-grid-2 uk-margin-medium-top">
-    <div class="card uk-card uk-card-default uk-card-small">
-        <div class="card-header">
-            <h2 class="section-heading"><span uk-icon="icon: users; ratio: .9"></span>Pacientes recientes</h2>
-            <a href="/patients" class="btn-sm">Ver todos</a>
-        </div>
-        <div id="recent-patients"><p class="muted">Cargando...</p></div>
-    </div>
-
-    <div class="card uk-card uk-card-default uk-card-small">
-        <div class="card-header">
-            <h2 class="section-heading"><span uk-icon="icon: history; ratio: .9"></span>Sesiones recientes</h2>
-        </div>
-        <div id="recent-sessions"><p class="muted">Cargando...</p></div>
+<div class="ui segment" style="padding:24px 8px;">
+    <div class="ui three statistics">
+        <div class="statistic"><div class="value" id="stat-patients">-</div><div class="label">Pacientes</div></div>
+        <div class="statistic"><div class="value" id="stat-sessions">-</div><div class="label">Sesiones</div></div>
+        <div class="statistic"><div class="value" id="stat-games">-</div><div class="label">Juegos</div></div>
     </div>
 </div>
 
-<div class="card uk-card uk-card-default uk-card-small uk-margin-medium-top">
-    <div class="card-header">
-        <div>
-            <h2 class="section-heading"><span uk-icon="icon: settings; ratio: .9"></span>Acciones rapidas</h2>
-            <p class="page-subtitle">Accesos directos para iniciar el flujo de trabajo.</p>
+<div class="two-col">
+    <div class="ui segment">
+        <div class="seg-head">
+            <h3 class="section-title"><svg class="ic"><use href="#i-users"/></svg>Pacientes recientes</h3>
+            <a href="{{ url_for('pages.patients_page') }}" class="ui mini basic button">Ver todos</a>
         </div>
+        <div class="ui divider"></div>
+        <div id="recent-patients"><p class="muted">Cargando…</p></div>
     </div>
-    <div class="uk-flex uk-flex-middle uk-flex-wrap uk-grid-small" uk-grid>
-        <div><a href="/patients" class="btn btn-primary"><span uk-icon="icon: plus; ratio: .85"></span>Nuevo paciente</a></div>
-        <div><a href="/games" class="btn"><span uk-icon="icon: thumbnails; ratio: .85"></span>Ver juegos</a></div>
+
+    <div class="ui segment">
+        <h3 class="section-title"><svg class="ic"><use href="#i-history"/></svg>Sesiones recientes</h3>
+        <div class="ui divider"></div>
+        <div id="recent-sessions"><p class="muted">Cargando…</p></div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+/* ===== LOGICA JS (conservada) ===== */
 async function loadDashboard() {
     try {
         const [patients, sessions, games] = await Promise.all([
@@ -79,35 +54,33 @@ async function loadDashboard() {
         document.getElementById('stat-sessions').textContent = sessions.length;
         document.getElementById('stat-games').textContent = games.length;
 
-        // Recent patients
         const rp = document.getElementById('recent-patients');
         if (patients.length === 0) {
-            rp.innerHTML = '<div class="empty-state"><p class="muted">Sin pacientes aun</p></div>';
+            rp.innerHTML = '<div class="empty-state">Sin pacientes aún</div>';
         } else {
             rp.innerHTML = patients.slice(0, 5).map(p =>
-                `<div class="pixo-list-item">
+                `<div class="pixo-row">
                     <div>
-                        <div class="pixo-list-title">${p.name}${p.age ? ' (' + p.age + ')' : ''}</div>
-                        <div class="pixo-list-meta">Ficha clinica disponible</div>
+                        <div class="t">${p.name}${p.age ? ' · ' + p.age + ' años' : ''}</div>
+                        <div class="d">${p.diagnosis || 'Ficha clínica disponible'}</div>
                     </div>
-                    <a href="/patients/${p.id}" class="btn-sm">Ver</a>
+                    <a href="/patients/${p.id}" class="ui mini basic button">Ver</a>
                 </div>`
             ).join('');
         }
 
-        // Recent sessions
         const rs = document.getElementById('recent-sessions');
         if (sessions.length === 0) {
-            rs.innerHTML = '<div class="empty-state"><p class="muted">Sin sesiones aun</p></div>';
+            rs.innerHTML = '<div class="empty-state">Sin sesiones aún</div>';
         } else {
             rs.innerHTML = sessions.slice(0, 5).map(s => {
                 const date = new Date(s.started_at).toLocaleDateString('es');
-                return `<div class="pixo-list-item">
+                return `<div class="pixo-row">
                     <div>
-                        <div class="pixo-list-title">${s.game_name || 'Juego'}</div>
-                        <div class="pixo-list-meta">Score: ${s.score || 0}</div>
+                        <div class="t">${s.game_name || 'Juego'}</div>
+                        <div class="d">Score: ${s.score || 0} · ${date}</div>
                     </div>
-                    <span class="uk-label pixo-label">${date}</span>
+                    <span class="ui label score">${s.score || 0}</span>
                 </div>`;
             }).join('');
         }

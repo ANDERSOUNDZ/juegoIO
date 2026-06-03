@@ -3,72 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro - PIXO Therapy</title>
+    <title>Crear cuenta - PIXO Therapy</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✋</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.css">
-    <style>
-        body { margin: 0; background: #f0f2f5; }
-        .brand-mark {
-            width: 54px;
-            height: 54px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 14px;
-            color: #fff;
-            background: linear-gradient(135deg, #2563eb, #14b8a6);
-            font-size: 24px;
-            margin-bottom: 12px;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pixo.css') }}">
 </head>
-<body>
-    <div style="display:flex; justify-content:center; align-items:center; height:100vh;">
-        <div class="ui card" style="width:480px; max-width:90vw; padding:30px;">
-            <div style="text-align:center;">
-                <div class="brand-mark">✋</div>
-                <h1 class="ui header" style="margin:0 0 4px;">Registro</h1>
-                <p style="color:#888; margin-bottom:20px;">Crea tu cuenta de terapista</p>
-            </div>
+<body data-theme="light">
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            {% for category, message in messages %}
-            <div class="ui {{ 'negative' if category in ('danger', 'error') else 'positive' if category == 'success' else '' }} message">
-                <p>{{ message }}</p>
-            </div>
-            {% endfor %}
-            {% endif %}
-            {% endwith %}
+<div class="auth-screen">
+    <div class="auth-card wide">
+        <div class="auth-brand">
+            <span class="mark"><svg class="ic"><use href="#i-hand"/></svg></span>
+            <h1>Crear cuenta</h1>
+            <p>Registro de terapeuta</p>
+        </div>
 
-            <div class="ui divider"></div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="ui {{ 'negative' if category in ('danger', 'error') else 'positive' if category == 'success' else '' }} message">
+            <p>{{ message }}</p>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
 
-            <form class="ui form" method="POST">
-                <div class="two fields">
-                    <div class="required field">
-                        <label>Nombre</label>
-                        <input type="text" name="name" placeholder="Nombre completo" required>
-                    </div>
-                    <div class="required field">
-                        <label>Email</label>
-                        <input type="email" name="email" placeholder="Email" required>
-                    </div>
+        <div class="ui divider"></div>
+
+        <form class="ui form" method="POST">
+            <div class="two fields">
+                <div class="required field">
+                    <label>Nombre</label>
+                    <input type="text" name="name" placeholder="Nombre completo" required>
                 </div>
                 <div class="required field">
-                    <label>Password</label>
-                    <input type="password" name="password" placeholder="Password" required>
+                    <label>Email</label>
+                    <input type="email" name="email" placeholder="correo@clinica.com" required>
                 </div>
-                <input type="hidden" name="role" value="therapist">
-                <br>
-                <button type="submit" class="ui fluid teal button">Crear cuenta</button>
-            </form>
+            </div>
+            <div class="required field">
+                <label>Contraseña</label>
+                <input type="password" name="password" placeholder="••••••••" required>
+            </div>
+            <input type="hidden" name="role" value="therapist">
+            <button type="submit" class="ui fluid primary button" style="margin-top:8px;">Crear cuenta</button>
+        </form>
 
-            <div class="ui divider"></div>
-            <p style="text-align:center; margin:0;">Ya tienes cuenta? <a href="{{ url_for('auth.login') }}" style="text-decoration:underline;">Iniciar sesion</a></p>
-        </div>
+        <div class="ui divider"></div>
+        <p style="text-align:center;margin:0;color:var(--muted);">¿Ya tienes cuenta?
+            <a href="{{ url_for('auth.login') }}" style="font-weight:700;">Iniciar sesión</a></p>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.js"></script>
+<script src="{{ url_for('static', filename='js/pixo-ui.js') }}"></script>
 </body>
 </html>
