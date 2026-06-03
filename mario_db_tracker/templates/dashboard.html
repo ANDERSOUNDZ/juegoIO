@@ -56,7 +56,7 @@ async function loadDashboard() {
 
         const rp = document.getElementById('recent-patients');
 
-        if (patients.length === 0) {
+        if (patients.patients.length === 0) {
             rp.innerHTML = '<div class="empty-state">Sin pacientes aún</div>';
         } else {
             rp.innerHTML = patients.patients.slice(0, 5).map(p =>
