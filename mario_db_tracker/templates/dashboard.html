@@ -50,7 +50,7 @@ async function loadDashboard() {
             fetch('/api/games').then(r => r.json()),
         ]);
 
-        document.getElementById('stat-patients').textContent = patients.length;
+        document.getElementById('stat-patients').textContent = patients.patients.length;
         document.getElementById('stat-sessions').textContent = sessions.length;
         document.getElementById('stat-games').textContent = games.length;
 
