@@ -55,10 +55,11 @@ async function loadDashboard() {
         document.getElementById('stat-games').textContent = games.length;
 
         const rp = document.getElementById('recent-patients');
+
         if (patients.length === 0) {
             rp.innerHTML = '<div class="empty-state">Sin pacientes aún</div>';
         } else {
-            rp.innerHTML = patients.slice(0, 5).map(p =>
+            rp.innerHTML = patients.patients.slice(0, 5).map(p =>
                 `<div class="pixo-row">
                     <div>
                         <div class="t">${p.name}${p.age ? ' · ' + p.age + ' años' : ''}</div>
