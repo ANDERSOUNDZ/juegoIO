@@ -1,6 +1,11 @@
 const HYST_MARGIN = 0.02;
 const EVENT_FLUSH_INTERVAL = 2000; // ms
 
+// MediaPipe Tasks Vision (API actualizada) — se carga dinamicamente como modulo ESM
+const TASKS_VISION_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs';
+const TASKS_VISION_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
+const HAND_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+
 class HandInput {
     constructor() {
         this.fingers = [0, 0, 0, 0, 0];
@@ -10,7 +15,8 @@ class HandInput {
         this._onFingers = null;
         this._onConnect = null;
         this._video = null;
-        this._hands = null;
+        this._handLandmarker = null;
+        this._lastVideoTime = -1;
         this._connected = false;
         this._running = false;
         this._stream = null;
@@ -70,7 +76,40 @@ class HandInput {
         if (this._stream) {
             this._stream.getTracks().forEach(t => t.stop());
         }
+        // No cerramos this._handLandmarker: se reutiliza en la siguiente conexion
+        // para evitar re-instanciar el WASM (ver nota en preload()).
         this._connected = false;
+    }
+
+    /**
+     * Carga el bundle WASM de tasks-vision y crea el HandLandmarker (sin camara).
+     * Idempotente: si ya esta cargado, no hace nada.
+     *
+     * IMPORTANTE: tasks-vision es un modulo Emscripten que lee el `window.Module`
+     * global al instanciar su WASM. En paginas que tambien corren otro modulo
+     * Emscripten (p.ej. el juego Prince via prince.js, que define window.Module),
+     * hay que invocar preload() ANTES de que ese otro modulo defina window.Module,
+     * y mantener el landmarker vivo para no re-instanciarlo. Por eso esta separado
+     * de connect() y disconnect() no lo destruye.
+     */
+    async preload() {
+        if (this._handLandmarker) return;
+
+        // import() dinamico porque este archivo se sirve como script clasico
+        const { FilesetResolver, HandLandmarker } = await import(TASKS_VISION_URL);
+        const vision = await FilesetResolver.forVisionTasks(TASKS_VISION_WASM);
+
+        this._handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+                modelAssetPath: HAND_MODEL_URL,
+                delegate: 'GPU',
+            },
+            numHands: 1,
+            runningMode: 'video',
+            minHandDetectionConfidence: 0.7,
+            minHandPresenceConfidence: 0.7,
+            minTrackingConfidence: 0.7,
+        });
     }
 
     async connect() {
@@ -81,24 +120,9 @@ class HandInput {
         }
 
         await this._initCamera();
+        await this.preload();
 
-        if (typeof Hands === 'undefined') {
-            throw new Error('MediaPipe no cargado');
-        }
-
-        this._hands = new Hands({
-            locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}`
-        });
-        this._hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7,
-        });
-
-        this._hands.onResults(results => this._onResults(results));
-        await this._hands.initialize();
-
+        this._lastVideoTime = -1;
         this._running = true;
         this._connected = true;
 
@@ -127,8 +151,8 @@ class HandInput {
     }
 
     _onResults(results) {
-        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            const lm = results.multiHandLandmarks[0];
+        if (results.landmarks && results.landmarks.length > 0) {
+            const lm = results.landmarks[0];
             this.landmarks = lm.map(l => [l.x, l.y, l.z]);
 
             const diffs = this._computeDiffs(lm);
@@ -215,8 +239,18 @@ class HandInput {
 
     _loop() {
         if (!this._running) return;
-        if (this._hands && this._video && this._video.readyState >= 2) {
-            this._hands.send({ image: this._video }).catch(() => {});
+        const video = this._video;
+        if (this._handLandmarker && video && video.readyState >= 2) {
+            // Solo procesar cuando hay un frame nuevo (evita reprocesar el mismo)
+            if (video.currentTime !== this._lastVideoTime) {
+                this._lastVideoTime = video.currentTime;
+                try {
+                    const results = this._handLandmarker.detectForVideo(video, performance.now());
+                    this._onResults(results);
+                } catch (e) {
+                    // detectForVideo puede lanzar si el frame aun no esta listo
+                }
+            }
         }
         requestAnimationFrame(() => this._loop());
     }
