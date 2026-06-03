@@ -1,0 +1,40 @@
+# Makefile for compiling SDLPoP to WebAssembly with Emscripten
+
+CC = emcc
+RM = rm -f
+
+HFILES = common.h config.h data.h proto.h types.h
+
+OBJ = main.o data.o seg000.o seg001.o seg002.o seg003.o seg004.o seg005.o \
+      seg006.o seg007.o seg008.o seg009.o seqtbl.o replay.o options.o \
+      lighting.o screenshot.o menu.o midi.o opl3.o stb_vorbis.o \
+      emscripten_bridge.o
+
+BIN = prince.html
+
+CFLAGS = -std=c99 -O2 -D_GNU_SOURCE=1 -D__EMSCRIPTEN__ \
+         -sUSE_SDL=2 -sUSE_SDL_IMAGE=2 \
+         -I. -I/emsdk/upstream/emscripten/cache/sysroot/include
+
+LDFLAGS = -sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sSDL2_IMAGE_FORMATS='["png"]' \
+          -sALLOW_MEMORY_GROWTH=1 \
+          -sASYNCIFY \
+          -sTOTAL_MEMORY=67108864 \
+          -sEXPORTED_FUNCTIONS='["_main","_pop_set_hand_control","_pop_enable_hand_tracking","_pop_disable_hand_tracking","_pop_is_hand_tracking_active","_pop_get_current_level","_pop_get_remaining_minutes","_pop_get_remaining_ticks","_pop_get_hitpoints","_pop_get_kid_alive","_pop_is_game_over","_pop_get_next_level"]' \
+          -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","FS"]' \
+          --preload-file ../data \
+          --shell-file shell.html \
+          -o $(BIN)
+
+all: prince.data prince.wasm prince.js
+
+clean:
+	$(RM) $(OBJ) $(BIN) prince.js prince.wasm prince.data
+
+%.o: %.c $(HFILES)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BIN): $(OBJ)
+	$(CC) $(LDFLAGS) $(OBJ) -o $(BIN) -lm
+
+.PHONY: all clean
