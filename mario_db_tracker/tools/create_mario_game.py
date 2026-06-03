@@ -634,8 +634,6 @@ def fix_sprite_rows(sprite_data):
 # ─── API CLIENT ─────────────────────────────────────────────────
 
 class ApiClient:
-
-class ApiClient:
     def __init__(self, base_url, email, password):
         self.base_url = base_url.rstrip("/")
         self.cookiejar = http.cookiejar.CookieJar()

@@ -27,7 +27,7 @@ const GameLoader = {
         const world = config.world || { width: 400, height: 600 };
 
         const phaserConfig = {
-            type: Phaser.AUTO,
+            type: Phaser.WEBGL,
             parent: containerId,
             width: world.width || 400,
             height: world.height || 600,
@@ -45,7 +45,7 @@ const GameLoader = {
                 createPlayScene(config, handInput),
                 createGameOverScene(config, handInput, onGameOver),
             ],
-            pixelArt: true,
+            pixelArt: false,
             scale: {
                 mode: Phaser.Scale.FIT,
                 autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -79,6 +79,23 @@ function createBootScene(config, handInput) {
             if (typeof SpriteRenderer !== 'undefined') {
                 SpriteRenderer.createTextures(this, sprites);
             }
+            // Generate particle textures
+            if (!this.textures.exists('particle-glow')) {
+                const g = this.make.graphics({add: false});
+                g.fillStyle(0xffffff);
+                g.fillCircle(8, 8, 8);
+                g.generateTexture('particle-glow', 16, 16);
+                g.destroy();
+            }
+            if (!this.textures.exists('particle-star')) {
+                const g = this.make.graphics({add: false});
+                g.fillStyle(0xffffff);
+                g.fillRect(3, 0, 2, 8);
+                g.fillRect(0, 3, 8, 2);
+                g.fillRect(1, 1, 6, 6);
+                g.generateTexture('particle-star', 8, 8);
+                g.destroy();
+            }
             this.scene.start('StartScene');
         }
     };
@@ -100,15 +117,25 @@ function createOverlayScreen(scene, opts) {
     const bg = scene.add.rectangle(W / 2, H / 2, W, H, bgColor, opts.backgroundAlpha ?? 0.92);
     bg.setDepth(900);
 
-    // Decorative lines
+    // Decorative gradient-like lines
     const lineColor = Phaser.Display.Color.HexStringToColor(opts.titleColor || '#3ddc97').color;
-    const topLine = scene.add.rectangle(W / 2, H / 2 - 65, W * 0.6, 2, lineColor, 0.4).setDepth(901);
-    const botLine = scene.add.rectangle(W / 2, H / 2 + 65, W * 0.6, 2, lineColor, 0.4).setDepth(901);
+    const topLine = scene.add.rectangle(W / 2, H / 2 - 70, W * 0.7, 2, lineColor, 0.5).setDepth(901);
+    const botLine = scene.add.rectangle(W / 2, H / 2 + 70, W * 0.7, 2, lineColor, 0.5).setDepth(901);
 
-    // Title
+    // Title with shadow
+    const titleShadow = scene.add.text(W / 2 + 2, H / 2 - 33, opts.title || '', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: opts.titleSize || '18px',
+        fontWeight: 'bold',
+        color: '#000000',
+        align: 'center',
+        wordWrap: { width: W * 0.85 },
+    }).setOrigin(0.5).setDepth(900).setAlpha(0.3);
+
     const title = scene.add.text(W / 2, H / 2 - 35, opts.title || '', {
-        fontFamily: '"Press Start 2P"',
-        fontSize: opts.titleSize || '14px',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: opts.titleSize || '18px',
+        fontWeight: 'bold',
         color: opts.titleColor || '#3ddc97',
         align: 'center',
         wordWrap: { width: W * 0.85 },
@@ -116,9 +143,9 @@ function createOverlayScreen(scene, opts) {
 
     // Subtitle
     if (opts.subtitle) {
-        scene.add.text(W / 2, H / 2 + 10, opts.subtitle, {
-            fontFamily: '"Press Start 2P"',
-            fontSize: opts.subtitleSize || '7px',
+        scene.add.text(W / 2, H / 2 + 12, opts.subtitle, {
+            fontFamily: 'Arial, sans-serif',
+            fontSize: opts.subtitleSize || '11px',
             color: opts.subtitleColor || '#ffd23f',
             align: 'center',
             wordWrap: { width: W * 0.85 },
@@ -126,9 +153,9 @@ function createOverlayScreen(scene, opts) {
     }
 
     // Prompt text (blinking)
-    const promptText = scene.add.text(W / 2, H / 2 + 45, opts.prompt || 'SPACE / Cierra un dedo', {
-        fontFamily: '"Press Start 2P"',
-        fontSize: opts.promptSize || '6px',
+    const promptText = scene.add.text(W / 2, H / 2 + 50, opts.prompt || 'SPACE / Cierra un dedo', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: opts.promptSize || '11px',
         color: opts.promptColor || '#a8a0c0',
         align: 'center',
     }).setOrigin(0.5).setDepth(901).setAlpha(0);
@@ -234,6 +261,7 @@ function createPlayScene(config, handInput) {
                     Phaser.Display.Color.HexStringToColor(playerCfg.color || '#3ddc97').color
                 );
             }
+            if (this.player.setPipeline) this.player.setPipeline('Light2D');
 
             this.physics.add.existing(this.player);
             this.player.body.setCollideWorldBounds(
@@ -280,16 +308,25 @@ function createPlayScene(config, handInput) {
 
             if (this.collectibles) {
                 this.physics.add.overlap(this.player, this.collectibles, (player, item) => {
+                    const cx = item.x, cy = item.y;
                     item.destroy();
                     this.score += (entities.collectibles?.scoreValue || 100);
                     this._totalCollected++;
                     this._updateHUD();
+                    if (this._coinEmitter) {
+                        this._coinEmitter.emitParticleAt(cx, cy, 8);
+                    }
                 });
             }
 
             if (this.enemies) {
                 this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
+                    const ex = enemy.x, ey = enemy.y;
                     this.lives--;
+                    if (this._enemyEmitter) {
+                        this._enemyEmitter.emitParticleAt(ex, ey, 12);
+                    }
+                    this.cameras.main.shake(120, 0.008);
                     if (this.lives <= 0) {
                         this.scene.start('GameOverScene', { score: this.score });
                     } else {
@@ -309,7 +346,6 @@ function createPlayScene(config, handInput) {
             // Camera
             this._autoScroll = world.camera?.autoScroll || null;
             if (this._autoScroll) {
-                // Auto-scroll: don't follow player, camera moves on its own
                 this.cameras.main.scrollY = 0;
             } else if (world.camera?.follow === 'player') {
                 this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
@@ -318,6 +354,52 @@ function createPlayScene(config, handInput) {
                 }
             }
             this.physics.world.setBounds(0, -10000, W, 20000 + H);
+            this.cameras.main.fadeIn(500, 0, 0, 0);
+            // ── Lighting ──
+            try {
+                this.lights.enable().setAmbientColor(0x222244);
+                this._playerLight = this.lights.addLight(
+                    this.player.x, this.player.y, 180, 0xffdd99, 1.2
+                );
+                this._coinLights = [];
+            } catch (e) {
+                this._playerLight = null;
+            }
+
+            // ── Particle emitters ──
+            if (this.textures.exists('particle-glow')) {
+                this._coinEmitter = this.add.particles(0, 0, 'particle-glow', {
+                    speed: { min: 40, max: 120 },
+                    angle: { min: 0, max: 360 },
+                    lifespan: { min: 300, max: 600 },
+                    scale: { start: 0.6, end: 0 },
+                    alpha: { start: 1, end: 0 },
+                    tint: 0xffd700,
+                    emitting: false,
+                });
+                this._enemyEmitter = this.add.particles(0, 0, 'particle-star', {
+                    speed: { min: 60, max: 180 },
+                    angle: { min: 0, max: 360 },
+                    lifespan: { min: 400, max: 800 },
+                    scale: { start: 1, end: 0 },
+                    alpha: { start: 1, end: 0 },
+                    tint: 0xff4444,
+                    emitting: false,
+                });
+                this._jumpEmitter = this.add.particles(0, 0, 'particle-glow', {
+                    speed: { min: 10, max: 40 },
+                    angle: { min: 200, max: 340 },
+                    lifespan: { min: 200, max: 400 },
+                    scale: { start: 0.4, end: 0 },
+                    alpha: { start: 0.6, end: 0 },
+                    tint: 0xaaaacc,
+                    emitting: false,
+                });
+            } else {
+                this._coinEmitter = null;
+                this._enemyEmitter = null;
+                this._jumpEmitter = null;
+            }
 
             // Timer
             if (rules.timer) {
@@ -336,10 +418,14 @@ function createPlayScene(config, handInput) {
             }
 
             // HUD
-            this.hudText = this.add.text(10, 10, '', {
-                fontFamily: '"Press Start 2P"',
-                fontSize: '8px',
+            const hudBg = this.add.rectangle(W / 2, 0, W, 36, 0x000000, 0.55).setOrigin(0.5, 0).setScrollFactor(0).setDepth(99);
+            this.hudText = this.add.text(12, 8, '', {
+                fontFamily: 'Arial, sans-serif',
+                fontSize: '13px',
+                fontWeight: 'bold',
                 color: '#ffd23f',
+                stroke: '#000000',
+                strokeThickness: 1,
             }).setScrollFactor(0).setDepth(100);
             this._updateHUD();
 
@@ -404,6 +490,9 @@ function createPlayScene(config, handInput) {
                 // Platformer/runner/catch: jump-based
                 if (jump && this.player.body.onFloor()) {
                     this.player.body.setVelocityY(this.jumpForce);
+                    if (this._jumpEmitter) {
+                        this._jumpEmitter.emitParticleAt(this.player.x, this.player.y + 12, 5);
+                    }
                 }
             }
 
@@ -486,6 +575,12 @@ function createPlayScene(config, handInput) {
 
             // Parallax background scroll
             this._scrollBackground();
+
+            // Update player light position
+            if (this._playerLight && this.player.active) {
+                this._playerLight.x = this.player.x;
+                this._playerLight.y = this.player.y;
+            }
         }
 
         // ── Sprite helpers ──
@@ -581,24 +676,30 @@ function createPlayScene(config, handInput) {
         _createBackground() {
             const W = this.scale.width;
             const H = this.scale.height;
-            const bgSprite = sprites.background;
             this._bgLayers = [];
 
-            if (bgSprite) {
-                const bgKey = this._getSpriteKey('background');
-                if (bgKey) {
-                    const bg = this.add.tileSprite(W / 2, H / 2, W, H, bgKey);
-                    bg.setScrollFactor(0);
-                    bg.setDepth(-10);
-                    this._bgLayers.push({ obj: bg, scrollFactor: 0.3 });
-                    return;
-                }
+            const bgRoles = ['bg_far', 'bg_mid', 'background', 'bg_near'];
+            const scrollFactors = [0.1, 0.2, 0.3, 0.6];
+
+            for (let i = 0; i < bgRoles.length; i++) {
+                const role = bgRoles[i];
+                const bgSprite = sprites[role];
+                if (!bgSprite) continue;
+                const bgKey = this._getSpriteKey(role);
+                if (!bgKey) continue;
+
+                const layer = this.add.tileSprite(W / 2, H / 2, W, H, bgKey);
+                layer.setScrollFactor(0);
+                layer.setDepth(-10 + i);
+                layer.setAlpha(1 - i * 0.15);
+                this._bgLayers.push({ obj: layer, scrollFactor: scrollFactors[i] });
             }
 
-            // Procedural background for topdown games
+            if (this._bgLayers.length > 0) return;
+
+            // Fallback procedural background for topdown
             if (gameType === 'topdown') {
                 this._createProceduralBackground(W, H);
-                return;
             }
         }
 
@@ -673,10 +774,12 @@ function createPlayScene(config, handInput) {
 
         _scrollBackground() {
             if (!this._bgLayers || !this._bgLayers.length) return;
+            const camX = this.cameras.main.scrollX;
             const camY = this.cameras.main.scrollY;
             for (const layer of this._bgLayers) {
                 if (layer.obj && layer.obj.tilePositionY !== undefined) {
                     layer.obj.tilePositionY = camY * layer.scrollFactor;
+                    layer.obj.tilePositionX = camX * layer.scrollFactor;
                 }
             }
         }
@@ -1174,6 +1277,7 @@ function createPlayScene(config, handInput) {
             enemy.setData('speed', speed);
             enemy.setData('minX', 20);
             enemy.setData('maxX', W - 20);
+            if (enemy.setPipeline) enemy.setPipeline('Light2D');
             this.enemies.add(enemy);
             return enemy;
         }
@@ -1439,10 +1543,21 @@ function createPlayScene(config, handInput) {
                 coin = this.add.circle(x, y, 6,
                     Phaser.Display.Color.HexStringToColor(collCfg.color || '#ffd23f').color);
             }
+            if (coin.setPipeline) coin.setPipeline('Light2D');
 
             this.physics.add.existing(coin);
             coin.body.setAllowGravity(false);
             this.collectibles.add(coin);
+
+            // Add a small light over each coin
+            if (this.lights && typeof this.lights.addLight === 'function') {
+                try {
+                    const cl = this.lights.addLight(x, y, 60, 0xffdd44, 0.6);
+                    if (this._coinLights) this._coinLights.push(cl);
+                } catch (e) {}
+            }
+
+            return coin;
         }
 
         // ── Enemies ──
@@ -1495,11 +1610,12 @@ function createPlayScene(config, handInput) {
                     enemy.body.setVelocityX(speed * (Math.random() > 0.5 ? 1 : -1));
                 }
                 enemy.body.setAllowGravity(gameType === 'topdown' ? false : true);
-                enemy.setData('ai', enemyCfg.ai || 'patrol');
-                enemy.setData('speed', speed);
-                enemy.setData('minX', 20);
-                enemy.setData('maxX', W - 20);
-                this.enemies.add(enemy);
+                    enemy.setData('ai', enemyCfg.ai || 'patrol');
+                    enemy.setData('speed', speed);
+                    enemy.setData('minX', 20);
+                    enemy.setData('maxX', W - 20);
+                    if (enemy.setPipeline) enemy.setPipeline('Light2D');
+                    this.enemies.add(enemy);
             }
 
             // Fixed positions from studio editor
@@ -1512,25 +1628,26 @@ function createPlayScene(config, handInput) {
                     } else {
                         enemy = this.add.rectangle(pos.x, pos.y, enemyCfg.width || 16, enemyCfg.height || 16, color);
                     }
-                    this.physics.add.existing(enemy);
-                    enemy.body.setCollideWorldBounds(true);
-                    if (gameType === 'topdown') {
-                        enemy.body.setBounce(1, 1);
-                        enemy.body.setAllowGravity(false);
-                        if ((enemyCfg.ai || 'patrol') === 'patrol') {
-                            const angle = Math.random() * Math.PI * 2;
-                            enemy.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-                        }
-                    } else {
-                        enemy.body.setBounce(1, 0);
-                        enemy.body.setVelocityX(speed * (Math.random() > 0.5 ? 1 : -1));
+                this.physics.add.existing(enemy);
+                enemy.body.setCollideWorldBounds(true);
+                if (gameType === 'topdown') {
+                    enemy.body.setBounce(1, 1);
+                    enemy.body.setAllowGravity(false);
+                    if ((enemyCfg.ai || 'patrol') === 'patrol') {
+                        const angle = Math.random() * Math.PI * 2;
+                        enemy.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
                     }
-                    enemy.body.setAllowGravity(gameType === 'topdown' ? false : true);
-                    enemy.setData('ai', enemyCfg.ai || 'patrol');
-                    enemy.setData('speed', speed);
-                    enemy.setData('minX', 20);
-                    enemy.setData('maxX', W - 20);
-                    this.enemies.add(enemy);
+                } else {
+                    enemy.body.setBounce(1, 0);
+                    enemy.body.setVelocityX(speed * (Math.random() > 0.5 ? 1 : -1));
+                }
+                enemy.body.setAllowGravity(gameType === 'topdown' ? false : true);
+                enemy.setData('ai', enemyCfg.ai || 'patrol');
+                enemy.setData('speed', speed);
+                enemy.setData('minX', 20);
+                enemy.setData('maxX', W - 20);
+                if (enemy.setPipeline) enemy.setPipeline('Light2D');
+                this.enemies.add(enemy);
                 }
             }
         }
