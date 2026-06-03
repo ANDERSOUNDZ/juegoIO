@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Admin - PIXO Therapy{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+    <div>
+        <h1 class="ui header page-title">Administración de usuarios</h1>
+        <p class="page-sub">Gestiona los usuarios de la plataforma y sus roles.</p>
+    </div>
+    <div class="acts">
+        <button class="ui primary button" onclick="openModal()"><svg class="ic"><use href="#i-plus"/></svg>Nuevo usuario</button>
+    </div>
+</div>
+
+<div class="ui segment" style="padding:6px 18px 14px;">
+    <table class="ui very basic table" style="margin:0;">
+        <thead>
+            <tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Creado</th><th class="right aligned">Acciones</th></tr>
+        </thead>
+        <tbody id="users-table">
+            <tr><td colspan="5" class="muted">Cargando…</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal: nuevo/editar usuario -->
+<div class="modal-overlay" id="modal">
+    <div class="modal-card">
+        <div class="modal-head">
+            <div>
+                <h2 id="modal-title">Nuevo usuario</h2>
+                <p class="page-sub" style="margin-top:4px;">Completa la información del usuario.</p>
+            </div>
+            <button class="close-x" type="button" onclick="closeModal()"><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
+
+        <form id="user-form" class="ui form" style="margin-top:14px;">
+            <div class="required field">
+                <label>Nombre</label>
+                <input type="text" id="f-name" placeholder="Nombre completo" required>
+            </div>
+            <div class="required field">
+                <label>Email</label>
+                <input type="email" id="f-email" placeholder="email@ejemplo.com" required>
+            </div>
+            <div class="field">
+                <label>Contraseña <span class="muted" style="font-weight:400;">(dejar vacío para mantener al editar)</span></label>
+                <input type="password" id="f-password" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="field">
+                <label>Rol</label>
+                <select id="f-role" class="ui dropdown">
+                    <option value="therapist">Terapeuta</option>
+                    <option value="admin">Administrador</option>
+                    <option value="viewer">Solo vista</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:18px;">
+                <button class="ui basic button" type="button" onclick="closeModal()">Cancelar</button>
+                <button class="ui primary button" type="submit">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let editingUserId = null;
+
+async function loadUsers() {
+    const users = await fetch('/api/users').then(r => r.json());
+    const tbody = document.getElementById('users-table');
+
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No hay usuarios registrados</div></td></tr>';
+        return;
+    }
+
+    const roleLabels = { admin: 'Administrador', therapist: 'Terapeuta', viewer: 'Solo vista' };
+
+    tbody.innerHTML = users.map(u => {
+        const date = u.created_at ? new Date(u.created_at).toLocaleDateString('es') : '-';
+        return `<tr>
+            <td style="font-weight:700;">${u.name}</td>
+            <td>${u.email}</td>
+            <td><span class="ui basic label ${u.role === 'admin' ? 'green' : u.role === 'viewer' ? 'grey' : 'blue'}">${roleLabels[u.role] || u.role}</span></td>
+            <td>${date}</td>
+            <td class="right aligned">
+                <button class="ui mini basic button" onclick="editUser(${u.id}, '${u.name.replace(/'/g, "\\'")}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')"><svg class="ic"><use href="#i-edit"/></svg>Editar</button>
+                <button class="ui mini basic red button" onclick="deleteUser(${u.id})"><svg class="ic"><use href="#i-trash"/></svg>Eliminar</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function openModal() {
+    editingUserId = null;
+    document.getElementById('modal-title').textContent = 'Nuevo usuario';
+    document.getElementById('user-form').reset();
+    document.getElementById('f-password').required = true;
+    document.getElementById('modal').classList.add('active');
+}
+
+function editUser(id, name, email, role) {
+    editingUserId = id;
+    document.getElementById('modal-title').textContent = 'Editar usuario';
+    document.getElementById('f-name').value = name;
+    document.getElementById('f-email').value = email;
+    document.getElementById('f-role').value = role;
+    document.getElementById('f-password').required = false;
+    document.getElementById('modal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.remove('active');
+}
+
+document.getElementById('user-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+        name: document.getElementById('f-name').value,
+        email: document.getElementById('f-email').value,
+        role: document.getElementById('f-role').value,
+    };
+    const password = document.getElementById('f-password').value;
+    if (password) data.password = password;
+
+    if (editingUserId) {
+        await fetch('/api/users/' + editingUserId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+    } else {
+        if (!password) { alert('La contraseña es requerida'); return; }
+        data.password = password;
+        await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+    }
+    closeModal();
+    loadUsers();
+});
+
+async function deleteUser(id) {
+    if (!confirm('¿Eliminar este usuario?')) return;
+    const res = await fetch('/api/users/' + id, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error); return; }
+    loadUsers();
+}
+
+loadUsers();
+</script>
+{% endblock %}

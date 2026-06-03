@@ -9,6 +9,7 @@ from src.infrastructure.persistence.repositories import (
     SensitivityHistoryRepository, SensitivityPresetRepository,
 )
 from src.domain.exceptions import NotFoundError, ValidationError
+from src.infrastructure.web.middleware import role_required
 
 patients_bp = Blueprint('patients_api', __name__, url_prefix='/api/patients')
 _service = PatientService(
@@ -43,7 +44,7 @@ def list_patients():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     per_page = min(per_page, 50)
-    result = _service.list_by_user_paginated(current_user.id, page, per_page)
+    result = _service.list_by_user_paginated(current_user.id, page, per_page, user_role=current_user.role)
     return jsonify(
         patients=[_patient_to_dict(p) for p in result['items']],
         total=result['total'],
@@ -55,6 +56,7 @@ def list_patients():
 
 @patients_bp.route('', methods=['POST'])
 @login_required
+@role_required('admin', 'therapist')
 def create_patient():
     data = request.get_json()
     if not data or not data.get('name'):
@@ -82,6 +84,7 @@ def get_patient(pid):
 
 @patients_bp.route('/<int:pid>', methods=['PUT'])
 @login_required
+@role_required('admin', 'therapist')
 def update_patient(pid):
     data = request.get_json()
     if not data:
@@ -98,6 +101,7 @@ def update_patient(pid):
 
 @patients_bp.route('/<int:pid>', methods=['DELETE'])
 @login_required
+@role_required('admin', 'therapist')
 def delete_patient(pid):
     try:
         _service.delete(pid)
@@ -118,6 +122,7 @@ def get_sensitivity(pid):
 
 @patients_bp.route('/<int:pid>/sensitivity', methods=['PUT'])
 @login_required
+@role_required('admin', 'therapist')
 def update_sensitivity(pid):
     data = request.get_json()
     if not data or 'sensitivities' not in data:
@@ -137,6 +142,7 @@ def update_sensitivity(pid):
 @patients_bp.route('/<int:pid>/sensitivity/history', methods=['GET'])
 @login_required
 def sensitivity_history(pid):
+    # Viewer can see history, admin/therapist can see it too
     try:
         history = _service.get_sensitivity_history(pid)
         return jsonify([

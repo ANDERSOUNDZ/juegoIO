@@ -23,8 +23,8 @@ class SessionService:
         self._patient_repo = patient_repo
 
     def list_by_user(self, user_id: int, patient_id: Optional[int] = None,
-                     game_id: Optional[int] = None) -> list:
-        return self._session_repo.find_by_user_id(user_id, patient_id, game_id)
+                     game_id: Optional[int] = None, user_role: str = 'therapist') -> list:
+        return self._session_repo.find_by_user_id(user_id, patient_id, game_id, user_role=user_role)
 
     def get_by_id(self, session_id: int) -> GameSession:
         s = self._session_repo.find_by_id(session_id)

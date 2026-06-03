@@ -54,13 +54,18 @@ class PatientRepository(IPatientRepository):
         m = PatientModel.query.get(patient_id)
         return self._to_entity(m) if m else None
 
-    def find_by_user_id(self, user_id: int) -> List[Patient]:
-        models = PatientModel.query.filter_by(user_id=user_id).order_by(PatientModel.name).all()
+    def find_by_user_id(self, user_id: int, user_role: str = 'therapist') -> List[Patient]:
+        q = PatientModel.query
+        if user_role != 'admin':
+            q = q.filter_by(user_id=user_id)
+        models = q.order_by(PatientModel.name).all()
         return [self._to_entity(m) for m in models]
 
-    def find_by_user_id_paginated(self, user_id: int, page: int, per_page: int) -> dict:
-        pagination = (PatientModel.query
-                      .filter_by(user_id=user_id)
+    def find_by_user_id_paginated(self, user_id: int, page: int, per_page: int, user_role: str = 'therapist') -> dict:
+        q = PatientModel.query
+        if user_role != 'admin':
+            q = q.filter_by(user_id=user_id)
+        pagination = (q
                       .order_by(PatientModel.name)
                       .paginate(page=page, per_page=per_page, error_out=False))
         return {
@@ -142,8 +147,11 @@ class SessionRepository(ISessionRepository):
         return self._to_entity(m) if m else None
 
     def find_by_user_id(self, user_id: int, patient_id: Optional[int] = None,
-                        game_id: Optional[int] = None, limit: int = 100) -> List[GameSession]:
-        q = GameSessionModel.query.filter_by(user_id=user_id)
+                        game_id: Optional[int] = None, limit: int = 100,
+                        user_role: str = 'therapist') -> List[GameSession]:
+        q = GameSessionModel.query
+        if user_role != 'admin':
+            q = q.filter_by(user_id=user_id)
         if patient_id:
             q = q.filter_by(patient_id=patient_id)
         if game_id:

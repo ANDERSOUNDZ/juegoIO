@@ -41,7 +41,7 @@
 
 {% block scripts %}
 <script>
-/* ===== LOGICA JS (conservada del template original) ===== */
+const USER_ROLE = '{{ current_user.role }}';
 const PID = {{ patient_id }};
 const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
 
@@ -65,7 +65,9 @@ async function loadAll() {
                     </p>
                 </div>
                 <div class="acts">
+                    {% if current_user.role != 'viewer' %}
                     <a href="/games" class="ui primary button"><svg class="ic"><use href="#i-play"/></svg>Jugar</a>
+                    {% endif %}
                 </div>
             </div>
             ${patient.notes ? `<div class="ui divider"></div><div style="display:flex;gap:9px;align-items:flex-start;color:var(--muted);font-size:.92rem;"><svg class="ic" style="width:16px;height:16px;margin-top:3px;color:var(--faint);"><use href="#i-file"/></svg><span>${patient.notes}</span></div>` : ''}
@@ -87,19 +89,20 @@ async function loadAll() {
                 <input type="text" id="sens-reason" placeholder="Opcional">
             </div>
         </div>
-        <button class="ui primary button" style="margin-top:6px;" onclick="saveSensitivity()"><svg class="ic"><use href="#i-check"/></svg>Guardar sensibilidad</button>
+        ${USER_ROLE !== 'viewer' ? `<button class="ui primary button" style="margin-top:6px;" onclick="saveSensitivity()"><svg class="ic"><use href="#i-check"/></svg>Guardar sensibilidad</button>` : ''}
     `;
 
     const presetsDiv = document.getElementById('presets-list');
-    presetsDiv.innerHTML = presets.map(p => `
-        <div class="pixo-row">
+    presetsDiv.innerHTML = presets.map(p => {
+        const canEdit = USER_ROLE !== 'viewer';
+        return `<div class="pixo-row">
             <div class="t">
                 <span class="text-accent">${p.name}</span>
                 <span class="ui basic label" style="margin-left:9px;">${p.sensitivities.join(', ')}</span>
             </div>
-            <button class="ui mini basic button" onclick="applyPreset(${JSON.stringify(p.sensitivities).replace(/"/g, '&quot;')}, ${p.id})">Aplicar</button>
-        </div>
-    `).join('');
+            ${canEdit ? `<button class="ui mini basic button" onclick="applyPreset(${JSON.stringify(p.sensitivities).replace(/"/g, '&quot;')}, ${p.id})">Aplicar</button>` : ''}
+        </div>`;
+    }).join('');
 
     const histDiv = document.getElementById('sensitivity-history');
     if (history.length === 0) {

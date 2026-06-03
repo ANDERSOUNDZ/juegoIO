@@ -8,7 +8,9 @@
         <p class="page-sub">Administra perfiles, sensibilidad y sesiones terapéuticas.</p>
     </div>
     <div class="acts">
+        {% if current_user.role != 'viewer' %}
         <button class="ui primary button" onclick="openModal()"><svg class="ic"><use href="#i-plus"/></svg>Nuevo paciente</button>
+        {% endif %}
     </div>
 </div>
 
@@ -63,12 +65,8 @@
 
 {% block scripts %}
 <script>
-/* ===== LOGICA JS (conservada del template original) ===== */
-function openModal() { document.getElementById('modal').classList.add('active'); }
-function closeModal() { document.getElementById('modal').classList.remove('active'); }
-
+const USER_ROLE = '{{ current_user.role }}';
 let currentPage = 1;
-const perPage = 5;
 
 async function loadPatients(page = 1) {
     currentPage = page;
@@ -84,6 +82,7 @@ async function loadPatients(page = 1) {
 
     tbody.innerHTML = data.patients.map(p => {
         const sens = p.sensitivity ? p.sensitivity.map(s => s).join(', ') : 'Sin config';
+        const canEdit = USER_ROLE !== 'viewer';
         return `<tr>
             <td><a href="/patients/${p.id}" style="font-weight:700;">${p.name}</a></td>
             <td>${p.age || '-'}</td>
@@ -91,7 +90,7 @@ async function loadPatients(page = 1) {
             <td><span class="ui basic label">${sens}</span></td>
             <td class="right aligned">
                 <a href="/patients/${p.id}" class="ui mini basic button">Ver</a>
-                <button class="ui mini basic red button" onclick="deletePatient(${p.id})"><svg class="ic"><use href="#i-trash"/></svg>Eliminar</button>
+                ${canEdit ? `<button class="ui mini basic red button" onclick="deletePatient(${p.id})"><svg class="ic"><use href="#i-trash"/></svg>Eliminar</button>` : ''}
             </td>
         </tr>`;
     }).join('');

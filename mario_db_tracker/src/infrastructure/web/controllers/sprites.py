@@ -4,6 +4,7 @@ from flask_login import login_required, current_user
 from src.application.sprite_service import SpriteService
 from src.infrastructure.persistence.repositories import SpriteRepository
 from src.domain.exceptions import NotFoundError, ValidationError
+from src.infrastructure.web.middleware import role_required
 
 sprites_bp = Blueprint('sprites_api', __name__, url_prefix='/api/sprites')
 _service = SpriteService(SpriteRepository())
@@ -22,6 +23,7 @@ def _sprite_to_dict(s):
 
 @sprites_bp.route('', methods=['GET'])
 @login_required
+@role_required('admin', 'therapist')
 def list_sprites():
     category = request.args.get('category')
     sprites = _service.list_all(category)
@@ -30,6 +32,7 @@ def list_sprites():
 
 @sprites_bp.route('', methods=['POST'])
 @login_required
+@role_required('admin')
 def create_sprite():
     data = request.get_json()
     if not data:
@@ -50,6 +53,7 @@ def create_sprite():
 
 @sprites_bp.route('/<int:sid>', methods=['GET'])
 @login_required
+@role_required('admin', 'therapist')
 def get_sprite(sid):
     try:
         s = _service.get_by_id(sid)
@@ -60,6 +64,7 @@ def get_sprite(sid):
 
 @sprites_bp.route('/<int:sid>', methods=['PUT'])
 @login_required
+@role_required('admin')
 def update_sprite(sid):
     data = request.get_json()
     if not data:
@@ -73,6 +78,7 @@ def update_sprite(sid):
 
 @sprites_bp.route('/<int:sid>', methods=['DELETE'])
 @login_required
+@role_required('admin')
 def delete_sprite(sid):
     try:
         _service.delete(sid)
@@ -83,6 +89,7 @@ def delete_sprite(sid):
 
 @sprites_bp.route('/batch', methods=['POST'])
 @login_required
+@role_required('admin', 'therapist')
 def get_batch():
     data = request.get_json()
     ids = data.get('ids', []) if data else []

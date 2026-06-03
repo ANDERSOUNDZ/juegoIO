@@ -1,5 +1,7 @@
-from flask import Blueprint, render_template, redirect, url_for
+from flask import Blueprint, render_template, redirect, url_for, abort
 from flask_login import login_required, current_user
+
+from src.infrastructure.web.middleware import role_required
 
 main_bp = Blueprint('pages', __name__)
 
@@ -31,12 +33,14 @@ def patient_detail(pid):
 
 @main_bp.route('/games')
 @login_required
+@role_required('admin', 'therapist')
 def games_page():
     return render_template('games.html')
 
 
 @main_bp.route('/play/<int:game_id>')
 @login_required
+@role_required('admin', 'therapist')
 def play_game(game_id):
     return render_template('play.html', game_id=game_id)
 
@@ -45,3 +49,10 @@ def play_game(game_id):
 @login_required
 def session_report(sid):
     return render_template('report.html', session_id=sid)
+
+
+@main_bp.route('/admin/users')
+@login_required
+@role_required('admin')
+def admin_users():
+    return render_template('admin_users.html')

@@ -4,6 +4,7 @@ from flask_login import login_required, current_user
 from src.application.game_service import GameService
 from src.infrastructure.persistence.repositories import GameRepository, PlayerGameConfigRepository
 from src.domain.exceptions import NotFoundError, ValidationError
+from src.infrastructure.web.middleware import role_required
 
 games_bp = Blueprint('games_api', __name__, url_prefix='/api/games')
 _service = GameService(GameRepository(), PlayerGameConfigRepository())
@@ -23,6 +24,7 @@ def _game_to_dict(g, include_config=False):
 
 @games_bp.route('', methods=['GET'])
 @login_required
+@role_required('admin', 'therapist')
 def list_games():
     games = _service.list_all()
     return jsonify([_game_to_dict(g) for g in games])
@@ -30,6 +32,7 @@ def list_games():
 
 @games_bp.route('', methods=['POST'])
 @login_required
+@role_required('admin')
 def create_game():
     data = request.get_json()
     if not data:
@@ -47,6 +50,7 @@ def create_game():
 
 @games_bp.route('/<int:gid>', methods=['GET'])
 @login_required
+@role_required('admin', 'therapist')
 def get_game(gid):
     try:
         g = _service.get_by_id(gid)
@@ -57,6 +61,7 @@ def get_game(gid):
 
 @games_bp.route('/<int:gid>', methods=['PUT'])
 @login_required
+@role_required('admin')
 def update_game(gid):
     data = request.get_json()
     if not data:
@@ -70,6 +75,7 @@ def update_game(gid):
 
 @games_bp.route('/<int:gid>', methods=['DELETE'])
 @login_required
+@role_required('admin')
 def delete_game(gid):
     try:
         _service.delete(gid)
@@ -80,6 +86,7 @@ def delete_game(gid):
 
 @games_bp.route('/<int:gid>/config', methods=['GET'])
 @login_required
+@role_required('admin', 'therapist')
 def get_game_config(gid):
     try:
         return jsonify(_service.get_config(gid))
@@ -89,6 +96,7 @@ def get_game_config(gid):
 
 @games_bp.route('/<int:gid>/player-config/<int:pid>', methods=['GET'])
 @login_required
+@role_required('admin', 'therapist')
 def get_player_game_config(gid, pid):
     try:
         return jsonify(_service.get_player_config(gid, pid))
@@ -98,6 +106,7 @@ def get_player_game_config(gid, pid):
 
 @games_bp.route('/<int:gid>/player-config/<int:pid>', methods=['PUT'])
 @login_required
+@role_required('admin', 'therapist')
 def save_player_game_config(gid, pid):
     data = request.get_json()
     if not data:

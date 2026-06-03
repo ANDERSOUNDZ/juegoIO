@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, render_template, redirect, url_fo
 from flask_login import login_user, logout_user, login_required, current_user, LoginManager
 
 from src.infrastructure.persistence.models import UserModel, db
+from src.infrastructure.web.middleware import role_required
 
 auth_bp = Blueprint('auth', __name__)
 login_manager = LoginManager()
@@ -97,4 +98,82 @@ def api_register():
 @login_required
 def api_logout():
     logout_user()
+    return jsonify(ok=True)
+
+
+# ─── Admin: User Management ────────────────────────────────────────
+
+
+@auth_bp.route('/api/users', methods=['GET'])
+@login_required
+@role_required('admin')
+def api_list_users():
+    users = UserModel.query.order_by(UserModel.name).all()
+    return jsonify([
+        dict(id=u.id, name=u.name, email=u.email, role=u.role, created_at=u.created_at.isoformat() if u.created_at else None)
+        for u in users
+    ])
+
+
+@auth_bp.route('/api/users', methods=['POST'])
+@login_required
+@role_required('admin')
+def api_create_user():
+    data = request.get_json()
+    if not data:
+        return jsonify(error='JSON requerido'), 400
+    email = data.get('email', '').strip()
+    name = data.get('name', '').strip()
+    password = data.get('password', '')
+    role = data.get('role', 'therapist')
+    if not all([email, name, password]):
+        return jsonify(error='email, name y password son requeridos'), 400
+    if role not in ('admin', 'therapist', 'viewer'):
+        return jsonify(error='Rol inválido: debe ser admin, therapist o viewer'), 400
+    if UserModel.query.filter_by(email=email).first():
+        return jsonify(error='El email ya está registrado'), 409
+    user = UserModel(email=email, name=name, role=role)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    return jsonify(id=user.id, name=user.name, email=user.email, role=user.role), 201
+
+
+@auth_bp.route('/api/users/<int:uid>', methods=['PUT'])
+@login_required
+@role_required('admin')
+def api_update_user(uid):
+    data = request.get_json()
+    if not data:
+        return jsonify(error='JSON requerido'), 400
+    user = UserModel.query.get(uid)
+    if not user:
+        return jsonify(error='Usuario no encontrado'), 404
+    if 'name' in data:
+        user.name = data['name']
+    if 'email' in data:
+        if data['email'] != user.email and UserModel.query.filter_by(email=data['email']).first():
+            return jsonify(error='El email ya está registrado'), 409
+        user.email = data['email']
+    if 'role' in data:
+        if data['role'] not in ('admin', 'therapist', 'viewer'):
+            return jsonify(error='Rol inválido'), 400
+        user.role = data['role']
+    if 'password' in data and data['password']:
+        user.set_password(data['password'])
+    db.session.commit()
+    return jsonify(id=user.id, name=user.name, email=user.email, role=user.role)
+
+
+@auth_bp.route('/api/users/<int:uid>', methods=['DELETE'])
+@login_required
+@role_required('admin')
+def api_delete_user(uid):
+    user = UserModel.query.get(uid)
+    if not user:
+        return jsonify(error='Usuario no encontrado'), 404
+    if user.id == current_user.id:
+        return jsonify(error='No puedes eliminarte a ti mismo'), 400
+    db.session.delete(user)
+    db.session.commit()
     return jsonify(ok=True)

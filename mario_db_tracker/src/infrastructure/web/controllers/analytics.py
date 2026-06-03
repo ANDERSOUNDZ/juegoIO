@@ -7,6 +7,7 @@ from src.infrastructure.persistence.repositories import (
     PatientRepository, GameRepository,
 )
 from src.domain.exceptions import NotFoundError
+from src.infrastructure.web.middleware import role_required
 
 analytics_bp = Blueprint('analytics_api', __name__, url_prefix='/api/sessions')
 _service = AnalyticsService(
@@ -53,6 +54,7 @@ def _get_previous_session_id(session_id: int):
     session = repo.find_by_id(session_id)
     if not session:
         return None
-    all_sessions = repo.find_by_user_id(session.user_id, patient_id=session.patient_id)
+    # Use user_role='admin' to find all sessions for this patient regardless of who created them
+    all_sessions = repo.find_by_user_id(session.user_id, patient_id=session.patient_id, user_role='admin')
     ids = sorted([s.id for s in all_sessions if s.id < session_id], reverse=True)
     return ids[0] if ids else None

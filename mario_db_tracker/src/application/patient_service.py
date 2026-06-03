@@ -23,11 +23,11 @@ class PatientService:
         self._history_repo = history_repo
         self._preset_repo = preset_repo
 
-    def list_by_user(self, user_id: int) -> list:
-        return self._patient_repo.find_by_user_id(user_id)
+    def list_by_user(self, user_id: int, user_role: str = 'therapist') -> list:
+        return self._patient_repo.find_by_user_id(user_id, user_role=user_role)
 
-    def list_by_user_paginated(self, user_id: int, page: int = 1, per_page: int = 10) -> dict:
-        return self._patient_repo.find_by_user_id_paginated(user_id, page, per_page)
+    def list_by_user_paginated(self, user_id: int, page: int = 1, per_page: int = 10, user_role: str = 'therapist') -> dict:
+        return self._patient_repo.find_by_user_id_paginated(user_id, page, per_page, user_role=user_role)
 
     def get_by_id(self, patient_id: int) -> Patient:
         p = self._patient_repo.find_by_id(patient_id)
