@@ -64,7 +64,27 @@ class SMB3Bridge {
         canvas.style.imageRendering = 'pixelated';
         canvas.style.imageRendering = 'crisp-edges';
         this.container.appendChild(canvas);
+        var self = this;
+        setTimeout(function() { self._resizeCanvas(); }, 100);
+        window.addEventListener('resize', function() { self._resizeCanvas(); });
         return canvas;
+    }
+
+    _resizeCanvas() {
+        var canvas = this.container.querySelector('canvas');
+        if (!canvas) return;
+        var parent = this.container.parentElement;
+        if (!parent) return;
+        var pw = parent.clientWidth;
+        var ph = parent.clientHeight;
+        var ratio = 256 / 240;
+        if (pw / ph > ratio) {
+            canvas.style.width = (ph * ratio) + 'px';
+            canvas.style.height = ph + 'px';
+        } else {
+            canvas.style.width = pw + 'px';
+            canvas.style.height = (pw / ratio) + 'px';
+        }
     }
 
     _tick() {
