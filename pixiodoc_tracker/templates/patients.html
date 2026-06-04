@@ -8,7 +8,7 @@
         <p class="page-sub">Administra perfiles, sensibilidad y sesiones terapéuticas.</p>
     </div>
     <div class="acts">
-        {% if current_user.role != 'viewer' %}
+        {% if current_user.role_id != 3 %}
         <button class="ui primary button" onclick="openModal()"><svg class="ic"><use href="#i-plus"/></svg>Nuevo paciente</button>
         {% endif %}
     </div>
@@ -17,7 +17,15 @@
 <div class="ui segment" style="padding:6px 18px 14px;">
     <table class="ui very basic table" style="margin:0;">
         <thead>
-            <tr><th>Nombre</th><th>Edad</th><th>Diagnóstico</th><th>Sensibilidad</th><th class="right aligned">Acciones</th></tr>
+            <tr>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Documento</th>
+                <th>Edad</th>
+                <th>Diagnóstico</th>
+                <th>Sensibilidad</th>
+                <th class="right aligned">Acciones</th>
+            </tr>
         </thead>
         <tbody id="patients-table">
             <tr><td colspan="5" class="muted">Cargando…</td></tr>
@@ -42,6 +50,22 @@
                 <label>Nombre</label>
                 <input type="text" id="f-name" placeholder="Nombre completo" required>
             </div>
+            <div class="required field">
+                <label>Apellido</label>
+                <input type="text" id="f-lastname" placeholder="Apellido completo" required>
+            </div>
+            <div class="required field">
+                <label>Documento</label>
+                <input type="text" id="f-document" placeholder="Documento de Indentificación" required>
+            </div>
+            <div class="required field">
+                <label>Email</label>
+                <input type="text" id="f-email" placeholder="Correo Electrónico" required>
+            </div>
+            <div class="required field">
+                <label>Contraseña</label>
+                <input type="password" id="f-password" placeholder="Mínimo 6 caracteres" required>
+            </div>
             <div class="field">
                 <label>Fecha de nacimiento</label>
                 <input type="date" id="f-birth-date">
@@ -54,7 +78,7 @@
                 <label>Notas</label>
                 <textarea id="f-notes" rows="2"></textarea>
             </div>
-            {% if current_user.role == 'admin' %}
+            {% if current_user.role_id == 1 %}
             <div class="field">
                 <label>Asignar a terapeuta</label>
                 <select id="f-therapist" class="ui dropdown" style="width:100%;padding:8px 10px;border:1px solid var(--bor);border-radius:6px;background:var(--bg);color:var(--fg);">
@@ -73,17 +97,17 @@
 
 {% block scripts %}
 <script>
-const USER_ROLE = '{{ current_user.role }}';
+const USER_ROLE = '{{ current_user.role_id }}';
 const PER_PAGE = 10;
 let currentPage = 1;
 
 async function openModal() {
     document.getElementById('modal').classList.add('active');
-    if (USER_ROLE === 'admin') {
+    if (USER_ROLE === '1') {
         const therapists = await fetch('/api/users/therapists').then(r => r.json());
         const sel = document.getElementById('f-therapist');
         sel.innerHTML = '<option value="">Seleccionar terapeuta…</option>'
-            + therapists.map(t => `<option value="${t.id}">${t.name} (${t.email})</option>`).join('');
+            + therapists.map(t => `<option value="${t.id}">${t.name} ${t.lastname} (${t.email})</option>`).join('');
     }
 }
 
@@ -105,9 +129,11 @@ async function loadPatients(page = 1) {
 
     tbody.innerHTML = data.patients.map(p => {
         const sens = p.sensitivity ? p.sensitivity.map(s => s).join(', ') : 'Sin config';
-        const canEdit = USER_ROLE !== 'viewer';
+        const canEdit = USER_ROLE !== '3';
         return `<tr>
             <td><a href="/patients/${p.id}" style="font-weight:700;">${p.name}</a></td>
+            <td>${p.lastname}</td>
+            <td>${p.document}</td>
             <td>${p.age || '-'}</td>
             <td>${p.diagnosis || '-'}</td>
             <td><span class="ui basic label">${sens}</span></td>
@@ -135,11 +161,15 @@ document.getElementById('patient-form').addEventListener('submit', async (e) => 
     e.preventDefault();
     const data = {
         name: document.getElementById('f-name').value,
+        lastname: document.getElementById('f-lastname').value,
+        document: document.getElementById('f-document').value,
+        email: document.getElementById('f-email').value,
+        password: document.getElementById('f-password').value,
         birth_date: document.getElementById('f-birth-date').value || null,
         diagnosis: document.getElementById('f-diagnosis').value || null,
         notes: document.getElementById('f-notes').value || null,
     };
-    if (USER_ROLE === 'admin') {
+    if (USER_ROLE === '1') {
         const therapistId = document.getElementById('f-therapist').value;
         if (therapistId) data.user_id = parseInt(therapistId);
     }

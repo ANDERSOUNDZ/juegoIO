@@ -1,12 +1,12 @@
 from typing import Optional, List
 
 from src.domain.entities import (
-    Patient, Game, GameSession, FingerEvent,
+    Role, User, Patient, Game, GameSession, FingerEvent,
     SensitivityPreset, PatientSensitivity, SensitivityHistory,
     PlayerGameConfig, Sprite,
 )
 from src.domain.interfaces.repositories import (
-    IPatientRepository, IGameRepository,
+    IUserRepository, IPatientRepository, IGameRepository,
     ISessionRepository, IFingerEventRepository,
     ISensitivityPresetRepository, IPatientSensitivityRepository,
     ISensitivityHistoryRepository, IPlayerGameConfigRepository,
@@ -17,6 +17,53 @@ from .models import (
     FingerEventModel, SensitivityPresetModel, PatientSensitivityModel,
     SensitivityHistoryModel, PlayerGameConfigModel, SpriteModel,
 )
+
+
+class RoleRepository:
+    def find_all(self) -> List[Role]:
+        models = RoleModel.query.order_by(RoleModel.id).all()
+        return [self._to_entity(m) for m in models]
+
+    def find_by_name(self, name: str) -> Optional[Role]:
+        m = RoleModel.query.filter_by(name=name).first()
+        return self._to_entity(m) if m else None
+
+    @staticmethod
+    def _to_entity(m: RoleModel) -> Role:
+        return Role(id=m.id, name=m.name, description=m.description)
+
+
+class UserRepository(IUserRepository):
+    def find_by_id(self, user_id: int) -> Optional[User]:
+        m = UserModel.query.get(user_id)
+        return self._to_entity(m) if m else None
+
+    def find_by_email(self, email: str) -> Optional[User]:
+        m = UserModel.query.filter_by(email=email).first()
+        return self._to_entity(m) if m else None
+
+    def save(self, user: User) -> User:
+        if user.id:
+            m = UserModel.query.get(user.id)
+        else:
+            m = UserModel()
+            db.session.add(m)
+        m.email = user.email
+        m.password_hash = user.password_hash
+        m.name = user.name
+        m.lastname = user.lastname
+        if user.role_id:
+            m.role_id = user.role_id
+        db.session.commit()
+        return self._to_entity(m)
+
+    @staticmethod
+    def _to_entity(m: UserModel) -> User:
+        return User(
+            id=m.id, email=m.email, password_hash=m.password_hash,
+            name=m.name, role_id=m.role_id,
+            created_at=m.created_at,
+        )
 
 
 class PatientRepository(IPatientRepository):
@@ -54,6 +101,8 @@ class PatientRepository(IPatientRepository):
             db.session.add(m)
         m.user_id = patient.user_id
         m.name = patient.name
+        m.lastname = patient.lastname
+        m.document = patient.document
         m.birth_date = patient.birth_date
         m.age = patient.age
         m.diagnosis = patient.diagnosis
@@ -68,9 +117,16 @@ class PatientRepository(IPatientRepository):
     @staticmethod
     def _to_entity(m: PatientModel) -> Patient:
         return Patient(
-            id=m.id, user_id=m.user_id, name=m.name,
-            birth_date=m.birth_date, age=m.age,
-            diagnosis=m.diagnosis, notes=m.notes, created_at=m.created_at,
+            id=m.id,
+            user_id=m.user_id,
+            name=m.name,
+            lastname=m.lastname,
+            document=m.document,
+            birth_date=m.birth_date,
+            age=m.age,
+            diagnosis=m.diagnosis,
+            notes=m.notes,
+            created_at=m.created_at,
         )
 
 

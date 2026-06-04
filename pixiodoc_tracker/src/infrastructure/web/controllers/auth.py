@@ -8,8 +8,6 @@ auth_bp = Blueprint('auth', __name__)
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 
-
-
 def _set_role_id(user, role_name):
     """Look up role_id from roles table and set it on the user."""
     user.role = role_name
@@ -55,12 +53,13 @@ def register():
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
         name = request.form.get('name', '').strip()
+        lastname = request.form.get('lastname', '').strip()
         password = request.form.get('password', '')
         role = request.form.get('role', 'therapist')
         if UserModel.query.filter_by(email=email).first():
             flash('El email ya está registrado', 'error')
             return render_template('register.html')
-        user = UserModel(email=email, name=name)
+        user = UserModel(email=email, name=name, lastname=lastname)
         _set_role_id(user, role)
         user.set_password(password)
         db.session.add(user)
@@ -122,13 +121,13 @@ def api_logout():
 
 @auth_bp.route('/api/users/therapists', methods=['GET'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2)
 def api_list_therapists():
     therapists = UserModel.query.filter(
-        UserModel.role.in_(['therapist', 'admin'])
+        UserModel.role_id.in_([2])
     ).order_by(UserModel.name).all()
     return jsonify([
-        dict(id=u.id, name=u.name, email=u.email, role=u.role)
+        dict(id=u.id, name=u.name, lastname=u.lastname, email=u.email, role=u.role_rel.name)
         for u in therapists
     ])
 
@@ -138,24 +137,25 @@ def api_list_therapists():
 
 @auth_bp.route('/api/users', methods=['GET'])
 @login_required
-@role_required('admin')
+@role_required(1)
 def api_list_users():
     users = UserModel.query.order_by(UserModel.name).all()
     return jsonify([
-        dict(id=u.id, name=u.name, email=u.email, role=u.role, created_at=u.created_at.isoformat() if u.created_at else None)
+        dict(id=u.id, name=u.name, lastname=u.lastname, email=u.email, role=u.role_rel.name, created_at=u.created_at.isoformat() if u.created_at else None)
         for u in users
     ])
 
 
 @auth_bp.route('/api/users', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required(1)
 def api_create_user():
     data = request.get_json()
     if not data:
         return jsonify(error='JSON requerido'), 400
     email = data.get('email', '').strip()
     name = data.get('name', '').strip()
+    lastname = data.get('lastname', '').strip()
     password = data.get('password', '')
     role = data.get('role', 'therapist')
     if not all([email, name, password]):
@@ -164,7 +164,7 @@ def api_create_user():
         return jsonify(error='Rol inválido'), 400
     if UserModel.query.filter_by(email=email).first():
         return jsonify(error='El email ya está registrado'), 409
-    user = UserModel(email=email, name=name)
+    user = UserModel(email=email, name=name, lastname=lastname)
     _set_role_id(user, role)
     user.set_password(password)
     db.session.add(user)
@@ -174,7 +174,7 @@ def api_create_user():
 
 @auth_bp.route('/api/users/<int:uid>', methods=['PUT'])
 @login_required
-@role_required('admin')
+@role_required(1)
 def api_update_user(uid):
     data = request.get_json()
     if not data:
@@ -184,6 +184,8 @@ def api_update_user(uid):
         return jsonify(error='Usuario no encontrado'), 404
     if 'name' in data:
         user.name = data['name']
+    if 'lastname' in data:
+        user.lastname = data['lastname']
     if 'email' in data:
         if data['email'] != user.email and UserModel.query.filter_by(email=data['email']).first():
             return jsonify(error='El email ya está registrado'), 409
@@ -200,7 +202,7 @@ def api_update_user(uid):
 
 @auth_bp.route('/api/users/<int:uid>', methods=['DELETE'])
 @login_required
-@role_required('admin')
+@role_required(1)
 def api_delete_user(uid):
     user = UserModel.query.get(uid)
     if not user:

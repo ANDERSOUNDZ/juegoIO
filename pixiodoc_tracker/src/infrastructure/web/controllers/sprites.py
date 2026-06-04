@@ -23,7 +23,7 @@ def _sprite_to_dict(s):
 
 @sprites_bp.route('', methods=['GET'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2, 3)
 def list_sprites():
     category = request.args.get('category')
     sprites = _service.list_all(category)
@@ -32,7 +32,7 @@ def list_sprites():
 
 @sprites_bp.route('', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required(1)
 def create_sprite():
     data = request.get_json()
     if not data:
@@ -53,7 +53,7 @@ def create_sprite():
 
 @sprites_bp.route('/<int:sid>', methods=['GET'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2, 3)
 def get_sprite(sid):
     try:
         s = _service.get_by_id(sid)
@@ -64,7 +64,7 @@ def get_sprite(sid):
 
 @sprites_bp.route('/<int:sid>', methods=['PUT'])
 @login_required
-@role_required('admin')
+@role_required(1)
 def update_sprite(sid):
     data = request.get_json()
     if not data:
@@ -78,7 +78,7 @@ def update_sprite(sid):
 
 @sprites_bp.route('/<int:sid>', methods=['DELETE'])
 @login_required
-@role_required('admin')
+@role_required(1)
 def delete_sprite(sid):
     try:
         _service.delete(sid)
@@ -89,7 +89,7 @@ def delete_sprite(sid):
 
 @sprites_bp.route('/batch', methods=['POST'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2, 3)
 def get_batch():
     data = request.get_json()
     ids = data.get('ids', []) if data else []

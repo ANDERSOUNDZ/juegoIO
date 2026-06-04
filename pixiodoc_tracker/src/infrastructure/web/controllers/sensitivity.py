@@ -21,7 +21,7 @@ def _preset_to_dict(p):
 
 @sensitivity_bp.route('/presets', methods=['GET'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2, 3)
 def list_presets():
     presets = _service.list_presets()
     return jsonify([_preset_to_dict(p) for p in presets])
@@ -29,7 +29,7 @@ def list_presets():
 
 @sensitivity_bp.route('/presets', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required(1)
 def create_preset():
     data = request.get_json()
     if not data:

@@ -8,25 +8,30 @@
         <p class="page-sub">Resumen de pacientes, sesiones y actividad reciente.</p>
     </div>
     <div class="acts">
-        {% if current_user.role != 'viewer' %}
+        {% if current_user.role_id != 3 %}
         <a href="{{ url_for('pages.patients_page') }}" class="ui primary button"><svg class="ic"><use href="#i-plus"/></svg>Nuevo paciente</a>
         <a href="{{ url_for('pages.games_page') }}" class="ui basic button"><svg class="ic"><use href="#i-play"/></svg>Ver juegos</a>
+        {% else %}
+        <a href="/games?patient_id={{ current_user.patient.id }}" class="ui basic button"><svg class="ic"><use href="#i-play"/></svg>Ver juegos</a>
         {% endif %}
     </div>
 </div>
 
 <div class="ui segment" style="padding:24px 8px;">
-    <div class="ui {{ 'four' if current_user.role == 'admin' else 'three' }} statistics">
+<div class="ui {{ 'four' if current_user.role_id == 1 else 'two' if current_user.role_id == 3 else 'three' }} statistics">
+        {% if current_user.role_id != 3 %}
         <div class="statistic"><div class="value" id="stat-patients">-</div><div class="label">Pacientes</div></div>
+        {% endif %}
         <div class="statistic"><div class="value" id="stat-sessions">-</div><div class="label">Sesiones</div></div>
         <div class="statistic"><div class="value" id="stat-games">-</div><div class="label">Juegos</div></div>
-        {% if current_user.role == 'admin' %}
+        {% if current_user.role_id == 1 %}
         <div class="statistic"><div class="value" id="stat-therapists">-</div><div class="label">Terapeutas</div></div>
         {% endif %}
     </div>
 </div>
 
-<div class="two-col">
+<div class="{{ 'two-col' if current_user.role_id != 3 else 'one-col' }}">
+    {% if current_user.role_id != 3 %}
     <div class="ui segment">
         <div class="seg-head">
             <h3 class="section-title"><svg class="ic"><use href="#i-users"/></svg>Pacientes recientes</h3>
@@ -35,7 +40,7 @@
         <div class="ui divider"></div>
         <div id="recent-patients"><p class="muted">Cargando…</p></div>
     </div>
-
+    {% endif %}
     <div class="ui segment">
         <h3 class="section-title"><svg class="ic"><use href="#i-history"/></svg>Sesiones recientes</h3>
         <div class="ui divider"></div>
@@ -46,41 +51,47 @@
 
 {% block scripts %}
 <script>
-const USER_ROLE = '{{ current_user.role }}';
+const USER_ROLE = '{{ current_user.role_id }}';
+const PATIENT_ID = '{{ current_user.patient.id }}';
 
 async function loadDashboard() {
     try {
-        const [patients, sessions, games] = await Promise.all([
-            fetch('/api/patients').then(r => r.json()),
-            fetch('/api/sessions').then(r => r.json()),
-            fetch('/api/games').then(r => r.json()),
-        ]);
-
-        document.getElementById('stat-patients').textContent = patients.patients.length;
-        document.getElementById('stat-sessions').textContent = sessions.length;
-        document.getElementById('stat-games').textContent = games.length;
+        let patients = [];
+        let sessions = [];
+        const games = await fetch('/api/games').then(r => r.json());
 
         // Admin: fetch therapist count
-        if (USER_ROLE === 'admin') {
+        if (USER_ROLE === '1') {
             const therapists = await fetch('/api/users/therapists').then(r => r.json());
             document.getElementById('stat-therapists').textContent = therapists.length;
         }
 
-        const rp = document.getElementById('recent-patients');
+        if (USER_ROLE !== '3') {
+            patients = await fetch('/api/patients').then(r => r.json());
+            sessions = await fetch('/api/sessions').then(r => r.json());
+            document.getElementById('stat-patients').textContent = patients.patients.length;
 
-        if (patients.patients.length === 0) {
-            rp.innerHTML = '<div class="empty-state">Sin pacientes aún</div>';
+            const rp = document.getElementById('recent-patients');
+
+            if (!patients.isArray && patients.patients.length === 0) {
+                rp.innerHTML = '<div class="empty-state">Sin pacientes aún</div>';
+            } else {
+                rp.innerHTML = patients.patients.slice(0, 5).map(p =>
+                    `<div class="pixo-row">
+                        <div>
+                            <div class="t">${p.name}${p.age ? ' · ' + p.age + ' años' : ''}</div>
+                            <div class="d">${p.diagnosis || 'Ficha clínica disponible'}</div>
+                        </div>
+                        <a href="/patients/${p.id}" class="ui mini basic button">Ver</a>
+                    </div>`
+                ).join('');
+            }
         } else {
-            rp.innerHTML = patients.patients.slice(0, 5).map(p =>
-                `<div class="pixo-row">
-                    <div>
-                        <div class="t">${p.name}${p.age ? ' · ' + p.age + ' años' : ''}</div>
-                        <div class="d">${p.diagnosis || 'Ficha clínica disponible'}</div>
-                    </div>
-                    <a href="/patients/${p.id}" class="ui mini basic button">Ver</a>
-                </div>`
-            ).join('');
+            sessions = await fetch(`/api/sessions?patient_id=${PATIENT_ID}`).then(r => r.json());
         }
+
+        document.getElementById('stat-sessions').textContent = sessions.length;
+        document.getElementById('stat-games').textContent = games.length;
 
         const rs = document.getElementById('recent-sessions');
         if (sessions.length === 0) {

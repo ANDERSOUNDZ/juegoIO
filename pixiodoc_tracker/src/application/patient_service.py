@@ -2,13 +2,13 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from src.domain.entities import Patient, PatientSensitivity, SensitivityHistory
-from src.domain.exceptions import NotFoundError
+from src.infrastructure.persistence.models import UserModel
+from src.domain.exceptions import NotFoundError, ValidationError
 from src.domain.interfaces.repositories import (
     IPatientRepository, IPatientSensitivityRepository,
-    ISensitivityHistoryRepository, ISensitivityPresetRepository,
+    ISensitivityHistoryRepository, ISensitivityPresetRepository, IUserRepository,
 )
 from src.domain.value_objects import Sensitivity
-
 
 class PatientService:
     def __init__(
@@ -17,11 +17,13 @@ class PatientService:
         sensitivity_repo: IPatientSensitivityRepository,
         history_repo: ISensitivityHistoryRepository,
         preset_repo: ISensitivityPresetRepository,
+        user_repo: IUserRepository,
     ):
         self._patient_repo = patient_repo
         self._sensitivity_repo = sensitivity_repo
         self._history_repo = history_repo
         self._preset_repo = preset_repo
+        self.user_repo = user_repo
 
     def list_by_user(self, user_id: int, user_role: str = 'therapist') -> list:
         return self._patient_repo.find_by_user_id(user_id, user_role=user_role)
@@ -35,9 +37,13 @@ class PatientService:
             raise NotFoundError('Paciente', patient_id)
         return p
 
-    def create(self, user_id: int, name: str, birth_date=None, age: Optional[int] = None,
+    def create(self, name: str, lastname: str, document: str, email: str, password: str, birth_date=None, age: Optional[int] = None,
                diagnosis: Optional[str] = None, notes: Optional[str] = None) -> Patient:
-        patient = Patient(user_id=user_id, name=name, birth_date=birth_date, age=age, diagnosis=diagnosis, notes=notes)
+        user = UserModel(name=name, lastname=lastname, email=email)
+        user.set_password(password)
+        user.role_id = 3
+        user_save = self.user_repo.save(user)
+        patient = Patient(user_id=user_save.id, name=name, lastname=lastname, document=document, birth_date=birth_date, age=age, diagnosis=diagnosis, notes=notes)
         return self._patient_repo.save(patient)
 
     def update(self, patient_id: int, data: dict) -> Patient:

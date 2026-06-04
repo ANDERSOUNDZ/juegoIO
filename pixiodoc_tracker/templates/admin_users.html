@@ -15,7 +15,7 @@
 <div class="ui segment" style="padding:6px 18px 14px;">
     <table class="ui very basic table" style="margin:0;">
         <thead>
-            <tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Creado</th><th class="right aligned">Acciones</th></tr>
+            <tr><th>Nombre</th><th>Apellido</th><th>Email</th><th>Rol</th><th>Creado</th><th class="right aligned">Acciones</th></tr>
         </thead>
         <tbody id="users-table">
             <tr><td colspan="5" class="muted">Cargando…</td></tr>
@@ -40,6 +40,10 @@
                 <input type="text" id="f-name" placeholder="Nombre completo" required>
             </div>
             <div class="required field">
+                <label>Apellido</label>
+                <input type="text" id="f-lastname" placeholder="Apellido completo" required>
+            </div>
+            <div class="required field">
                 <label>Email</label>
                 <input type="email" id="f-email" placeholder="email@ejemplo.com" required>
             </div>
@@ -52,7 +56,6 @@
                 <select id="f-role" class="ui dropdown">
                     <option value="therapist">Terapeuta</option>
                     <option value="admin">Administrador</option>
-                    <option value="viewer">Solo vista</option>
                 </select>
             </div>
             <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:18px;">
@@ -77,14 +80,15 @@ async function loadUsers() {
         return;
     }
 
-    const roleLabels = { admin: 'Administrador', therapist: 'Terapeuta', viewer: 'Solo vista' };
+    const roleLabels = { admin: 'Administrador', therapist: 'Terapeuta' };
 
     tbody.innerHTML = users.map(u => {
         const date = u.created_at ? new Date(u.created_at).toLocaleDateString('es') : '-';
         return `<tr>
             <td style="font-weight:700;">${u.name}</td>
+            <td style="font-weight:700;">${u.lastname}</td>
             <td>${u.email}</td>
-            <td><span class="ui basic label ${u.role === 'admin' ? 'green' : u.role === 'viewer' ? 'grey' : 'blue'}">${roleLabels[u.role] || u.role}</span></td>
+            <td><span class="ui basic label ${u.role === 'admin' ? 'green' : 'blue'}">${roleLabels[u.role] || u.role}</span></td>
             <td>${date}</td>
             <td class="right aligned">
                 <button class="ui mini basic button" onclick="editUser(${u.id}, '${u.name.replace(/'/g, "\\'")}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')"><svg class="ic"><use href="#i-edit"/></svg>Editar</button>
@@ -102,10 +106,11 @@ function openModal() {
     document.getElementById('modal').classList.add('active');
 }
 
-function editUser(id, name, email, role) {
+function editUser(id, name, lastname, email, role) {
     editingUserId = id;
     document.getElementById('modal-title').textContent = 'Editar usuario';
     document.getElementById('f-name').value = name;
+    document.getElementById('f-lastname').value = lastname;
     document.getElementById('f-email').value = email;
     document.getElementById('f-role').value = role;
     document.getElementById('f-password').required = false;
@@ -120,6 +125,7 @@ document.getElementById('user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = {
         name: document.getElementById('f-name').value,
+        lastname: document.getElementById('f-lastname').value,
         email: document.getElementById('f-email').value,
         role: document.getElementById('f-role').value,
     };

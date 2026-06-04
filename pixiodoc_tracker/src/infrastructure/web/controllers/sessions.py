@@ -33,13 +33,13 @@ def _session_to_dict(s):
 def list_sessions():
     patient_id = request.args.get('patient_id', type=int)
     game_id = request.args.get('game_id', type=int)
-    sessions = _service.list_by_user(current_user.id, patient_id, game_id, user_role=current_user.role)
+    sessions = _service.list_by_user(current_user.id, patient_id, game_id, user_role=current_user.role_rel.name)
     return jsonify([_session_to_dict(s) for s in sessions])
 
 
 @sessions_bp.route('', methods=['POST'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2, 3)
 def create_session():
     data = request.get_json()
     if not data:
@@ -58,7 +58,7 @@ def create_session():
 
 @sessions_bp.route('/<int:sid>/end', methods=['PUT'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2, 3)
 def end_session(sid):
     data = request.get_json() or {}
     try:

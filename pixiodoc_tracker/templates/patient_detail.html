@@ -83,7 +83,9 @@ async function loadAll() {
                 </div>
                 <div class="acts">
                     {% if current_user.role != 'viewer' %}
-                    <a href="/games" class="ui primary button"><svg class="ic"><use href="#i-play"/></svg>Jugar</a>
+                        <a href="/games?patient_id={{ patient_id }}" class="ui primary button">
+                            <svg class="ic"><use href="#i-play"/></svg>Jugar
+                        </a>
                     {% endif %}
                 </div>
             </div>

@@ -2,7 +2,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-
+@dataclass
+class Role:
+    id: Optional[int] = None
+    name: str = ''
+    description: Optional[str] = None
 
 @dataclass
 class User:
@@ -10,7 +14,7 @@ class User:
     email: str = ''
     password_hash: str = ''
     name: str = ''
-    role: str = 'therapist'
+    lastname: str = ''
     role_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
@@ -20,6 +24,8 @@ class Patient:
     id: Optional[int] = None
     user_id: Optional[int] = None
     name: str = ''
+    lastname: str = ''
+    document: str = ''
     birth_date: Optional[str] = None
     age: Optional[int] = None
     diagnosis: Optional[str] = None

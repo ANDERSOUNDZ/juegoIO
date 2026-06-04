@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS roles (
 INSERT INTO roles (name, description) VALUES
     ('admin', 'Acceso total al sistema'),
     ('therapist', 'Gestión de pacientes y sesiones'),
-    ('viewer', 'Solo lectura de dashboards y reportes')
+    ('patient', 'Acceso a informacion del paciente y uso de los juegos')
 ON CONFLICT (name) DO NOTHING;
 
 -- ─── USUARIOS ──────────────────────────────────────────────────
@@ -34,16 +34,22 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
-    role VARCHAR(30) NOT NULL DEFAULT 'therapist',  -- therapist, admin, viewer
+    lastname VARCHAR(100) NOT NULL,
     role_id INT REFERENCES roles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+INSERT INTO users (email, password_hash, name, lastname, role_id) VALUES
+    ('admin@pixotherapy.com', 'scrypt:32768:8:1$xvxtnd0Xqh8nWDax$fcf56ddc6b033a7afa8f8abe28ecad9786442d5fa5371908583c2235305b6de5a75ed6e2e6c5127f20437e0867a10f0111a637af9cfb49b3f8db28875a72081b', 'Admin', 'admin', 1) -- pass: 12345678
+ON CONFLICT (email) DO NOTHING;
 
 -- ─── PACIENTES ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS patients (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE SET NULL,
     name VARCHAR(100) NOT NULL,
+    lastname VARCHAR(100) NOT NULL,
+    document VARCHAR(10) NOT NULL,
     birth_date DATE,
     age INT,
     diagnosis TEXT,

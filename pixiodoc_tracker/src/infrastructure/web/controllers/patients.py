@@ -7,6 +7,7 @@ from src.application.patient_service import PatientService
 from src.infrastructure.persistence.repositories import (
     PatientRepository, PatientSensitivityRepository,
     SensitivityHistoryRepository, SensitivityPresetRepository,
+    UserRepository,
 )
 from src.domain.exceptions import NotFoundError, ValidationError
 from src.infrastructure.web.middleware import role_required
@@ -15,6 +16,7 @@ patients_bp = Blueprint('patients_api', __name__, url_prefix='/api/patients')
 _service = PatientService(
     PatientRepository(), PatientSensitivityRepository(),
     SensitivityHistoryRepository(), SensitivityPresetRepository(),
+    UserRepository(),
 )
 
 
@@ -29,7 +31,11 @@ def _patient_to_dict(p):
     ps = PatientSensitivityRepository().find_by_patient_id(p.id)
     age = _calc_age(p.birth_date) if p.birth_date else p.age
     return dict(
-        id=p.id, name=p.name, age=age,
+        id=p.id,
+        name=p.name,
+        lastname=p.lastname,
+        document=p.document,
+        age=age,
         birth_date=p.birth_date.isoformat() if p.birth_date else None,
         diagnosis=p.diagnosis, notes=p.notes,
         user_id=p.user_id,
@@ -44,7 +50,7 @@ def list_patients():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     per_page = min(per_page, 50)
-    result = _service.list_by_user_paginated(current_user.id, page, per_page, user_role=current_user.role)
+    result = _service.list_by_user_paginated(current_user.id, page, per_page, user_role=current_user.role_rel.name)
     return jsonify(
         patients=[_patient_to_dict(p) for p in result['items']],
         total=result['total'],
@@ -56,20 +62,29 @@ def list_patients():
 
 @patients_bp.route('', methods=['POST'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2)
 def create_patient():
     data = request.get_json()
     if not data or not data.get('name'):
-        return jsonify(error='name es requerido'), 400
+        return jsonify(error='Nombre es requerido'), 400
+    if not data or not data.get('lastname'):
+        return jsonify(error='Apellido es requerido'), 400
+    if not data or not data.get('document'):
+        return jsonify(error='Documento de Indentificación es requerido'), 400
+    if not data or not data.get('email'):
+        return jsonify(error='Email es requerido'), 400
+    if not data or not data.get('password'):
+        return jsonify(error='Contraseña es requerido'), 400
     birth_date_str = data.get('birth_date')
     birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
     age = _calc_age(birth_date) if birth_date else data.get('age')
     # Admin can assign patient to any therapist; therapist always assigns to themselves
-    owner_id = data.get('user_id') if current_user.role == 'admin' else None
-    if owner_id is None:
-        owner_id = current_user.id
     p = _service.create(
-        user_id=owner_id, name=data['name'],
+        name=data['name'],
+        lastname=data['lastname'],
+        document=data['document'],
+        email=data['email'],
+        password=data['password'],
         birth_date=birth_date, age=age,
         diagnosis=data.get('diagnosis'), notes=data.get('notes'),
     )
@@ -88,7 +103,7 @@ def get_patient(pid):
 
 @patients_bp.route('/<int:pid>', methods=['PUT'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2)
 def update_patient(pid):
     data = request.get_json()
     if not data:
@@ -105,7 +120,7 @@ def update_patient(pid):
 
 @patients_bp.route('/<int:pid>', methods=['DELETE'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2)
 def delete_patient(pid):
     try:
         _service.delete(pid)
@@ -116,7 +131,7 @@ def delete_patient(pid):
 
 @patients_bp.route('/<int:pid>/transfer', methods=['PUT'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2)
 def transfer_patient(pid):
     data = request.get_json()
     if not data or 'user_id' not in data:
@@ -140,7 +155,7 @@ def get_sensitivity(pid):
 
 @patients_bp.route('/<int:pid>/sensitivity', methods=['PUT'])
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2)
 def update_sensitivity(pid):
     data = request.get_json()
     if not data or 'sensitivities' not in data:

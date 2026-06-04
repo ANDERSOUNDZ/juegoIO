@@ -23,11 +23,15 @@ class UserModel(UserMixin, db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    role = db.Column(db.String(30), nullable=False, default='therapist')
+    lastname = db.Column(db.String(100), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    patients = db.relationship('PatientModel', backref='user', lazy='dynamic')
+    patient = db.relationship(
+        'PatientModel',
+        backref='user',
+        uselist=False
+    )
     games = db.relationship('GameModel', backref='creator', lazy='dynamic')
 
     def set_password(self, password):
@@ -36,14 +40,30 @@ class UserModel(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    @property
+    def is_admin(self):
+        return self.role_rel and self.role_rel.name == 'admin'
+
+    @property
+    def is_therapist(self):
+        return (
+                self.role_rel and
+                self.role_rel.name in ('therapist', 'admin')
+        )
 
 
 class PatientModel(db.Model):
     __tablename__ = 'patients'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        unique=True
+    )
     name = db.Column(db.String(100), nullable=False)
+    lastname = db.Column(db.String(100), nullable=False)
+    document = db.Column(db.String(10), nullable=False)
     birth_date = db.Column(db.Date)
     age = db.Column(db.Integer)
     diagnosis = db.Column(db.Text)

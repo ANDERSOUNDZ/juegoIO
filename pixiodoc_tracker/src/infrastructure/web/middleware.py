@@ -10,7 +10,7 @@ def role_required(*roles):
         def wrapper(*args, **kwargs):
             if not current_user.is_authenticated:
                 return abort(401)
-            if current_user.role not in roles:
+            if current_user.role_id not in roles:
                 return jsonify(error='No tienes permisos para esta acción'), 403
             return f(*args, **kwargs)
         return wrapper

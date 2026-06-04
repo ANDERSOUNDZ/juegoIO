@@ -37,14 +37,14 @@ def patient_detail(pid):
 
 @main_bp.route('/games')
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2, 3)
 def games_page():
     return render_template('games.html')
 
 
 @main_bp.route('/play/<int:game_id>')
 @login_required
-@role_required('admin', 'therapist')
+@role_required(1, 2, 3)
 def play_game(game_id):
     try:
         game = _game_service.get_by_id(game_id)
@@ -65,6 +65,6 @@ def session_report(sid):
 
 @main_bp.route('/admin/users')
 @login_required
-@role_required('admin')
+@role_required(1)
 def admin_users():
     return render_template('admin_users.html')

@@ -90,6 +90,9 @@ let allPatients = [];
 let lastGameCount = 0;
 let refreshTimer = null;
 
+const urlParams = new URLSearchParams(window.location.search);
+const preselectedPatientId = urlParams.get('patient_id');
+
 async function loadGames() {
     const grid = document.getElementById('games-grid');
     grid.style.opacity = '0.6';
@@ -160,11 +163,47 @@ refreshTimer = setInterval(loadGames, 30000);
 
 async function openPlayModal(gameId) {
     selectedGameId = gameId;
+
     document.getElementById('modal-play').classList.add('active');
     document.getElementById('sensitivity-choice').style.display = 'none';
     document.getElementById('patient-selected').style.display = 'none';
-    $('#patient-dropdown').dropdown('clear');
+
     await loadAllPatients();
+
+    if (preselectedPatientId) {
+        preselectPatient(parseInt(preselectedPatientId));
+    } else {
+        $('#patient-dropdown').dropdown('clear');
+    }
+}
+
+function preselectPatient(patientId) {
+    console.log("Buscando paciente:", patientId);
+
+    const patient = allPatients.find(
+        p => p.id === patientId
+    );
+
+        console.log("Encontrado:", patient);
+
+    if (!patient) return;
+
+    $('#patient-dropdown').dropdown(
+        'set selected',
+        patientId
+    );
+
+    $('#patient-dropdown').addClass('disabled');
+
+    document.getElementById('patient-selected').style.display = 'block';
+
+    document.getElementById('patient-selected').innerHTML = `
+        <div class="ui positive message">
+            <strong>${patient.name}</strong> seleccionado
+        </div>
+    `;
+
+    selectPatient(patient.id, patient.name);
 }
 
 async function loadAllPatients() {
@@ -283,9 +322,19 @@ async function startGame(patientId, sensitivities) {
 }
 
 function closePlayModal() {
-    document.getElementById('modal-play').classList.remove('active');
-    document.getElementById('sensitivity-choice').style.display = 'none';
+
+    document.getElementById('modal-play')
+        .classList.remove('active');
+
+    document.getElementById('sensitivity-choice')
+        .style.display = 'none';
+
+    $('#patient-dropdown')
+        .removeClass('disabled');
 }
+
+console.log("patient_id url:", preselectedPatientId);
+console.log("allPatients:", allPatients);
 
 loadGames();
 </script>
