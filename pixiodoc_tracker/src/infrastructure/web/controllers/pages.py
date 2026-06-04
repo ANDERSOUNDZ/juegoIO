@@ -51,10 +51,14 @@ def play_game(game_id):
         if game and game.config:
             gtype = game.config.get('metadata', {}).get('type', 'platformer')
             info = get_game_info(gtype)
+            # Los juegos Phaser usan play.html (incluye el dibujo de referencia /
+            # calibración de dedos); prince/smb3 mantienen su propio template.
+            if info.get('type') == 'phaser':
+                return render_template('play.html', game_id=game_id)
             return render_template(info['dir'] + '/template.html', game_id=game_id)
     except Exception:
         pass
-    return render_template('therapeutic/template.html', game_id=game_id)
+    return render_template('play.html', game_id=game_id)
 
 
 @main_bp.route('/sessions/<int:sid>/report')
