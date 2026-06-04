@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 $EMSDK = "C:\Users\ander\AppData\Local\Temp\opencode\emsdk"
 $EMCC = "$EMSDK\upstream\emscripten\emcc.bat"
 
-$SRC = "C:\Users\ander\OneDrive\Escritorio\juegoIO\juegoIO\pixiodoc_tracker\third_party\sdlpop\src"
+$SRC = "C:\Users\ander\OneDrive\Escritorio\juegoIO\juegoIO\sdlpop\src"
 Set-Location $SRC
 
 $CFLAGS = "-std=c99 -O2 -D_GNU_SOURCE=1 -D__EMSCRIPTEN__ -sUSE_SDL=2 -sUSE_SDL_IMAGE=2"

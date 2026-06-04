@@ -4,7 +4,7 @@ REM Build SDLPoP for WebAssembly with Emscripten
 set EMSDK=C:\Users\ander\AppData\Local\Temp\opencode\emsdk
 set EMCC=%EMSDK%\upstream\emscripten\emcc.bat
 
-set SRC=C:\Users\ander\OneDrive\Escritorio\juegoIO\juegoIO\pixiodoc_tracker\third_party\sdlpop\src
+set SRC=C:\Users\ander\OneDrive\Escritorio\juegoIO\juegoIO\sdlpop\src
 cd /d %SRC%
 
 set CFLAGS=-std=c99 -O2 -D_GNU_SOURCE=1 -D__EMSCRIPTEN__ -sUSE_SDL=2 -sUSE_SDL_IMAGE=2

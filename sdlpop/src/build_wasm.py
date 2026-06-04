@@ -5,7 +5,7 @@ from pathlib import Path
 
 EMSDK = Path(r"C:\Users\ander\AppData\Local\Temp\opencode\emsdk")
 EMCC = str(EMSDK / "upstream" / "emscripten" / "emcc.bat")
-SRC = Path(r"C:\Users\ander\OneDrive\Escritorio\juegoIO\juegoIO\pixiodoc_tracker\third_party\sdlpop\src")
+SRC = Path(r"C:\Users\ander\OneDrive\Escritorio\juegoIO\juegoIO\sdlpop\src")
 
 os.chdir(SRC)
 
