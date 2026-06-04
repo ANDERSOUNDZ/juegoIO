@@ -28,8 +28,8 @@ class PatientService:
     def list_by_user(self, user_id: int, user_role: str = 'therapist') -> list:
         return self._patient_repo.find_by_user_id(user_id, user_role=user_role)
 
-    def list_by_user_paginated(self, user_id: int, page: int = 1, per_page: int = 10, user_role: str = 'therapist') -> dict:
-        return self._patient_repo.find_by_user_id_paginated(user_id, page, per_page, user_role=user_role)
+    def list_by_user_paginated(self, therapist_id: int, page: int = 1, per_page: int = 10, user_role: str = 'therapist') -> dict:
+        return self._patient_repo.find_by_user_id_paginated(therapist_id, page, per_page, user_role=user_role)
 
     def get_by_id(self, patient_id: int) -> Patient:
         p = self._patient_repo.find_by_id(patient_id)
@@ -37,13 +37,13 @@ class PatientService:
             raise NotFoundError('Paciente', patient_id)
         return p
 
-    def create(self, name: str, lastname: str, document: str, email: str, password: str, birth_date=None, age: Optional[int] = None,
+    def create(self, therapist_id: int, name: str, lastname: str, document: str, email: str, password: str, birth_date=None, age: Optional[int] = None,
                diagnosis: Optional[str] = None, notes: Optional[str] = None) -> Patient:
         user = UserModel(name=name, lastname=lastname, email=email)
         user.set_password(password)
         user.role_id = 3
         user_save = self.user_repo.save(user)
-        patient = Patient(user_id=user_save.id, name=name, lastname=lastname, document=document, birth_date=birth_date, age=age, diagnosis=diagnosis, notes=notes)
+        patient = Patient(therapist_id=therapist_id, user_id=user_save.id, name=name, lastname=lastname, document=document, birth_date=birth_date, age=age, diagnosis=diagnosis, notes=notes)
         return self._patient_repo.save(patient)
 
     def update(self, patient_id: int, data: dict) -> Patient:

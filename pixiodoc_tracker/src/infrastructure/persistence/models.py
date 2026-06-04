@@ -26,10 +26,15 @@ class UserModel(UserMixin, db.Model):
     lastname = db.Column(db.String(100), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-
-    patient = db.relationship(
+    therapist_patients = db.relationship(
         'PatientModel',
-        backref='user',
+        foreign_keys='PatientModel.therapist_id',
+        back_populates='therapist'
+    )
+    patient_profile = db.relationship(
+        'PatientModel',
+        foreign_keys='PatientModel.user_id',
+        back_populates='patient_user',
         uselist=False
     )
     games = db.relationship('GameModel', backref='creator', lazy='dynamic')
@@ -56,6 +61,10 @@ class PatientModel(db.Model):
     __tablename__ = 'patients'
 
     id = db.Column(db.Integer, primary_key=True)
+    therapist_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id')
+    )
     user_id = db.Column(
         db.Integer,
         db.ForeignKey('users.id'),
@@ -69,7 +78,17 @@ class PatientModel(db.Model):
     diagnosis = db.Column(db.Text)
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-
+    
+    therapist = db.relationship(
+        'UserModel',
+        foreign_keys=[therapist_id],
+        back_populates='therapist_patients'
+    )
+    patient_user = db.relationship(
+        'UserModel',
+        foreign_keys=[user_id],
+        back_populates='patient_profile'
+    )
     sessions = db.relationship('GameSessionModel', backref='patient', lazy='dynamic')
     sensitivity = db.relationship('PatientSensitivityModel', backref='patient', uselist=False)
 

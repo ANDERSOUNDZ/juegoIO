@@ -139,7 +139,12 @@ def api_list_therapists():
 @login_required
 @role_required(1)
 def api_list_users():
-    users = UserModel.query.order_by(UserModel.name).all()
+    users = (
+        UserModel.query
+        .filter(UserModel.role_id.in_([1, 2]))
+        .order_by(UserModel.name)
+        .all()
+    )
     return jsonify([
         dict(id=u.id, name=u.name, lastname=u.lastname, email=u.email, role=u.role_rel.name, created_at=u.created_at.isoformat() if u.created_at else None)
         for u in users

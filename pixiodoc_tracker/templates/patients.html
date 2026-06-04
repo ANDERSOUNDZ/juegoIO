@@ -171,7 +171,7 @@ document.getElementById('patient-form').addEventListener('submit', async (e) => 
     };
     if (USER_ROLE === '1') {
         const therapistId = document.getElementById('f-therapist').value;
-        if (therapistId) data.user_id = parseInt(therapistId);
+        if (therapistId) data.therapist_id = parseInt(therapistId);
     }
     await fetch('/api/patients', {
         method: 'POST',

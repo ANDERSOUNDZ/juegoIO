@@ -74,14 +74,14 @@ class PatientRepository(IPatientRepository):
     def find_by_user_id(self, user_id: int, user_role: str = 'therapist') -> List[Patient]:
         q = PatientModel.query
         if user_role != 'admin':
-            q = q.filter_by(user_id=user_id)
+            q = q.filter_by(therapist_id=user_id)
         models = q.order_by(PatientModel.name).all()
         return [self._to_entity(m) for m in models]
 
-    def find_by_user_id_paginated(self, user_id: int, page: int, per_page: int, user_role: str = 'therapist') -> dict:
+    def find_by_user_id_paginated(self, therapist_id: int, page: int, per_page: int, user_role: str = 'therapist') -> dict:
         q = PatientModel.query
         if user_role != 'admin':
-            q = q.filter_by(user_id=user_id)
+            q = q.filter_by(therapist_id=therapist_id)
         pagination = (q
                       .order_by(PatientModel.name)
                       .paginate(page=page, per_page=per_page, error_out=False))
@@ -100,6 +100,7 @@ class PatientRepository(IPatientRepository):
             m = PatientModel()
             db.session.add(m)
         m.user_id = patient.user_id
+        m.therapist_id = patient.therapist_id
         m.name = patient.name
         m.lastname = patient.lastname
         m.document = patient.document
@@ -118,6 +119,7 @@ class PatientRepository(IPatientRepository):
     def _to_entity(m: PatientModel) -> Patient:
         return Patient(
             id=m.id,
+            therapist_id=m.therapist_id,
             user_id=m.user_id,
             name=m.name,
             lastname=m.lastname,

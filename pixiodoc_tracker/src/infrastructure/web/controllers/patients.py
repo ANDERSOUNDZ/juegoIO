@@ -79,7 +79,12 @@ def create_patient():
     birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
     age = _calc_age(birth_date) if birth_date else data.get('age')
     # Admin can assign patient to any therapist; therapist always assigns to themselves
+    owner_id = data.get('therapist_id') if current_user.role_id == 1 else None
+    if owner_id is None:
+        owner_id = current_user.id
+
     p = _service.create(
+        therapist_id=owner_id,
         name=data['name'],
         lastname=data['lastname'],
         document=data['document'],

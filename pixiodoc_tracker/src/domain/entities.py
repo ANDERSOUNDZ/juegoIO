@@ -22,6 +22,7 @@ class User:
 @dataclass
 class Patient:
     id: Optional[int] = None
+    therapist_id: Optional[int] = None
     user_id: Optional[int] = None
     name: str = ''
     lastname: str = ''

@@ -46,7 +46,8 @@ ON CONFLICT (email) DO NOTHING;
 -- ─── PACIENTES ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS patients (
     id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE SET NULL,
+    user_id INT UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+    therapist_id INT REFERENCES users(id) ON DELETE SET NULL,
     name VARCHAR(100) NOT NULL,
     lastname VARCHAR(100) NOT NULL,
     document VARCHAR(10) NOT NULL,
