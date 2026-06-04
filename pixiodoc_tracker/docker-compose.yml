@@ -20,7 +20,7 @@ services:
       - ./templates:/app/templates
       - ./static:/app/static
       - ./server.py:/app/server.py
-      - ./hand_landmarker.task:/app/hand_landmarker.task
+      # - ./hand_landmarker.task:/app/hand_landmarker.task
     restart: unless-stopped
 
   postgres:
