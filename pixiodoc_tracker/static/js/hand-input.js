@@ -1,5 +1,17 @@
-const HYST_MARGIN = 0.02;
+const HYST_MARGIN = 0.05; // histéresis en espacio de fracción de cierre φ (0..1)
 const EVENT_FLUSH_INTERVAL = 2000; // ms
+
+// Calibración por dedo de la métrica cruda de flexión: ext = estirado, close = puño.
+// La métrica está normalizada al tamaño de la mano (dist muñeca↔nudillo medio),
+// así que es independiente de la distancia a la cámara. φ = (d - ext)/(close - ext).
+// Ajustable si algún dedo dispara antes/después de lo que muestra el dibujo.
+const FLEX_CAL = [
+    { ext: -0.10, close: 0.25 }, // pulgar (métrica de distancia, ya relativa a la mano)
+    { ext: -0.55, close: 0.20 }, // índice
+    { ext: -0.55, close: 0.20 }, // medio
+    { ext: -0.50, close: 0.18 }, // anular
+    { ext: -0.40, close: 0.15 }, // meñique
+];
 
 // MediaPipe Tasks Vision (API actualizada) — se carga dinamicamente como modulo ESM
 const TASKS_VISION_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs';
@@ -11,6 +23,9 @@ class HandInput {
         this.fingers = [0, 0, 0, 0, 0];
         this.landmarks = null;
         this.sensitivity = [50, 50, 50, 50, 50];
+        this._lastDiffs = [0, 0, 0, 0, 0];                 // métrica cruda por dedo (live)
+        this.handPresent = false;                          // ¿hay mano en el último frame?
+        this.calibration = FLEX_CAL.map(c => ({ ...c }));  // ext/close por dedo (ajustable)
         this._onFrame = null;
         this._onFingers = null;
         this._onConnect = null;
@@ -29,6 +44,41 @@ class HandInput {
 
     setSensitivity(arr) {
         this.sensitivity = arr.map(s => Math.max(0, Math.min(100, s)));
+    }
+
+    /**
+     * Umbral de cierre (fracción φ ∈ [0,1]) que debe superar el dedo i para
+     * contar como flexionado. Misma unidad que usa el dibujo de referencia:
+     *   sensibilidad alta → φ≈0 (basta empezar a cerrar)
+     *   sensibilidad baja → φ≈1 (hay que cerrar el puño)
+     */
+    flexionTarget(i) {
+        return (100 - this.sensitivity[i]) / 100;
+    }
+
+    /** Fracción de cierre real 0..1 del dedo i a partir de su métrica cruda. */
+    _flexFraction(i, d) {
+        const c = this.calibration[i];
+        const span = c.close - c.ext;
+        if (Math.abs(span) < 1e-4) return 0;
+        return Math.max(0, Math.min(1, (d - c.ext) / span));
+    }
+
+    /** Métrica cruda de flexión del último frame (para calibrar). */
+    getRawDiffs() {
+        return this._lastDiffs.slice();
+    }
+
+    /** Fracción de cierre actual (0..1) del dedo i, en vivo. */
+    flexFractionLive(i) {
+        return this._flexFraction(i, this._lastDiffs[i]);
+    }
+
+    /** Aplica calibración por dedo. Ignora entradas nulas (deja el valor previo). */
+    applyCalibration(arr) {
+        for (let i = 0; i < 5; i++) {
+            if (arr[i]) this.calibration[i] = { ext: arr[i].ext, close: arr[i].close };
+        }
     }
 
     onFrame(callback) {
@@ -152,8 +202,10 @@ class HandInput {
         if (results.landmarks && results.landmarks.length > 0) {
             const lm = results.landmarks[0];
             this.landmarks = lm.map(l => [l.x, l.y, l.z]);
+            this.handPresent = true;
 
             const diffs = this._computeDiffs(lm);
+            this._lastDiffs = diffs;
             this._fSt = this._detectFingers(diffs);
             this.fingers = [...this._fSt];
 
@@ -163,6 +215,7 @@ class HandInput {
 
             this._recordStateChanges();
         } else {
+            this.handPresent = false;
             if (this._fSt.some(v => v !== 0)) {
                 this._fSt = [0, 0, 0, 0, 0];
                 this.fingers = [0, 0, 0, 0, 0];
@@ -174,27 +227,31 @@ class HandInput {
     }
 
     _computeDiffs(lm) {
-        const diffs = [
-            0,
-            lm[8].y - lm[6].y,
-            lm[12].y - lm[10].y,
-            lm[16].y - lm[14].y,
-            lm[20].y - lm[18].y,
-        ];
+        // Tamaño de la mano (palma): hace la métrica independiente de la distancia.
+        const hs = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y) || 0.0001;
+        const pip = [null, 6, 10, 14, 18];
+        const tip = [null, 8, 12, 16, 20];
+
+        const diffs = [0, 0, 0, 0, 0];
+        for (let i = 1; i < 5; i++) {
+            // Punta por debajo del nudillo (relativo al tamaño de la mano).
+            diffs[i] = (lm[tip[i]].y - lm[pip[i]].y) / hs;
+        }
+        // Pulgar: cercanía punta↔base índice, relativa al tamaño de la mano.
         const td = Math.hypot(lm[4].x - lm[5].x, lm[4].y - lm[5].y);
-        const hs = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y);
-        diffs[0] = hs > 0.01 ? 0.4 - td / hs : 0;
+        diffs[0] = 0.4 - td / hs;
         return diffs;
     }
 
     _detectFingers(diffs) {
         return diffs.map((d, i) => {
-            const s = this.sensitivity[i];
-            const t = (100 - s) / 100 * 0.12;
+            const phi = this._flexFraction(i, d); // 0=estirado, 1=puño
+            const target = this.flexionTarget(i);
             if (this._fSt[i] === 0) {
-                return d > t ? 1 : 0;
+                // >= para que sensibilidad 0 (target=1, puño completo) sí cuente.
+                return phi >= target ? 1 : 0;
             } else {
-                return d < t - HYST_MARGIN ? 0 : 1;
+                return phi < target - HYST_MARGIN ? 0 : 1;
             }
         });
     }

@@ -52,6 +52,10 @@
 .config-overlay .config-subtitle{color:#94a3b8;font-size:.74rem;font-weight:700;letter-spacing:.12em;text-align:center;text-transform:uppercase;margin-bottom:22px;}
 .config-row{display:grid;grid-template-columns:100px minmax(0,1fr) auto;align-items:center;gap:12px;margin-bottom:12px;
   padding:14px;border:1px solid rgba(148,163,184,.18);border-radius:14px;background:rgba(255,255,255,.04);}
+.ref-hand-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin:0 auto 20px;
+  padding:14px;border:1px solid rgba(148,163,184,.18);border-radius:16px;background:rgba(2,6,23,.5);max-width:340px;}
+.ref-hand-wrap canvas{width:280px;height:240px;max-width:100%;}
+.ref-hand-caption{margin:0;font-size:.78rem;font-weight:700;color:#5eead4;text-align:center;min-height:18px;}
 .config-finger-name{font-size:.86rem;font-weight:800;}
 .config-slider-wrap{display:flex;align-items:center;gap:10px;}
 .config-slider-wrap input[type="range"]{flex:1;accent-color:var(--teal);height:6px;}
@@ -118,6 +122,13 @@
         <div class="config-overlay" id="config-overlay">
             <h2>CONFIG</h2>
             <p class="config-subtitle">Sensibilidad y controles</p>
+            <div class="ref-hand-wrap">
+                <canvas id="ref-hand" width="280" height="240"></canvas>
+                <p class="ref-hand-caption" id="ref-hand-caption">Mueve un slider para ver cuánto debe cerrarse ese dedo.</p>
+                <button class="ui basic button" id="btn-calibrate" onclick="calibrateFingers()" style="min-height:34px;">
+                    Calibrar con mi mano
+                </button>
+            </div>
             <div id="config-rows"></div>
             <div class="config-bottom">
                 <button class="ui basic button" onclick="resetConfig()">Reset</button>
@@ -278,7 +289,10 @@ document.addEventListener('fullscreenchange', () => {
 
 document.addEventListener('keydown', (e) => { if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); } });
 
-function toggleConfig() { document.getElementById('config-overlay').classList.toggle('active'); }
+function toggleConfig() {
+    const open = document.getElementById('config-overlay').classList.toggle('active');
+    if (open) { startRefLoop(); updateRefCaption(); } else stopRefLoop();
+}
 
 function buildConfigUI() {
     const container = document.getElementById('config-rows');
@@ -302,11 +316,230 @@ function buildConfigUI() {
     }).join('');
 }
 
+// ── Mano de referencia ──
+// Dibujo esquemático (independiente de la cámara) que muestra, como pose objetivo,
+// cuánto debe cerrarse cada dedo para que cuente como flexión según su slider.
+// curl = misma fracción de cierre φ que usa la detección (flexionTarget):
+//   más sensibilidad → φ≈0 (dedo casi recto)   menos → φ≈1 (puño).
+// Así el dibujo y lo que detecta la cámara hablan la misma escala.
+let refRaf = null;
+let refDisplayCurl = [0, 0, 0, 0, 0];  // curl animado (suavizado)
+let refHighlight = -1;                 // dedo recién ajustado (resaltado)
+
+function refTargetCurl(i) {
+    return handInput.flexionTarget(i);
+}
+
+function startRefLoop() {
+    // Arranca en la pose objetivo para que se vea de una vez al abrir.
+    for (let i = 0; i < 5; i++) refDisplayCurl[i] = refTargetCurl(i);
+    if (refRaf) return;
+    const tick = () => { drawReferenceHand(); refRaf = requestAnimationFrame(tick); };
+    refRaf = requestAnimationFrame(tick);
+}
+
+function stopRefLoop() {
+    if (refRaf) { cancelAnimationFrame(refRaf); refRaf = null; }
+}
+
+// Poses por dedo en coords del canvas (280×240): [MCP, PIP, DIP, punta].
+// El dibujo interpola entre MANO_ABIERTA y PUÑO según el cierre → nunca se enreda.
+const POSE_OPEN = [
+    [[96,158],[78,138],[62,122],[48,108]],   // pulgar
+    [[116,120],[114,90],[112,64],[110,42]],  // índice
+    [[138,118],[137,84],[136,54],[135,30]],  // medio
+    [[160,120],[161,88],[162,60],[163,38]],  // anular
+    [[178,128],[181,102],[184,80],[187,60]], // meñique
+];
+const POSE_FIST = [
+    [[96,158],[84,144],[96,138],[110,140]],  // pulgar (cruza la palma)
+    [[116,120],[116,98],[126,104],[120,120]],
+    [[138,118],[138,96],[150,102],[142,120]],
+    [[160,120],[160,98],[171,104],[164,121]],
+    [[178,128],[179,108],[188,114],[182,128]],
+];
+
+function lerpPose(a, b, t) {
+    return a.map((p, i) => [p[0] + (b[i][0] - p[0]) * t, p[1] + (b[i][1] - p[1]) * t]);
+}
+
+function drawReferenceHand() {
+    const canvas = document.getElementById('ref-hand');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Suaviza hacia la pose objetivo
+    for (let i = 0; i < 5; i++) {
+        refDisplayCurl[i] += (refTargetCurl(i) - refDisplayCurl[i]) * 0.22;
+    }
+
+    // Palma
+    ctx.fillStyle = 'rgba(148,163,184,.12)';
+    ctx.strokeStyle = 'rgba(148,163,184,.35)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, 92, 120, 100, 84, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    // Dedos (pulgar primero para que quede detrás)
+    for (let i = 0; i < 5; i++) {
+        const pose = lerpPose(POSE_OPEN[i], POSE_FIST[i], refDisplayCurl[i]);
+        drawFinger(ctx, pose, i === refHighlight);
+    }
+}
+
+function drawFinger(ctx, pts, highlight) {
+    const base = highlight ? '#5eead4' : 'rgba(148,163,184,.7)';
+    const glow = highlight ? 'rgba(94,234,212,.55)' : 'transparent';
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = glow;
+    ctx.lineWidth = 15;
+    strokePath(ctx, pts);
+    ctx.strokeStyle = base;
+    ctx.lineWidth = 9;
+    strokePath(ctx, pts);
+
+    for (const p of pts) {
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = highlight ? '#0f766e' : 'rgba(15,23,42,.9)';
+        ctx.fill();
+        ctx.strokeStyle = base;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
+}
+
+function strokePath(ctx, pts) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+}
+
+// ── Auto-calibración con la mano del usuario ──
+// Captura los valores reales de "mano abierta" y "puño" por dedo, para que la
+// detección y el dibujo coincidan con ESTA mano y ESTA cámara.
+let calibrating = false;
+
+function setRefCaption(msg, color) {
+    const cap = document.getElementById('ref-hand-caption');
+    if (!cap) return;
+    cap.textContent = msg;
+    cap.style.color = color || '#5eead4';
+}
+
+function median(arr) {
+    if (!arr.length) return null;
+    const s = arr.slice().sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/**
+ * Cuenta regresiva de preparación (sin medir) y luego ventana de captura estable.
+ * Solo toma frames con mano detectada. Devuelve la mediana por dedo (o null si pocos datos).
+ */
+async function samplePhase(label, color) {
+    // Preparación: el usuario se acomoda, no medimos
+    for (let t = 3; t >= 1; t--) {
+        setRefCaption(`${label} y mantén… ${t}`, color);
+        await wait(650);
+    }
+    // Captura estable
+    setRefCaption(`${label} — capturando…`, color);
+    const samples = [[], [], [], [], []];
+    let missed = 0;
+    const end = Date.now() + 1800;
+    while (Date.now() < end) {
+        if (handInput.handPresent) {
+            const d = handInput.getRawDiffs();
+            for (let i = 0; i < 5; i++) samples[i].push(d[i]);
+        } else {
+            missed++;
+        }
+        await wait(30);
+    }
+    return { values: samples.map(median), counts: samples.map(a => a.length), missed };
+}
+
+async function calibrateFingers() {
+    if (!cameraEnabled) { setRefCaption('Activa la cámara primero.', '#ff5c8a'); return; }
+    if (calibrating) return;
+    calibrating = true;
+    const btn = document.getElementById('btn-calibrate');
+    if (btn) { btn.disabled = true; btn.textContent = 'Calibrando…'; }
+
+    const open = await samplePhase('Abre bien la mano', '#5eead4');
+    const close = await samplePhase('Ahora cierra el puño', '#ffd23f');
+
+    // ¿Se vio la mano lo suficiente?
+    const minSamples = 12;
+    if (open.counts.some(c => c < minSamples) || close.counts.some(c => c < minSamples)) {
+        setRefCaption('No se vio bien la mano. Acércala a la cámara y repite.', '#ff5c8a');
+        if (btn) { btn.disabled = false; btn.textContent = 'Calibrar con mi mano'; }
+        calibrating = false;
+        return;
+    }
+
+    const calib = [];
+    let bad = 0;
+    for (let i = 0; i < 5; i++) {
+        const lo = open.values[i], hi = close.values[i];
+        // El recorrido debe ser claro (y en el sentido correcto: puño > abierto)
+        if (lo == null || hi == null || hi - lo < 0.08) { calib.push(null); bad++; continue; }
+        const pad = (hi - lo) * 0.06;  // margen para alcanzar 0 y 1 con holgura
+        calib.push({ ext: lo + pad, close: hi - pad });
+    }
+    handInput.applyCalibration(calib);
+    try { localStorage.setItem(`pixo_calib_${PATIENT_ID}`, JSON.stringify(handInput.calibration)); } catch (e) {}
+
+    if (bad === 0) {
+        setRefCaption('¡Calibrado! El dibujo ya coincide con tu mano.', '#3ddc97');
+    } else if (bad < 5) {
+        setRefCaption(`Calibrado ${5 - bad}/5. Repite moviendo más esos dedos.`, '#ffd23f');
+    } else {
+        setRefCaption('No se detectó recorrido. Abre y cierra más marcado.', '#ff5c8a');
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Calibrar con mi mano'; }
+    calibrating = false;
+}
+
+function updateRefCaption() {
+    if (calibrating) return;  // no pisar el mensaje de calibración
+    const cap = document.getElementById('ref-hand-caption');
+    if (!cap) return;
+    cap.style.color = '#5eead4';
+    if (refHighlight < 0) {
+        cap.textContent = 'Mueve un slider para ver cuánto debe cerrarse ese dedo.';
+    } else {
+        const pct = Math.round(refTargetCurl(refHighlight) * 100);
+        cap.textContent = `${fingerNames[refHighlight]}: debe cerrarse ~${pct}% para contar.`;
+    }
+}
+
 function onSensChange(finger, value) {
     value = parseInt(value);
     currentSensitivity[finger] = value;
     document.getElementById(`sens-val-${finger}`).textContent = value;
     handInput.setSensitivity(currentSensitivity);
+    refHighlight = finger;
+    updateRefCaption();
 }
 
 function onActionChange(finger, action, btn) {
@@ -369,6 +602,12 @@ async function initGame() {
         for (let i = 0; i < 5; i++) currentFingerMap[i] = fm[String(i)] || fm[i] || 'none';
 
         handInput.setSensitivity(currentSensitivity);
+
+        // Calibración previa de este paciente (si la hizo antes)
+        try {
+            const saved = localStorage.getItem(`pixo_calib_${PATIENT_ID}`);
+            if (saved) handInput.calibration = JSON.parse(saved);
+        } catch (e) {}
 
         gameConfig.controls = gameConfig.controls || {};
         const fingerMapObj = {};
