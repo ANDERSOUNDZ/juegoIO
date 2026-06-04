@@ -800,6 +800,38 @@ mario_db_tracker/
 
 --
 
+## Flujo de trabajo para desarrolladores
+
+Dependiendo de qué cambies, el comando es diferente:
+
+| Cambiaste | Comando | Tiempo |
+|---|---|---|
+| **JS, CSS, HTML** (static/, games/, templates/) | `F5` en el navegador | 0s |
+| **Python** (src/, server.py) | `docker compose restart web` | 5s |
+| **requirements.txt** o **Dockerfile** | `docker compose up -d --build` | 30-60s |
+| **schema.sql** | `docker compose down -v && docker compose up -d` | 10s |
+| **docker-compose.yml** (nuevo volume) | `docker compose down && docker compose up -d` | 10s |
+
+### Ejemplos
+
+```bash
+# Cambiaste bridge.js o template.html → solo recarga la página
+# (los volumes montan los archivos en vivo)
+
+# Cambiaste analytics_service.py
+docker compose restart web
+
+# Agregaste una librería Python
+docker compose up -d --build
+
+# Primer clone del repo
+docker compose up -d --build
+```
+
+> **Nota:** `docker compose down` detiene los contenedores. Si solo haces cambios en Python o JS, no es necesario bajar y subir todo. Usa `restart web` que es mucho más rápido.
+
+--
+
 Para conectar pgAdmin al servidor:
 1. Abrir http://localhost:5050 y loguearse con admin@admin.com / admin
 2. Clic en Add New Server
