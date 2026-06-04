@@ -800,10 +800,14 @@ mario_db_tracker/
 
 --
 
-Conexión a PostgreSQL
-Campo	Valor
-Host	postgres (dentro de Docker) o localhost (desde fuera)
-Puerto	5432
-Base de datos	mario_db
-Usuario	postgres
-Contraseña	admin
+Para conectar pgAdmin al servidor:
+1. Abrir http://localhost:5050 y loguearse con admin@admin.com / admin
+2. Clic en Add New Server
+3. En la pestaña General, poner nombre: PIXO Local
+4. En la pestaña Connection:
+- Host: postgres
+- Port: 5432
+- Maintenance database: mario_db
+- Username: postgres
+- Password: admin
+5. Save
