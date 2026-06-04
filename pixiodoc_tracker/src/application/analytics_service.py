@@ -9,6 +9,80 @@ from src.domain.interfaces.repositories import (
 
 FINGER_NAMES = ['Pulgar', 'Índice', 'Medio', 'Anular', 'Meñique']
 
+# Scoring weights
+ROM_WEIGHT = 0.35
+FATIGUE_WEIGHT = 0.25
+TREMOR_WEIGHT = 0.20
+ACTIVATIONS_WEIGHT = 0.20
+BASE_SCORE_WEIGHT = 0.7
+INDEPENDENCE_WEIGHT = 0.3
+
+# Scoring divisors
+ROM_SCORE_DIVISOR = 0.003
+FATIGUE_SCORE_DIVISOR = 3.3
+TREMOR_SCORE_DIVISOR = 5000
+ACTIVATIONS_MULTIPLIER = 5
+
+# Alert thresholds
+TREMOR_WARNING = 0.015
+FATIGUE_WARNING = 25
+ROM_WARNING = 0.05
+
+# Independence thresholds
+INDEPENDENCE_NORMAL = 70
+INDEPENDENCE_MILD = 40
+INDEPENDENCE_PENALTY = 15
+INDEPENDENCE_RATIO = 0.5
+
+
+def _group_events(events):
+    finger_data = {i: [] for i in range(5)}
+    for e in events:
+        if e.finger_index in finger_data:
+            finger_data[e.finger_index].append(e)
+    return finger_data
+
+
+def _compute_rom(fevents):
+    x_vals = [e.landmark_x for e in fevents if e.landmark_x is not None]
+    y_vals = [e.landmark_y for e in fevents if e.landmark_y is not None]
+    rom_x = max(x_vals) - min(x_vals) if len(x_vals) > 1 else 0
+    rom_y = max(y_vals) - min(y_vals) if len(y_vals) > 1 else 0
+    return round((rom_x + rom_y) / 2, 4)
+
+
+def _compute_reaction_time(fevents):
+    for e in fevents:
+        if e.state == 1:
+            if e.timestamp and fevents[0].timestamp:
+                return round((e.timestamp - fevents[0].timestamp).total_seconds(), 2)
+            return None
+    return None
+
+
+def _compute_fatigue(fevents, x_vals):
+    third = len(fevents) // 3
+    if third <= 1 or len(x_vals) <= 5:
+        return 0
+    first_x = x_vals[:third]
+    last_x = x_vals[-third:]
+    rom_first = max(first_x) - min(first_x) if first_x else 0
+    rom_last = max(last_x) - min(last_x) if last_x else 0
+    if rom_first <= 0:
+        return 0
+    return round((1 - (rom_last / rom_first)) * 100, 1)
+
+
+def _compute_tremor(fevents):
+    active = [e for e in fevents if e.state == 1 and e.landmark_x is not None]
+    if len(active) <= 5:
+        return 0
+    ax = [e.landmark_x for e in active]
+    ay = [e.landmark_y for e in active]
+    tx = statistics.stdev(ax) if len(ax) > 1 else 0
+    ty = statistics.stdev(ay) if len(ay) > 1 else 0
+    return round((tx + ty) / 2, 4)
+
 
 class AnalyticsService:
     def __init__(
@@ -23,55 +97,32 @@ class AnalyticsService:
         self._patient_repo = patient_repo
         self._game_repo = game_repo
 
-    def get_analytics(self, session_id: int, previous_session_id: Optional[int] = None) -> dict:
+    def _get_session_data(self, session_id):
         session = self._session_repo.find_by_id(session_id)
         if not session:
-            raise NotFoundError('Sesión', session_id)
-
+            raise NotFoundError('Sesion', session_id)
         events = self._event_repo.find_by_session_id(session_id)
-
         patient = self._patient_repo.find_by_id(session.patient_id)
         game = self._game_repo.find_by_id(session.game_id)
+        return session, events, patient, game
 
-        # Group events by finger
-        finger_data = {i: [] for i in range(5)}
-        for e in events:
-            if e.finger_index in finger_data:
-                finger_data[e.finger_index].append(e)
+    def _compute_prev_metrics(self, previous_session_id):
+        prev_events = self._event_repo.find_by_session_id(previous_session_id)
+        prev_finger_data = _group_events(prev_events)
+        return self._compute_all_metrics(prev_finger_data, prev_events)
 
-        # Previous session data for comparison
-        if previous_session_id:
-            prev_events = self._event_repo.find_by_session_id(previous_session_id)
-            prev_finger_data = {i: [] for i in range(5)}
-            for e in prev_events:
-                if e.finger_index in prev_finger_data:
-                    prev_finger_data[e.finger_index].append(e)
-            prev_metrics = self._compute_all_metrics(prev_finger_data, prev_events)
+    def _build_comparison(self, score, prev_score):
+        if prev_score is None:
+            return None
+        diff = score - prev_score
+        return {
+            'previous_score': prev_score,
+            'change': round(diff, 1),
+            'change_pct': round((diff / prev_score) * 100 if prev_score > 0 else 0, 1),
+            'improving': diff > 0,
+        }
 
-        metrics = self._compute_all_metrics(finger_data, events)
-
-        # Functional score
-        score = self._compute_functional_score(metrics)
-        prev_score = self._compute_functional_score(prev_metrics) if previous_session_id else None
-
-        # Previous session comparison
-        comparison = None
-        if prev_score is not None:
-            diff = score - prev_score
-            comparison = {
-                'previous_score': prev_score,
-                'change': round(diff, 1),
-                'change_pct': round((diff / prev_score) * 100 if prev_score > 0 else 0, 1),
-                'improving': diff > 0,
-            }
-
-        duration = None
-        if session.started_at and session.ended_at:
-            duration = (session.ended_at - session.started_at).total_seconds()
-
-        # Clinical interpretation
-        interpretation = self._generate_interpretation(metrics, score, comparison)
-
+    def _build_result(self, session, patient, game, duration, score, comparison, metrics, interpretation):
         return {
             'session_id': session.id,
             'patient_id': session.patient_id,
@@ -87,76 +138,49 @@ class AnalyticsService:
             'interpretation': interpretation,
         }
 
-    def _compute_all_metrics(self, finger_data: dict, all_events: list) -> dict:
+    def get_analytics(self, session_id, previous_session_id=None):
+        session, events, patient, game = self._get_session_data(session_id)
+        finger_data = _group_events(events)
+
+        prev_metrics = None
+        if previous_session_id:
+            prev_metrics = self._compute_prev_metrics(previous_session_id)
+
+        metrics = self._compute_all_metrics(finger_data, events)
+        score = self._compute_functional_score(metrics)
+        prev_score = self._compute_functional_score(prev_metrics) if prev_metrics else None
+
+        comparison = self._build_comparison(score, prev_score)
+        duration = None
+        if session.started_at and session.ended_at:
+            duration = (session.ended_at - session.started_at).total_seconds()
+
+        interpretation = self._generate_interpretation(metrics, score, comparison)
+        return self._build_result(session, patient, game, duration, score, comparison, metrics, interpretation)
+
+    def _compute_single_metrics(self, fi, fevents):
+        if not fevents:
+            return {'name': FINGER_NAMES[fi], 'rom': 0, 'reaction_time': None,
+                    'fatigue': 0, 'tremor': 0, 'activations': 0, 'has_data': False}
+
+        x_vals = [e.landmark_x for e in fevents if e.landmark_x is not None]
+        rom = _compute_rom(fevents)
+        reaction_time = _compute_reaction_time(fevents)
+        fatigue = _compute_fatigue(fevents, x_vals)
+        tremor = _compute_tremor(fevents)
+        activations = sum(1 for e in fevents if e.state == 1)
+
+        return {'name': FINGER_NAMES[fi], 'rom': rom, 'reaction_time': reaction_time,
+                'fatigue': fatigue, 'tremor': tremor, 'activations': activations, 'has_data': True}
+
+    def _compute_all_metrics(self, finger_data, all_events):
         result = {}
         for fi in range(5):
-            fevents = finger_data[fi]
-            if not fevents:
-                result[str(fi)] = {
-                    'name': FINGER_NAMES[fi],
-                    'rom': 0,
-                    'reaction_time': None,
-                    'fatigue': 0,
-                    'tremor': 0,
-                    'activations': 0,
-                    'has_data': False,
-                }
-                continue
-
-            # ROM (Range of Motion) — normalized X+Y range
-            x_vals = [e.landmark_x for e in fevents if e.landmark_x is not None]
-            y_vals = [e.landmark_y for e in fevents if e.landmark_y is not None]
-            rom_x = max(x_vals) - min(x_vals) if len(x_vals) > 1 else 0
-            rom_y = max(y_vals) - min(y_vals) if len(y_vals) > 1 else 0
-            rom = round((rom_x + rom_y) / 2, 4)
-
-            # Reaction time — first transition 0→1
-            reaction_time = None
-            for e in fevents:
-                if e.state == 1:
-                    reaction_time = round((e.timestamp - fevents[0].timestamp).total_seconds(), 2) if e.timestamp and fevents[0].timestamp else None
-                    break
-
-            # Fatigue — ROM first third vs last third
-            third = len(fevents) // 3
-            if third > 1 and len(x_vals) > 5:
-                first_x = x_vals[:third]
-                last_x = x_vals[-third:]
-                rom_first = max(first_x) - min(first_x) if first_x else 0
-                rom_last = max(last_x) - min(last_x) if last_x else 0
-                fatigue = round((1 - (rom_last / rom_first)) * 100, 1) if rom_first > 0 else 0
-            else:
-                fatigue = 0
-
-            # Tremor — std deviation of landmark positions when state=1
-            active_events = [e for e in fevents if e.state == 1 and e.landmark_x is not None]
-            tremor = 0
-            if len(active_events) > 5:
-                ax = [e.landmark_x for e in active_events]
-                ay = [e.landmark_y for e in active_events]
-                tremor_x = statistics.stdev(ax) if len(ax) > 1 else 0
-                tremor_y = statistics.stdev(ay) if len(ay) > 1 else 0
-                tremor = round((tremor_x + tremor_y) / 2, 4)
-
-            activations = sum(1 for e in fevents if e.state == 1)
-
-            result[str(fi)] = {
-                'name': FINGER_NAMES[fi],
-                'rom': rom,
-                'reaction_time': reaction_time,
-                'fatigue': fatigue,
-                'tremor': tremor,
-                'activations': activations,
-                'has_data': True,
-            }
-
-        # Finger independence — co-occurrence analysis
+            result[str(fi)] = self._compute_single_metrics(fi, finger_data[fi])
         result['independence'] = self._compute_independence(all_events)
-
         return result
 
-    def _compute_independence(self, events: list) -> dict:
-        """Checks if fingers move independently or together (synergy)."""
+    def _compute_independence(self, events):
         by_timestamp = {}
         for e in events:
             ts = e.timestamp.isoformat() if e.timestamp else ''
@@ -165,7 +189,6 @@ class AnalyticsService:
             if e.state == 1:
                 by_timestamp[ts][e.finger_index] = True
 
-        # Count how many times each pair activates together
         pair_count = {}
         single_count = {i: 0 for i in range(5)}
         for ts, fingers in by_timestamp.items():
@@ -177,25 +200,19 @@ class AnalyticsService:
                         key = tuple(sorted((f, other)))
                         pair_count[key] = pair_count.get(key, 0) + 1
 
-        independence_score = 100
+        score = 100
         issues = []
         for (f1, f2), count in pair_count.items():
-            total = max(single_count[f1], 1)
-            ratio = count / total
-            if ratio > 0.5:
-                independence_score -= 15
+            ratio = count / max(single_count[f1], 1)
+            if ratio > INDEPENDENCE_RATIO:
+                score -= INDEPENDENCE_PENALTY
                 issues.append(f'{FINGER_NAMES[f1]} y {FINGER_NAMES[f2]} se activan juntos el {int(ratio*100)}% del tiempo')
 
-        independence_score = max(0, independence_score)
+        score = max(0, score)
+        status = 'Normal' if score >= INDEPENDENCE_NORMAL else 'Leve sinergia' if score >= INDEPENDENCE_MILD else 'Sinergia significativa'
+        return {'score': score, 'status': status, 'issues': issues}
 
-        return {
-            'score': independence_score,
-            'status': 'Normal' if independence_score >= 70 else 'Leve sinergia' if independence_score >= 40 else 'Sinergia significativa',
-            'issues': issues,
-        }
-
-    def _compute_functional_score(self, metrics: dict) -> float:
-        """Score 0-100 combining all metrics."""
+    def _compute_functional_score(self, metrics):
         finger_scores = []
         for fi in range(5):
             m = metrics.get(str(fi), {})
@@ -203,18 +220,10 @@ class AnalyticsService:
                 continue
 
             s = 0
-            # ROM: 0.3+ = 100pts, 0.15 = 50pts, 0 = 0pts
-            s += min(100, m.get('rom', 0) / 0.003) * 0.35
-
-            # Fatigue: 0% = 100pts, 30%+ = 0pts
-            s += max(0, 100 - m.get('fatigue', 0) * 3.3) * 0.25
-
-            # Tremor: 0 = 100pts, 0.02+ = 0pts
-            s += max(0, 100 - m.get('tremor', 0) * 5000) * 0.20
-
-            # Activations
-            s += min(100, m.get('activations', 0) * 5) * 0.20
-
+            s += min(100, m.get('rom', 0) / ROM_SCORE_DIVISOR) * ROM_WEIGHT
+            s += max(0, 100 - m.get('fatigue', 0) * FATIGUE_SCORE_DIVISOR) * FATIGUE_WEIGHT
+            s += max(0, 100 - m.get('tremor', 0) * TREMOR_SCORE_DIVISOR) * TREMOR_WEIGHT
+            s += min(100, m.get('activations', 0) * ACTIVATIONS_MULTIPLIER) * ACTIVATIONS_WEIGHT
             finger_scores.append(s)
 
         if not finger_scores:
@@ -222,45 +231,50 @@ class AnalyticsService:
 
         base = sum(finger_scores) / len(finger_scores)
         indep = metrics.get('independence', {}).get('score', 100)
+        return base * BASE_SCORE_WEIGHT + indep * INDEPENDENCE_WEIGHT
 
-        return base * 0.7 + indep * 0.3
-
-    def _generate_interpretation(self, metrics: dict, score: float, comparison: Optional[dict]) -> str:
+    def _generate_interpretation(self, metrics, score, comparison=None):
         parts = []
+        self._add_score_summary(parts, score)
+        self._add_comparison(parts, comparison, score)
+        self._add_finger_alerts(parts, metrics)
+        self._add_independence_note(parts, metrics)
+        if not parts:
+            parts.append('No se detectaron anomalias significativas en esta sesion.')
+        return ' '.join(parts)
 
+    def _add_score_summary(self, parts, score):
         if score >= 80:
             parts.append('El paciente presenta buena funcionalidad motriz general.')
         elif score >= 50:
-            parts.append('El paciente presenta funcionalidad motriz moderada. Hay áreas que requieren atención.')
+            parts.append('El paciente presenta funcionalidad motriz moderada. Hay areas que requieren atencion.')
         else:
-            parts.append('El paciente presenta funcionalidad motriz reducida. Se recomienda evaluación especializada.')
+            parts.append('El paciente presenta funcionalidad motriz reducida. Se recomienda evaluacion especializada.')
 
-        if comparison:
-            if comparison.get('improving'):
-                parts.append(f'Comparado con la sesión anterior, hay una mejora del {comparison["change_pct"]}% en el score funcional ({comparison["previous_score"]} → {score}).')
-            else:
-                parts.append(f'Comparado con la sesión anterior, el score funcional disminuyó un {abs(comparison["change_pct"])}% ({comparison["previous_score"]} → {score}).')
+    def _add_comparison(self, parts, comparison, score):
+        if not comparison:
+            return
+        key = 'mejora' if comparison.get('improving') else 'disminuyo'
+        pct = comparison['change_pct']
+        prev = comparison['previous_score']
+        parts.append(f'Comparado con la sesion anterior, hay una {key} del {pct}% en el score funcional ({prev} la {score}).')
 
-        # Per-finger analysis
+    def _add_finger_alerts(self, parts, metrics):
         for fi in range(5):
             m = metrics.get(str(fi), {})
             if not m.get('has_data'):
                 continue
-            if m.get('tremor', 0) > 0.015:
+            if m.get('tremor', 0) > TREMOR_WARNING:
                 parts.append(f'{m["name"]}: Se detecta temblor significativo ({m["tremor"]}).')
-            if m.get('fatigue', 0) > 25:
+            if m.get('fatigue', 0) > FATIGUE_WARNING:
                 parts.append(f'{m["name"]}: Fatiga elevada ({m["fatigue"]}%). Posible debilidad muscular.')
-            if m.get('rom', 0) < 0.05 and m.get('has_data'):
-                parts.append(f'{m["name"]}: Rango articular reducido ({m["rom"]}). Limitación de movimiento.')
+            if m.get('rom', 0) < ROM_WARNING and m.get('has_data'):
+                parts.append(f'{m["name"]}: Rango articular reducido ({m["rom"]}). Limitacion de movimiento.')
 
+    def _add_independence_note(self, parts, metrics):
         indep = metrics.get('independence', {})
         if indep.get('issues'):
             parts.append(f'Independencia digital: {indep["status"]}. {" ".join(indep["issues"][:2])}')
-
-        if not parts:
-            parts.append('No se detectaron anomalías significativas en esta sesión.')
-
-        return ' '.join(parts)
 
     def get_pdf_data(self, session_id: int) -> dict:
         """Returns data structured for PDF template."""

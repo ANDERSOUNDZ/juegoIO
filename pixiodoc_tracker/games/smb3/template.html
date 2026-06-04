@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% block title %}Super Mario Bros. 3 - PIXO Therapy{% endblock %}
+{% block main_class %}{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+<script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
+<script src="{{ url_for('static', filename='js/play-common.js') }}"></script>
+<script src="{{ url_for('static', filename='games/smb3/emulator/jsnes.min.js') }}"></script>
+<script src="{{ url_for('static', filename='games/smb3/bridge.js') }}"></script>
+<style>
+.play-wrapper{display:grid;grid-template-columns:minmax(280px,320px) 1fr;gap:14px;
+  max-width:1180px;margin:0 auto;padding:16px 20px 24px;height:calc(100vh - 60px);}
+.play-wrapper.fullscreen{position:fixed;inset:0;z-index:200;max-width:none;background:var(--bg);
+  padding:12px;grid-template-columns:minmax(240px,280px) 1fr;height:100vh;}
+.play-sidebar{display:flex;flex-direction:column;gap:12px;overflow-y:auto;min-width:0;}
+.play-sidebar .ui.segment{margin:0;}
+.panel-title{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-weight:700;color:var(--ink);font-size:.96rem;}
+.panel-title .ic{width:17px;height:17px;color:var(--muted);}
+.video-wrap{position:relative;background:#020617;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.video-wrap video{width:100%;display:none;}
+.video-wrap canvas.landmarks-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.video-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:190px;
+  gap:10px;padding:18px;color:#94a3b8;text-align:center;}
+.video-placeholder .ic{width:30px;height:30px;}
+.video-placeholder p{color:#94a3b8;font-size:.86rem;margin:0;}
+.btn-cam-toggle{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:5;min-height:34px;
+  padding:0 14px;border-radius:999px;border:1px solid rgba(148,163,184,.36);background:rgba(15,23,42,.82);
+  color:#e2e8f0;font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer;transition:all .15s ease;}
+.btn-cam-toggle:hover{border-color:var(--teal);color:#fff;}
+.btn-cam-toggle.active{background:rgba(14,159,142,.22);border-color:var(--teal);color:#ccfbf1;}
+.fingers-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;}
+.finger-ind{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:10px;
+  font-size:.72rem;font-weight:800;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);transition:all .15s ease;}
+.finger-ind.active{background:linear-gradient(135deg,var(--teal),#22c55e);color:#fff;border-color:transparent;box-shadow:0 8px 18px var(--teal-soft);}
+.play-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+#session-timer{display:inline-flex;align-items:center;min-height:38px;padding:0 14px;border-radius:999px;
+  background:var(--brand-soft);color:var(--brand);font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums;}
+.game-area{position:relative;background:#000;border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;}
+#game-container canvas{display:block;margin:0 auto;max-width:100%;max-height:100%;}
+.game-area .emscripten{display:block;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}
+.gear-btn,.fs-btn{position:absolute;z-index:10;width:42px;height:42px;background:rgba(15,23,42,.72);
+  border:1px solid rgba(148,163,184,.34);border-radius:12px;color:#cbd5e1;cursor:pointer;display:inline-flex;
+  align-items:center;justify-content:center;transition:all .15s ease;backdrop-filter:blur(12px);}
+.gear-btn{bottom:16px;right:16px;}
+.fs-btn{top:16px;right:16px;}
+.gear-btn .ic,.fs-btn .ic{width:20px;height:20px;}
+.gear-btn:hover,.fs-btn:hover{color:#fff;border-color:var(--teal);background:rgba(14,159,142,.22);}
+.config-overlay{display:none;position:absolute;inset:0;z-index:20;background:rgba(15,23,42,.96);padding:28px;overflow-y:auto;color:#e2e8f0;}
+.config-overlay.active{display:flex;flex-direction:column;}
+.config-overlay h2{color:#fff;font-size:1.3rem;font-weight:800;text-align:center;margin:0 0 4px;}
+.config-overlay .config-subtitle{color:#94a3b8;font-size:.74rem;font-weight:700;letter-spacing:.12em;text-align:center;text-transform:uppercase;margin-bottom:22px;}
+.config-row{display:grid;grid-template-columns:100px minmax(0,1fr) auto;align-items:center;gap:12px;margin-bottom:12px;
+  padding:14px;border:1px solid rgba(148,163,184,.18);border-radius:14px;background:rgba(255,255,255,.04);}
+.config-finger-name{font-size:.86rem;font-weight:800;}
+.config-slider-wrap{display:flex;align-items:center;gap:10px;}
+.config-slider-wrap input[type="range"]{flex:1;accent-color:var(--teal);height:6px;}
+.config-val{width:38px;text-align:right;font-size:.9rem;font-weight:800;color:#5eead4;}
+.config-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;}
+.config-actions button{min-height:32px;padding:0 10px;font-family:inherit;font-weight:800;font-size:.7rem;
+  border:1px solid rgba(148,163,184,.28);border-radius:9px;background:rgba(15,23,42,.65);color:#cbd5e1;cursor:pointer;transition:all .12s ease;}
+.config-actions button.selected{background:linear-gradient(135deg,#f97316,#dc2626);color:#fff;border-color:transparent;}
+.config-actions button:hover:not(.selected){border-color:var(--teal);color:#fff;}
+.config-bottom{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.config-status{font-size:.85rem;font-weight:700;color:#5eead4;text-align:center;margin-top:12px;min-height:20px;}
+@media(max-width:1024px){
+  .play-wrapper,.play-wrapper.fullscreen{grid-template-columns:1fr;height:auto;}
+  .play-wrapper.fullscreen{overflow-y:auto;}
+  .game-area{min-height:420px;}
+  .config-row{grid-template-columns:1fr;}
+  .config-actions{justify-content:flex-start;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="play-wrapper" id="play-wrapper">
+    <div class="play-sidebar">
+        <div class="ui segment">
+            <div class="panel-title"><svg class="ic"><use href="#i-video"/></svg>Cámara y seguimiento</div>
+            <div class="video-wrap" id="video-container">
+                <video id="camera" autoplay playsinline muted></video>
+                <canvas class="landmarks-canvas" id="landmarks-canvas"></canvas>
+                <div class="video-placeholder" id="camera-placeholder">
+                    <svg class="ic"><use href="#i-camera"/></svg>
+                    <p id="camera-status-text">Cámara desactivada</p>
+                </div>
+                <button class="btn-cam-toggle" id="btn-camera" onclick="toggleCamera()">Activar cámara</button>
+            </div>
+        </div>
+
+        <div class="ui segment">
+            <div class="panel-title"><svg class="ic"><use href="#i-bolt"/></svg>Dedos activos</div>
+            <div class="fingers-row">
+                <div class="finger-ind" data-finger="0">PUL</div>
+                <div class="finger-ind" data-finger="1">IND</div>
+                <div class="finger-ind" data-finger="2">MED</div>
+                <div class="finger-ind" data-finger="3">ANU</div>
+                <div class="finger-ind" data-finger="4">MEN</div>
+            </div>
+        </div>
+
+        <div class="ui segment">
+            <div class="play-toolbar">
+                <span id="session-timer">00:00</span>
+                <div style="display:flex;gap:8px;">
+                    <button class="ui basic button" onclick="restartGame()" title="Reiniciar juego"><svg class="ic"><use href="#i-refresh"/></svg>Reiniciar</button>
+                    <button class="ui red button" onclick="endGame()">Salir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-area" id="game-area">
+        <div id="game-container">
+            <div class="video-placeholder" style="display:flex;min-height:300px;">
+                <svg class="ic" style="width:40px;height:40px;"><use href="#i-gamepad"/></svg>
+                <p>Cargando Super Mario Bros. 3...</p>
+            </div>
+        </div>
+        <button class="gear-btn" onclick="toggleConfig()" title="Configuración"><svg class="ic"><use href="#i-settings"/></svg></button>
+        <button class="fs-btn" onclick="toggleFullscreen()" title="Pantalla completa (F11)"><svg class="ic"><use href="#i-expand"/></svg></button>
+        <div class="config-overlay" id="config-overlay">
+            <h2>CONFIG</h2>
+            <p class="config-subtitle">Sensibilidad y controles</p>
+            <div id="config-rows"></div>
+            <div class="config-bottom">
+                <button class="ui basic button" onclick="resetConfig()">Reset</button>
+                <button class="ui primary button" onclick="saveConfig()">Guardar</button>
+                <button class="ui basic button" onclick="toggleConfig()">Cerrar</button>
+            </div>
+            <p class="config-status" id="config-status"></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const GAME_ID = {{ game_id }};
+const params = new URLSearchParams(window.location.search);
+const SESSION_ID = parseInt(params.get('session_id'));
+const PATIENT_ID = parseInt(params.get('patient_id'));
+
+currentFingerMap = { 0: 'left', 1: 'jump', 2: 'right', 3: 'run', 4: 'start' };
+let smb3Bridge = null;
+
+handInput = new HandInput();
+
+handInput.onFingers((fingers) => {
+    const inds = document.querySelectorAll('.finger-ind');
+    fingers.forEach((f, i) => { if (inds[i]) inds[i].classList.toggle('active', f === 1); });
+    drawLandmarks(handInput.landmarks, fingers);
+});
+
+handInput.onConnect(() => { if (SESSION_ID) handInput._sessionId = SESSION_ID; });
+
+function drawLandmarks(lm, fingers) {
+    const canvas = document.getElementById('landmarks-canvas');
+    const video = document.getElementById('camera');
+    if (!canvas || !video || video.style.display === 'none') return;
+    const rect = video.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!lm || lm.length < 21) return;
+    const w = canvas.width, h = canvas.height;
+    ctx.strokeStyle = 'rgba(0, 128, 255, 0.6)';
+    ctx.lineWidth = 2;
+    for (const [a, b] of CONNECTIONS) {
+        ctx.beginPath();
+        ctx.moveTo(lm[a][0] * w, lm[a][1] * h);
+        ctx.lineTo(lm[b][0] * w, lm[b][1] * h);
+        ctx.stroke();
+    }
+    const tips = [4, 8, 12, 16, 20];
+    for (let i = 0; i < lm.length; i++) {
+        const isTip = tips.indexOf(i);
+        const isActive = isTip >= 0 && fingers && fingers[isTip] === 1;
+        const radius = isTip >= 0 ? 5 : 3;
+        ctx.beginPath();
+        ctx.arc(lm[i][0] * w, lm[i][1] * h, radius, 0, Math.PI * 2);
+        ctx.fillStyle = isActive ? '#3ddc97' : (isTip >= 0 ? '#ffd23f' : '#00ff00');
+        ctx.fill();
+    }
+}
+
+async function toggleCamera() {
+    const videoEl = document.getElementById('camera');
+    const placeholder = document.getElementById('camera-placeholder');
+    const btn = document.getElementById('btn-camera');
+    const statusText = document.getElementById('camera-status-text');
+    if (!cameraEnabled) {
+        btn.disabled = true;
+        btn.textContent = 'Activando…';
+        statusText.textContent = 'Inicializando cámara…';
+        try {
+            await handInput.connect();
+            cameraEnabled = true;
+            videoEl.style.display = 'block';
+            placeholder.style.display = 'none';
+            updateCameraButtons();
+        } catch (err) {
+            statusText.textContent = 'No se pudo acceder a la cámara';
+            statusText.style.color = 'var(--danger)';
+            btn.textContent = 'Reintentar';
+            btn.disabled = false;
+            console.error('[Camera]', err);
+            return;
+        }
+        btn.disabled = false;
+    } else {
+        cameraEnabled = false;
+        handInput.disconnect();
+        videoEl.style.display = 'none';
+        const lc = document.getElementById('landmarks-canvas');
+        if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
+        placeholder.style.display = 'flex';
+        statusText.textContent = 'Cámara desactivada';
+        statusText.style.color = '#94a3b8';
+        btn.textContent = 'Activar cámara';
+        updateCameraButtons();
+    }
+}
+
+function updateCameraButtons() {
+    const btn = document.getElementById('btn-camera');
+    if (cameraEnabled) { btn.textContent = 'Desactivar cámara'; btn.classList.add('active'); }
+    else { btn.textContent = 'Activar cámara'; btn.classList.remove('active'); }
+}
+
+function toggleFullscreen() {
+    const wrapper = document.getElementById('play-wrapper');
+    const nav = document.querySelector('.pixo-nav');
+    if (!document.fullscreenElement) {
+        wrapper.requestFullscreen().then(() => {
+            wrapper.classList.add('fullscreen');
+            if (nav) nav.style.display = 'none';
+        }).catch(() => {
+            wrapper.classList.toggle('fullscreen');
+            if (nav) nav.style.display = wrapper.classList.contains('fullscreen') ? 'none' : '';
+        });
+    } else {
+        document.exitFullscreen().then(() => {
+            wrapper.classList.remove('fullscreen');
+            if (nav) nav.style.display = '';
+        });
+    }
+}
+
+document.addEventListener('fullscreenchange', () => {
+    const wrapper = document.getElementById('play-wrapper');
+    const nav = document.querySelector('.pixo-nav');
+    if (!document.fullscreenElement) {
+        wrapper.classList.remove('fullscreen');
+        if (nav) nav.style.display = '';
+    }
+});
+
+document.addEventListener('keydown', (e) => { if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); } });
+
+function toggleConfig() { document.getElementById('config-overlay').classList.toggle('active'); }
+
+function buildConfigUI() {
+    const container = document.getElementById('config-rows');
+    container.innerHTML = fingerNames.map((name, i) => `
+        <div class="config-row">
+            <span class="config-finger-name">${name}</span>
+            <div class="config-slider-wrap">
+                <input type="range" min="0" max="100" value="${currentSensitivity[i]}" oninput="onSensChange(${i}, this.value)">
+                <span class="config-val" id="sens-val-${i}">${currentSensitivity[i]}</span>
+            </div>
+            <div class="config-actions">
+                ${actionLabels.map(a => `
+                    <button data-finger="${i}" data-action="${a.key}"
+                        class="${currentFingerMap[i] === a.key ? 'selected' : ''}"
+                        onclick="onActionChange(${i}, '${a.key}', this)">${a.label}</button>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+}
+
+function onSensChange(finger, value) {
+    value = parseInt(value);
+    currentSensitivity[finger] = value;
+    document.getElementById(`sens-val-${finger}`).textContent = value;
+    handInput.setSensitivity(currentSensitivity);
+}
+
+function onActionChange(finger, action, btn) {
+    currentFingerMap[finger] = action;
+    const row = btn.closest('.config-row');
+    row.querySelectorAll('.config-actions button').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    if (smb3Bridge) smb3Bridge.setFingerMap(currentFingerMap);
+}
+
+function resetConfig() {
+    currentSensitivity = [50, 50, 50, 50, 50];
+    currentFingerMap = Object.assign({}, defaultFingerMap);
+    buildConfigUI();
+    handInput.setSensitivity(currentSensitivity);
+    showStatus('Config reseteada');
+}
+
+async function saveConfig() {
+    const fingerMapObj = {};
+    for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
+    if (smb3Bridge) smb3Bridge.setFingerMap(fingerMapObj);
+    handInput.setSensitivity(currentSensitivity);
+    await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensitivities: currentSensitivity, finger_map: fingerMapObj }),
+    });
+    showStatus('¡Config guardada!');
+}
+
+function showStatus(msg) {
+    const el = document.getElementById('config-status');
+    el.textContent = msg;
+    setTimeout(() => { el.textContent = ''; }, 2000);
+}
+
+function restartGame() {
+    location.reload();
+}
+
+async function initSMB3() {
+    try {
+        const playerConfig = await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`).then(r => r.json());
+
+        currentSensitivity = playerConfig.sensitivities || [50, 50, 50, 50, 50];
+        const fm = playerConfig.finger_map || defaultFingerMap;
+        for (let i = 0; i < 5; i++) currentFingerMap[i] = fm[String(i)] || 'none';
+
+        handInput.setSensitivity(currentSensitivity);
+        buildConfigUI();
+
+        const container = document.getElementById('game-container');
+        smb3Bridge = new SMB3Bridge(handInput, container);
+        smb3Bridge.setFingerMap(currentFingerMap);
+
+        await smb3Bridge.loadROM("{{ url_for('static', filename='games/smb3/smb3.nes') }}");
+
+        smb3Bridge.start();
+        console.log('[SMB3] Game started!');
+
+    } catch (e) {
+        console.error('[SMB3] Error initializing:', e);
+        document.getElementById('game-container').innerHTML =
+            '<div class="ui negative message" style="max-width:340px;margin:20px auto;">Error cargando Super Mario Bros. 3</div>';
+    }
+}
+
+async function endGame(finalScore) {
+    if (smb3Bridge) {
+        smb3Bridge.stop();
+        smb3Bridge = null;
+    }
+    const score = finalScore ?? 0;
+    if (SESSION_ID) {
+        handInput._flushEvents();
+        await fetch(`/api/sessions/${SESSION_ID}/end`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score }),
+        });
+    }
+    window.location.href = SESSION_ID ? `/sessions/${SESSION_ID}/report` : '/games';
+}
+
+initSMB3();
+</script>
+{% endblock %}

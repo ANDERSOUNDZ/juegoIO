@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from src.config.settings import Settings
 from src.infrastructure.di import create_db_worker
 from src.infrastructure.web.app import create_app

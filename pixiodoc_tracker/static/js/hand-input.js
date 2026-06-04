@@ -54,8 +54,6 @@ class HandInput {
         return actions;
     }
 
-    setSendFrame() {}
-
     getVideoElement() {
         return this._video;
     }

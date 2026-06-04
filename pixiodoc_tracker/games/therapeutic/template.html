@@ -1,11 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Prince of Persia - PIXO Therapy{% endblock %}
+{% block title %}Jugar - PIXO Therapy{% endblock %}
 {% block main_class %}{% endblock %}
 
 {% block head %}
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
 <script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
-<script src="{{ url_for('static', filename='games/prince/prince-bridge.js') }}"></script>
+<script src="{{ url_for('static', filename='js/play-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/sprite-generator.js') }}"></script>
+<script src="{{ url_for('static', filename='js/game-loader.js') }}"></script>
 <style>
 .play-wrapper{display:grid;grid-template-columns:minmax(280px,320px) 1fr;gap:14px;
   max-width:1180px;margin:0 auto;padding:16px 20px 24px;height:calc(100vh - 60px);}
@@ -36,13 +39,8 @@
   background:var(--brand-soft);color:var(--brand);font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums;}
 .game-area{position:relative;background:#000;border:1px solid var(--border);border-radius:var(--radius);
   overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;}
-#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;}
-#game-container canvas.emscripten{display:block;margin:0 auto;image-rendering:pixelated;max-width:100%;max-height:100%;}
-.game-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px;
-  background:var(--surface-2);border-radius:10px;font-size:.8rem;text-align:center;}
-.game-stats .stat-label{color:var(--muted);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
-.game-stats .stat-value{color:var(--brand);font-size:1.1rem;font-weight:800;}
-.game-stats .stat-value.danger{color:var(--danger);}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+#game-container > div,#game-container canvas{display:block;margin:0 auto;}
 .gear-btn,.fs-btn{position:absolute;z-index:10;width:42px;height:42px;background:rgba(15,23,42,.72);
   border:1px solid rgba(148,163,184,.34);border-radius:12px;color:#cbd5e1;cursor:pointer;display:inline-flex;
   align-items:center;justify-content:center;transition:all .15s ease;backdrop-filter:blur(12px);}
@@ -104,24 +102,6 @@
             </div>
         </div>
 
-        <div class="ui segment" id="stats-panel">
-            <div class="panel-title"><svg class="ic"><use href="#i-star"/></svg>Estado del juego</div>
-            <div class="game-stats">
-                <div>
-                    <div class="stat-label">Nivel</div>
-                    <div class="stat-value" id="pop-level">-</div>
-                </div>
-                <div>
-                    <div class="stat-label">Tiempo</div>
-                    <div class="stat-value" id="pop-time">-</div>
-                </div>
-                <div>
-                    <div class="stat-label">HP</div>
-                    <div class="stat-value" id="pop-hp">-</div>
-                </div>
-            </div>
-        </div>
-
         <div class="ui segment">
             <div class="play-toolbar">
                 <span id="session-timer">00:00</span>
@@ -154,41 +134,16 @@
 
 {% block scripts %}
 <script>
+/* ===== LOGICA JS (conservada del template original) ===== */
 const GAME_ID = {{ game_id }};
 const params = new URLSearchParams(window.location.search);
 const SESSION_ID = parseInt(params.get('session_id'));
 const PATIENT_ID = parseInt(params.get('patient_id'));
 
-const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
-const actionLabels = [
-    { key: 'jump', label: 'SALTAR' }, { key: 'right', label: 'DER' }, { key: 'left', label: 'IZQ' },
-    { key: 'down', label: 'BAJO' }, { key: 'up', label: 'ARRIBA' },
-    { key: 'action', label: 'ACCION' }, { key: 'none', label: 'NADA' },
-];
+currentFingerMap = { 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' };
+let gameInstance = null;
 
-let currentSensitivity = [50, 50, 50, 50, 50];
-let currentFingerMap = { 0: 'left', 1: 'jump', 2: 'right', 3: 'down', 4: 'action' };
-let defaultFingerMap = {};
-let sessionStartTime = Date.now();
-let cameraEnabled = false;
-let princeBridge = null;
-let gameStateInterval = null;
-
-const CONNECTIONS = [
-    [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],
-    [0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],
-];
-
-// Session timer
-setInterval(() => {
-    const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
-    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
-    const s = String(elapsed % 60).padStart(2, '0');
-    document.getElementById('session-timer').textContent = `${m}:${s}`;
-}, 1000);
-
-// HandInput
-const handInput = new HandInput();
+handInput = new HandInput();
 
 handInput.onFingers((fingers) => {
     const inds = document.querySelectorAll('.finger-ind');
@@ -307,9 +262,11 @@ function toggleConfig() { document.getElementById('config-overlay').classList.to
 
 function buildConfigUI() {
     const container = document.getElementById('config-rows');
-    container.innerHTML = fingerNames.map((name, i) => `
+    container.innerHTML = fingerNames.map((name, i) => {
+        const fingerColor = handInput.fingers[i] ? 'var(--teal)' : 'var(--brand)';
+        return `
         <div class="config-row">
-            <span class="config-finger-name">${name}</span>
+            <span class="config-finger-name" style="color:${fingerColor}">${name}</span>
             <div class="config-slider-wrap">
                 <input type="range" min="0" max="100" value="${currentSensitivity[i]}" oninput="onSensChange(${i}, this.value)">
                 <span class="config-val" id="sens-val-${i}">${currentSensitivity[i]}</span>
@@ -321,8 +278,8 @@ function buildConfigUI() {
                         onclick="onActionChange(${i}, '${a.key}', this)">${a.label}</button>
                 `).join('')}
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
 
 function onSensChange(finger, value) {
@@ -337,7 +294,10 @@ function onActionChange(finger, action, btn) {
     const row = btn.closest('.config-row');
     row.querySelectorAll('.config-actions button').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
-    if (princeBridge) princeBridge.setFingerMap(currentFingerMap);
+    if (gameInstance) {
+        const scene = gameInstance.scene.getScene('PlayScene');
+        if (scene && scene._fingerMap) scene._fingerMap[String(finger)] = action;
+    }
 }
 
 function resetConfig() {
@@ -351,7 +311,10 @@ function resetConfig() {
 async function saveConfig() {
     const fingerMapObj = {};
     for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
-    if (princeBridge) princeBridge.setFingerMap(fingerMapObj);
+    if (gameInstance) {
+        const scene = gameInstance.scene.getScene('PlayScene');
+        if (scene && scene._fingerMap) Object.assign(scene._fingerMap, fingerMapObj);
+    }
     handInput.setSensitivity(currentSensitivity);
     await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`, {
         method: 'PUT',
@@ -368,113 +331,64 @@ function showStatus(msg) {
 }
 
 function restartGame() {
-    location.reload();
+    if (!gameInstance) return;
+    const scene = gameInstance.scene.getScene('PlayScene');
+    if (scene) scene.scene.restart();
 }
 
-function updateGameStats(state) {
-    if (!state) return;
-    document.getElementById('pop-level').textContent = state.level;
-    const timeStr = `${state.minutes}:${String(state.ticks).padStart(3, '0')}`;
-    document.getElementById('pop-time').textContent = timeStr;
-    const hpEl = document.getElementById('pop-hp');
-    hpEl.textContent = state.hp;
-    hpEl.className = 'stat-value' + (state.hp <= 1 ? ' danger' : '');
-}
-
-async function initPrince() {
+async function initGame() {
     try {
-        // Cargar configuración del jugador
+        const gameConfig = await fetch(`/api/games/${GAME_ID}/config`).then(r => r.json());
         const playerConfig = await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`).then(r => r.json());
+
+        const gameControls = gameConfig.controls || {};
+        defaultFingerMap = gameControls.fingerMap || { 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' };
 
         currentSensitivity = playerConfig.sensitivities || [50, 50, 50, 50, 50];
         const fm = playerConfig.finger_map || defaultFingerMap;
-        for (let i = 0; i < 5; i++) currentFingerMap[i] = fm[String(i)] || 'none';
+        for (let i = 0; i < 5; i++) currentFingerMap[i] = fm[String(i)] || fm[i] || 'none';
 
         handInput.setSensitivity(currentSensitivity);
+
+        gameConfig.controls = gameConfig.controls || {};
+        const fingerMapObj = {};
+        for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
+        gameConfig.controls.fingerMap = fingerMapObj;
+
+        await resolveSprites(gameConfig);
+
         buildConfigUI();
-
-        // Inicializar Emscripten Module
-        const container = document.getElementById('game-container');
-
-        // Definir Module global antes de cargar prince.js
-        window.Module = {
-            arguments: ['mute'],
-            locateFile: function(path, prefix) {
-                if (path.endsWith('.data') || path.endsWith('.wasm') || path.endsWith('.js')) {
-                    return '/static/games/prince/' + path;
-                }
-                return prefix + path;
-            },
-            canvas: (function() {
-                var canvas = document.createElement('canvas');
-                canvas.id = 'canvas';
-                canvas.className = 'emscripten';
-                canvas.width = 640;
-                canvas.height = 400;
-                canvas.style.width = '640px';
-                canvas.style.height = '400px';
-                container.innerHTML = '';
-                container.appendChild(canvas);
-                return canvas;
-            })(),
-            onRuntimeInitialized: function() {
-                console.log('[Prince] WASM runtime initialized. Starting hand tracking bridge...');
-
-                princeBridge = new PrinceBridge(handInput, Module);
-                princeBridge.setFingerMap(currentFingerMap);
-
-                princeBridge.onStateChange((state) => {
-                    updateGameStats(state);
-                });
-
-                princeBridge.onGameOver((state) => {
-                    console.log('[Prince] Game over detected. Level:', state.level);
-                    // La sesión termina cuando el jugador muere o se queda sin tiempo
-                    const score = state.level * 1000 + state.hp * 100;
-                    endGame(score);
-                });
-
-                princeBridge.start();
-
-                // Actualizar stats periódicamente
-                gameStateInterval = setInterval(() => {
-                    if (!princeBridge) return;
-                    const s = princeBridge.getGameState();
-                    updateGameStats(s);
-                }, 1000);
-            },
-            onAbort: function(reason) {
-                console.error('[Prince] WASM aborted:', reason);
-                container.innerHTML = '<div class="ui negative message" style="max-width:340px;margin:20px auto;">Error: el juego no pudo cargarse</div>';
-            },
-        };
-
-        // Cargar el WASM - el script prince.js generará Module automáticamente
-        const script = document.createElement('script');
-        script.src = "{{ url_for('static', filename='games/prince/prince.js') }}";
-        script.onerror = function() {
-            container.innerHTML = '<div class="ui negative message" style="max-width:340px;margin:20px auto;">Error cargando el juego. Verifica que prince.wasm y prince.data existen en static/games/prince/</div>';
-        };
-        document.body.appendChild(script);
-
+        gameInstance = GameLoader.load(gameConfig, 'game-container', handInput, (score, won) => { endGame(score); });
     } catch (e) {
-        console.error('[Prince] Error initializing:', e);
+        console.error('Error loading game:', e);
         document.getElementById('game-container').innerHTML =
-            '<div class="ui negative message" style="max-width:340px;margin:20px auto;">Error cargando Prince of Persia</div>';
+            '<div class="ui negative message" style="max-width:340px;">Error cargando el juego</div>';
+    }
+}
+
+async function resolveSprites(config) {
+    if (!config.sprites) return;
+    const ids = [], roles = [];
+    for (const [role, ref] of Object.entries(config.sprites)) {
+        if (ref && ref.sprite_id) { ids.push(ref.sprite_id); roles.push(role); }
+    }
+    if (!ids.length) return;
+    const res = await fetch('/api/sprites/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+    });
+    const spritesData = await res.json();
+    const byId = {};
+    for (const s of spritesData) byId[s.id] = s;
+    for (const role of roles) {
+        const sid = config.sprites[role].sprite_id;
+        if (byId[sid]) config.sprites[role] = byId[sid];
     }
 }
 
 async function endGame(finalScore) {
-    if (princeBridge) {
-        princeBridge.stop();
-        princeBridge = null;
-    }
-    if (gameStateInterval) {
-        clearInterval(gameStateInterval);
-        gameStateInterval = null;
-    }
-
-    const score = finalScore ?? 0;
+    const score = finalScore ?? (gameInstance?.scene?.getScene('PlayScene')?.score || 0);
     if (SESSION_ID) {
         handInput._flushEvents();
         await fetch(`/api/sessions/${SESSION_ID}/end`, {
@@ -486,6 +400,6 @@ async function endGame(finalScore) {
     window.location.href = SESSION_ID ? `/sessions/${SESSION_ID}/report` : '/games';
 }
 
-initPrince();
+initGame();
 </script>
 {% endblock %}

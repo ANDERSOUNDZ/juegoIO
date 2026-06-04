@@ -434,6 +434,60 @@ UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_ob
 ))
 WHERE name = 'Pumpkin Panic - Granja Embrujada' AND NOT (config ? 'sprites');
 
+-- ─── JUEGO: Prince of Persia (WASM) ────────────────────────────
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Prince of Persia',
+       'El cl\u00e1sico Prince of Persia de 1990 convertido a WebAssembly. Controla al pr\u00edncipe con gestos de los dedos para escapar del calabozo.',
+       'prince',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Prince of Persia",
+           "type": "prince",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Prince of Persia original corriendo en WebAssembly con control por gestos.",
+           "estimatedDuration": 3600
+         },
+         "controls": {
+           "fingerMap": {
+             "0": "left",
+             "1": "jump",
+             "2": "right",
+             "3": "down",
+             "4": "action"
+           }
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Prince of Persia');
+
+-- ─── JUEGO: Super Mario Bros. 3 (NES via JSNES) ────────────────
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Super Mario Bros. 3',
+       'El cl\u00e1sico Super Mario Bros. 3 de NES. Controla a Mario con gestos de los dedos: \u00edndice para saltar, medio para derecha, pulgar para izquierda, anular para correr.',
+       'smb3',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Super Mario Bros. 3",
+           "type": "smb3",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Super Mario Bros. 3 corriendo en emulador NES con control por gestos.",
+           "estimatedDuration": 3600
+         },
+         "controls": {
+           "fingerMap": {
+             "0": "left",
+             "1": "jump",
+             "2": "right",
+             "3": "run",
+             "4": "start"
+           }
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 3');
+
 -- ─── CONFIG DE CONTROLES POR PACIENTE+JUEGO ───────────────────
 CREATE TABLE IF NOT EXISTS player_game_config (
     id SERIAL PRIMARY KEY,

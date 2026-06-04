@@ -59,60 +59,61 @@ class SessionService:
         self.get_by_id(session_id)
         return self._event_repo.find_by_session_id(session_id)
 
-    def get_report(self, session_id: int) -> dict:
-        s = self.get_by_id(session_id)
-        events = self._event_repo.find_by_session_id(session_id)
-
-        finger_stats_raw = {}
+    @staticmethod
+    def _aggregate_finger_events(events):
+        raw = {}
         for e in events:
-            if e.finger_index not in finger_stats_raw:
-                finger_stats_raw[e.finger_index] = {'total': 0, 'active': 0, 'min_x': None, 'max_x': None, 'min_y': None, 'max_y': None}
-            finger_stats_raw[e.finger_index]['total'] += 1
-            finger_stats_raw[e.finger_index]['active'] += e.state
+            if e.finger_index not in raw:
+                raw[e.finger_index] = {'total': 0, 'active': 0, 'min_x': None, 'max_x': None, 'min_y': None, 'max_y': None}
+            raw[e.finger_index]['total'] += 1
+            raw[e.finger_index]['active'] += e.state
             if e.landmark_x is not None:
-                fi = finger_stats_raw[e.finger_index]
+                fi = raw[e.finger_index]
                 fi['min_x'] = min(fi['min_x'], e.landmark_x) if fi['min_x'] is not None else e.landmark_x
                 fi['max_x'] = max(fi['max_x'], e.landmark_x) if fi['max_x'] is not None else e.landmark_x
                 fi['min_y'] = min(fi['min_y'], e.landmark_y) if fi['min_y'] is not None else e.landmark_y
                 fi['max_y'] = max(fi['max_y'], e.landmark_y) if fi['max_y'] is not None else e.landmark_y
+        return raw
 
-        finger_names = ['Pulgar', 'Índice', 'Medio', 'Anular', 'Meñique']
-        finger_stats = [
-            {
-                'finger_index': fi,
-                'name': finger_names[fi] if fi < 5 else f'Dedo {fi}',
-                'total_events': st['total'],
-                'active_count': st['active'],
-            }
-            for fi, st in sorted(finger_stats_raw.items())
+    @staticmethod
+    def _build_finger_stats(raw):
+        finger_names = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique']
+        return [
+            {'finger_index': fi, 'name': finger_names[fi] if fi < 5 else f'Dedo {fi}',
+             'total_events': st['total'], 'active_count': st['active']}
+            for fi, st in sorted(raw.items())
         ]
-        movement_stats = [
-            {
-                'finger_index': fi,
-                'range_x': round((st['max_x'] or 0) - (st['min_x'] or 0), 4),
-                'range_y': round((st['max_y'] or 0) - (st['min_y'] or 0), 4),
-            }
-            for fi, st in sorted(finger_stats_raw.items())
+
+    @staticmethod
+    def _build_movement_stats(raw):
+        return [
+            {'finger_index': fi, 'range_x': round((st['max_x'] or 0) - (st['min_x'] or 0), 4),
+             'range_y': round((st['max_y'] or 0) - (st['min_y'] or 0), 4)}
+            for fi, st in sorted(raw.items())
         ]
+
+    def _build_session_dict(self, s, game):
+        return {
+            'id': s.id, 'patient_id': s.patient_id, 'game_id': s.game_id,
+            'user_id': s.user_id, 'score': s.score, 'metadata': s.metadata_,
+            'started_at': s.started_at.isoformat() if s.started_at else None,
+            'ended_at': s.ended_at.isoformat() if s.ended_at else None,
+            'game_name': game.name if game else None,
+        }
+
+    def get_report(self, session_id):
+        s = self.get_by_id(session_id)
+        events = self._event_repo.find_by_session_id(session_id)
+        raw = self._aggregate_finger_events(events)
+
         duration = None
         if s.started_at and s.ended_at:
             duration = (s.ended_at - s.started_at).total_seconds()
 
         game = self._game_repo.find_by_id(s.game_id)
-
         return {
-            'session': {
-                'id': s.id,
-                'patient_id': s.patient_id,
-                'game_id': s.game_id,
-                'user_id': s.user_id,
-                'started_at': s.started_at.isoformat() if s.started_at else None,
-                'ended_at': s.ended_at.isoformat() if s.ended_at else None,
-                'score': s.score,
-                'metadata': s.metadata_,
-                'game_name': game.name if game else None,
-            },
+            'session': self._build_session_dict(s, game),
             'duration_seconds': duration,
-            'finger_stats': finger_stats,
-            'movement_stats': movement_stats,
+            'finger_stats': self._build_finger_stats(raw),
+            'movement_stats': self._build_movement_stats(raw),
         }
