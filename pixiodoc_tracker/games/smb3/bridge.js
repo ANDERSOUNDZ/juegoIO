@@ -33,7 +33,9 @@ class SMB3Bridge {
         if (this.active) return;
         this.active = true;
 
-        this.nostalgist = await Nostalgist.nes(romUrl, {
+        this.nostalgist = await Nostalgist.launch({
+            core: 'fceumm',
+            rom: romUrl,
             canvas: this._createCanvas(),
         });
 
