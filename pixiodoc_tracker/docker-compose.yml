@@ -21,7 +21,7 @@ services:
       - ./static:/app/static
       - ./games:/app/games
       - ./server.py:/app/server.py
-      - ./hand_landmarker.task:/app/hand_landmarker.task
+      # - ./hand_landmarker.task:/app/hand_landmarker.task
     restart: unless-stopped
 
   postgres:
