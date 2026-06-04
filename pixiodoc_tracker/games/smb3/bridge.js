@@ -58,8 +58,9 @@ class SMB3Bridge {
         this.container.innerHTML = '';
         var canvas = document.createElement('canvas');
         canvas.className = 'emscripten';
-        canvas.style.width = '768px';
-        canvas.style.height = '720px';
+        canvas.style.width = '100%';
+        canvas.style.maxWidth = '768px';
+        canvas.style.aspectRatio = '256 / 240';
         canvas.style.imageRendering = 'pixelated';
         canvas.style.imageRendering = 'crisp-edges';
         this.container.appendChild(canvas);
