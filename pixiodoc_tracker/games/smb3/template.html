@@ -6,7 +6,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
 <script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
 <script src="{{ url_for('static', filename='js/play-common.js') }}"></script>
-<script src="{{ url_for('static', filename='games/smb3/emulator/jsnes.min.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/nostalgist"></script>
 <script src="{{ url_for('static', filename='games/smb3/bridge.js') }}"></script>
 <style>
 .play-wrapper{display:grid;grid-template-columns:minmax(280px,320px) 1fr;gap:14px;
@@ -345,9 +345,8 @@ async function initSMB3() {
         smb3Bridge = new SMB3Bridge(handInput, container);
         smb3Bridge.setFingerMap(currentFingerMap);
 
-        await smb3Bridge.loadROM("{{ url_for('static', filename='games/smb3/smb3.nes') }}");
-
-        smb3Bridge.start();
+        var romUrl = "{{ url_for('static', filename='games/smb3/smb3.nes') }}";
+        await smb3Bridge.start(romUrl);
         console.log('[SMB3] Game started!');
 
     } catch (e) {
