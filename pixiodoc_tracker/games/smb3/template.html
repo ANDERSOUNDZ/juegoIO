@@ -345,7 +345,7 @@ async function initSMB3() {
         smb3Bridge = new SMB3Bridge(handInput, container);
         smb3Bridge.setFingerMap(currentFingerMap);
 
-        var romUrl = "{{ url_for('static', filename='games/smb3/smb3.nes') }}";
+        var romUrl = window.location.origin + "{{ url_for('static', filename='games/smb3/smb3.nes') }}";
         await smb3Bridge.start(romUrl);
         console.log('[SMB3] Game started!');
 
