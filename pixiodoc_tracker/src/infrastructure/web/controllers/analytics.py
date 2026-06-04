@@ -7,7 +7,6 @@ from src.infrastructure.persistence.repositories import (
     PatientRepository, GameRepository,
 )
 from src.domain.exceptions import NotFoundError
-from src.infrastructure.web.middleware import role_required
 
 analytics_bp = Blueprint('analytics_api', __name__, url_prefix='/api/sessions')
 _service = AnalyticsService(
@@ -49,7 +48,6 @@ def get_pdf(sid):
 
 def _get_previous_session_id(session_id: int):
     """Find the most recent session before this one for the same patient."""
-    from src.infrastructure.persistence.repositories import SessionRepository
     repo = SessionRepository()
     session = repo.find_by_id(session_id)
     if not session:

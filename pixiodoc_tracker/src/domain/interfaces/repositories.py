@@ -2,21 +2,11 @@ from abc import ABC, abstractmethod
 from typing import Optional, List
 
 from ..entities import (
-    User, Patient, Game, GameSession, FingerEvent,
+    Patient, Game, GameSession, FingerEvent,
     SensitivityPreset, PatientSensitivity, SensitivityHistory,
     PlayerGameConfig, Sprite,
 )
 
-
-class IUserRepository(ABC):
-    @abstractmethod
-    def find_by_id(self, user_id: int) -> Optional[User]: ...
-
-    @abstractmethod
-    def find_by_email(self, email: str) -> Optional[User]: ...
-
-    @abstractmethod
-    def save(self, user: User) -> User: ...
 
 
 class IPatientRepository(ABC):

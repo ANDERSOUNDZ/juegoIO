@@ -9,8 +9,6 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 
 
-VALID_ROLES = ('admin', 'therapist', 'viewer')
-
 
 def _set_role_id(user, role_name):
     """Look up role_id from roles table and set it on the user."""

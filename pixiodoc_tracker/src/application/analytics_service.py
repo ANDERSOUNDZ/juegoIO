@@ -40,7 +40,6 @@ class AnalyticsService:
                 finger_data[e.finger_index].append(e)
 
         # Previous session data for comparison
-        prev_report = None
         if previous_session_id:
             prev_events = self._event_repo.find_by_session_id(previous_session_id)
             prev_finger_data = {i: [] for i in range(5)}
@@ -243,7 +242,6 @@ class AnalyticsService:
                 parts.append(f'Comparado con la sesión anterior, el score funcional disminuyó un {abs(comparison["change_pct"])}% ({comparison["previous_score"]} → {score}).')
 
         # Per-finger analysis
-        weak_fingers = []
         for fi in range(5):
             m = metrics.get(str(fi), {})
             if not m.get('has_data'):

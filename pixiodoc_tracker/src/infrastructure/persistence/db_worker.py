@@ -61,17 +61,6 @@ class DBWorker:
         """Enqueue pre-built rows for bulk insert."""
         self._enqueue(('events_batch', rows))
 
-    def send_events_batch(self, session_id, finger_states, landmarks_data):
-        rows = []
-        tip_indices = [4, 8, 12, 16, 20]
-        for i in range(5):
-            tip = tip_indices[i]
-            lx = landmarks_data[tip][0] if landmarks_data else None
-            ly = landmarks_data[tip][1] if landmarks_data else None
-            lz = landmarks_data[tip][2] if landmarks_data else None
-            rows.append((session_id, i, finger_states[i], lx, ly, lz))
-        self._enqueue(('events_batch', rows))
-
     def _run(self):
         self._connect()
         while self.running:

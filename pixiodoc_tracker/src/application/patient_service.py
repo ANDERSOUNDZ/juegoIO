@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from src.domain.entities import Patient, PatientSensitivity, SensitivityHistory
-from src.domain.exceptions import NotFoundError, ValidationError
+from src.domain.exceptions import NotFoundError
 from src.domain.interfaces.repositories import (
     IPatientRepository, IPatientSensitivityRepository,
     ISensitivityHistoryRepository, ISensitivityPresetRepository,

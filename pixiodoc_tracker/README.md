@@ -797,3 +797,13 @@ mario_db_tracker/
     ├── report.html                 #   Reporte con analytics
     └── report_pdf.html             #   Template PDF médico
 ```
+
+--
+
+Conexión a PostgreSQL
+Campo	Valor
+Host	postgres (dentro de Docker) o localhost (desde fuera)
+Puerto	5432
+Base de datos	mario_db
+Usuario	postgres
+Contraseña	admin

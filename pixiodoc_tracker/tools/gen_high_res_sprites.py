@@ -65,11 +65,6 @@ def _fill(img, x1, y1, x2, y2, color):
     draw.rectangle([x1, y1, x2, y2], fill=color)
 
 
-def _circle(img, cx, cy, r, color):
-    draw = ImageDraw.Draw(img)
-    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=color)
-
-
 def _hollow_rect(img, x, y, w, h, color):
     draw = ImageDraw.Draw(img)
     draw.rectangle([x, y, x + w - 1, y + h - 1], outline=color)

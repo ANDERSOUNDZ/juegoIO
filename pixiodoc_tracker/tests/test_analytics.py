@@ -4,11 +4,11 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.domain.entities import FingerEvent
-from src.domain.value_objects import Sensitivity, FingerState
+from src.domain.value_objects import Sensitivity
 from datetime import datetime, timezone
 
 
-def make_event(finger, state, x=0.5, y=0.5, z=0, ts_offset=0):
+def make_event(finger, state, x=0.5, y=0.5, z=0):
     return FingerEvent(
         finger_index=finger, state=state,
         landmark_x=x, landmark_y=y, landmark_z=z,
@@ -16,19 +16,6 @@ def make_event(finger, state, x=0.5, y=0.5, z=0, ts_offset=0):
         confidence=0.9,
     )
 
-
-class TestFingerState:
-    def test_valid_state(self):
-        fs = FingerState((1, 0, 1, 0, 1))
-        assert fs.values == (1, 0, 1, 0, 1)
-        assert fs.as_list() == [1, 0, 1, 0, 1]
-
-    def test_changed(self):
-        a = FingerState((1, 0, 0, 0, 0))
-        b = FingerState((1, 0, 0, 0, 0))
-        c = FingerState((0, 0, 0, 0, 0))
-        assert not a.changed_from(b)
-        assert a.changed_from(c)
 
 
 class TestSensitivity:
