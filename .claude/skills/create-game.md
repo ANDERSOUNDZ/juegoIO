@@ -396,6 +396,100 @@ curl -s http://localhost:5000/api/sprites?category=player -b /tmp/pixo-cookie
 
 If the user doesn't mention sprites, omit the `sprites` field entirely. If they want visual themes, create appropriate sprites first, then reference them in the game config.
 
+## Emulator (Retro) Games via Nostalgist.js
+
+Besides the Phaser-rendered therapeutic games above, the platform supports **retro
+emulator games** (NES, SNES, Game Boy, GBA, Genesis, …) run in the browser with
+[Nostalgist.js](https://nostalgist.js.org). **Everything is config-driven** — to add a
+new ROM game you do **NOT** touch code: just create a `games` row with
+`metadata.type = "emulator"` plus an `emulator` block and a `controls.fingerMap`.
+
+The generic pieces that make this work (already in place, shared by every emulator game):
+- `games/emulator/template.html` — the generic play screen (camera, finger config, fullscreen).
+- `static/js/emulator-loader.js` — reusable `EmulatorGame` loader (launches Nostalgist, maps fingers→buttons, resizes canvas).
+- Registry key `emulator` in `games/registry.py` → renders `games/emulator/template.html`.
+- ROMs are served from `games/` at `/static/games/...` (e.g. put files in `games/emulator/roms/`).
+
+> The legacy `smb3` game keeps its own dedicated template/bridge — leave it as is.
+> New emulator games should use the generic `type: "emulator"` path.
+
+### Steps to add a new emulator game
+1. **Place the ROM** somewhere served statically, e.g. `games/emulator/roms/contra.nes`
+   (becomes `emulator/roms/contra.nes` for the `rom` field). A full `http(s)://` URL also works.
+2. **Pick the libretro core** for the console (see table below).
+3. **POST the game config** with `metadata.type = "emulator"`, the `emulator` block, and `controls.fingerMap`.
+
+### Emulator game config schema
+```json
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "Contra (NES)",
+    "type": "emulator",
+    "targetFingers": [0, 1, 2, 3, 4],
+    "difficulty": "medium",
+    "description": "string",
+    "estimatedDuration": 1800
+  },
+  "emulator": {
+    "core": "fceumm",                 
+    "rom": "emulator/roms/contra.nes",
+    "aspectRatio": "256/240",         
+    "tapButtons": ["start", "select"],
+    "options": {}                     
+  },
+  "controls": {
+    "fingerMap": {
+      "0": "left", "1": "a", "2": "right", "3": "b", "4": "start"
+    },
+    "keyboardFallback": true
+  }
+}
+```
+
+- **`core`** — libretro core name (Nostalgist downloads it automatically).
+- **`rom`** — path under `/static/games/` (e.g. `emulator/roms/x.nes`) or a full URL.
+- **`aspectRatio`** — `"w/h"` string, `[w, h]` array, or a number. Defaults to `4/3`.
+- **`tapButtons`** — buttons pressed once on finger-close instead of held (good for `start`/`select`). Default `["start","select"]`.
+- **`options`** — extra options forwarded verbatim to `Nostalgist.launch()` (advanced).
+
+### fingerMap for emulator games (RetroPad buttons)
+Unlike Phaser games (which map to semantic actions like `jump`/`right`), emulator games map
+each finger **directly to a RetroPad button**. Valid button names:
+
+`up`, `down`, `left`, `right`, `a`, `b`, `x`, `y`, `l`, `r`, `l2`, `r2`, `select`, `start`, `none`
+
+### Libretro core reference
+| Console | Core (`core`) | Typical aspectRatio | ROM ext |
+|---------|---------------|---------------------|---------|
+| NES | `fceumm` (or `nestopia`) | `256/240` | `.nes` |
+| SNES | `snes9x` | `256/224` | `.sfc` / `.smc` |
+| Game Boy / Color | `gambatte` | `160/144` | `.gb` / `.gbc` |
+| Game Boy Advance | `mgba` | `240/160` | `.gba` |
+| Sega Genesis / Mega Drive | `genesis_plus_gx` | `320/224` | `.md` / `.bin` |
+| Arcade | `fbneo` (or `mame2003_plus`) | varies | `.zip` |
+
+### Example: create an NES game
+```bash
+curl -s -X POST http://localhost:5000/api/games \
+  -H "Content-Type: application/json" -b /tmp/pixo-cookie \
+  -d '{
+    "name": "Contra (NES)",
+    "description": "Run & gun clásico de NES, controlado por gestos.",
+    "game_type": "emulator",
+    "config": {
+      "version": "1.0",
+      "metadata": { "name": "Contra (NES)", "type": "emulator", "targetFingers": [0,1,2,3,4], "difficulty": "hard", "estimatedDuration": 1800 },
+      "emulator": { "core": "fceumm", "rom": "emulator/roms/contra.nes", "aspectRatio": "256/240", "tapButtons": ["start","select"] },
+      "controls": { "fingerMap": { "0": "left", "1": "a", "2": "right", "3": "b", "4": "start" }, "keyboardFallback": true }
+    }
+  }'
+```
+
+> **Note (multi-hand):** the configurable multi-hand feature applies **only to Phaser
+> games**. Emulator games are single-hand (one RetroPad), so use the flat `fingerMap`
+> (object) and flat `sensitivities` (`[50,50,50,50,50]`) shapes.
+
 ## Design Guidelines for Therapeutic Games
 
 - **Principiante**: Large platforms, slow speed, few/no enemies, generous gaps, high sensitivity fingers

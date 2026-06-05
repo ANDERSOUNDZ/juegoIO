@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Jugar - PIXO Therapy{% endblock %}
+{% block title %}Emulador Retro - PIXO Therapy{% endblock %}
 {% block main_class %}{% endblock %}
 
 {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
 <script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
-<script src="{{ url_for('static', filename='js/sprite-generator.js') }}"></script>
-<script src="{{ url_for('static', filename='js/game-loader.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/nostalgist"></script>
+<script src="{{ url_for('static', filename='js/emulator-loader.js') }}"></script>
 <script src="{{ url_for('static', filename='js/play-ui.js') }}"></script>
 <style>
 .play-wrapper{display:grid;grid-template-columns:minmax(280px,320px) 1fr;gap:14px;
@@ -42,8 +42,10 @@
   background:var(--brand-soft);color:var(--brand);font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums;}
 .game-area{position:relative;background:#000;border:1px solid var(--border);border-radius:var(--radius);
   overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;}
-#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
-#game-container > div,#game-container canvas{display:block;margin:0 auto;}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden;}
+/* El frame fija la proporción del juego y se ajusta al contenedor; el canvas lo rellena. */
+.emu-frame{height:100%;max-width:100%;max-height:100%;margin:0 auto;display:block;}
+.emu-frame canvas{width:100% !important;height:100% !important;display:block;image-rendering:pixelated;image-rendering:crisp-edges;}
 .gear-btn,.fs-btn{position:absolute;z-index:10;width:42px;height:42px;background:rgba(15,23,42,.72);
   border:1px solid rgba(148,163,184,.34);border-radius:12px;color:#cbd5e1;cursor:pointer;display:inline-flex;
   align-items:center;justify-content:center;transition:all .15s ease;backdrop-filter:blur(12px);}
@@ -120,7 +122,12 @@
     </div>
 
     <div class="game-area" id="game-area">
-        <div id="game-container"></div>
+        <div id="game-container">
+            <div class="video-placeholder" style="display:flex;min-height:300px;">
+                <svg class="ic" style="width:40px;height:40px;"><use href="#i-gamepad"/></svg>
+                <p>Cargando emulador…</p>
+            </div>
+        </div>
         <button class="gear-btn" onclick="toggleConfig()" title="Configuración"><svg class="ic"><use href="#i-settings"/></svg></button>
         <button class="fs-btn" onclick="toggleFullscreen()" title="Pantalla completa (F11)"><svg class="ic"><use href="#i-expand"/></svg></button>
         <div class="config-overlay" id="config-overlay">
@@ -140,7 +147,7 @@
 
             <div class="config-section">
                 <h3 class="config-section-title">Controles</h3>
-                <p class="config-section-hint">Elige qué dedo ejecuta cada acción del juego.</p>
+                <p class="config-section-hint">Elige qué dedo ejecuta cada botón del emulador.</p>
                 <div id="control-rows"></div>
             </div>
 
@@ -157,7 +164,7 @@
 
 {% block scripts %}
 <script>
-/* ===== Juego PHASER: usa el módulo compartido play-ui.js con un adapter ===== */
+/* ===== Juego de EMULADOR: usa el mismo módulo compartido play-ui.js ===== */
 const params = new URLSearchParams(window.location.search);
 window.PLAY_CTX = {
     gameId: {{ game_id }},
@@ -165,73 +172,36 @@ window.PLAY_CTX = {
     patientId: parseInt(params.get('patient_id')),
 };
 
-// Resuelve los sprites (sprite_id → datos completos) antes de cargar la escena.
-async function resolveSprites(config) {
-    if (!config.sprites) return;
-    const ids = [], roles = [];
-    for (const [role, ref] of Object.entries(config.sprites)) {
-        if (ref && ref.sprite_id) { ids.push(ref.sprite_id); roles.push(role); }
-    }
-    if (!ids.length) return;
-    const res = await fetch('/api/sprites/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
-    });
-    const spritesData = await res.json();
-    const byId = {};
-    for (const s of spritesData) byId[s.id] = s;
-    for (const role of roles) {
-        const sid = config.sprites[role].sprite_id;
-        if (byId[sid]) config.sprites[role] = byId[sid];
-    }
-}
-
 PlayUI.init({
+    // Cada dedo se mapea directo a un botón del RetroPad (no acciones semánticas).
     actionLabels: [
-        { key: 'jump', label: 'JUMP' }, { key: 'right', label: 'RIGHT' }, { key: 'left', label: 'LEFT' },
-        { key: 'up', label: 'UP' }, { key: 'down', label: 'DOWN' }, { key: 'interact', label: 'INTERACT' }, { key: 'none', label: 'NONE' },
+        { key: 'left', label: '← IZQ' }, { key: 'right', label: '→ DER' },
+        { key: 'up', label: '↑ ARR' }, { key: 'down', label: '↓ ABA' },
+        { key: 'a', label: 'A' }, { key: 'b', label: 'B' },
+        { key: 'x', label: 'X' }, { key: 'y', label: 'Y' },
+        { key: 'l', label: 'L' }, { key: 'r', label: 'R' },
+        { key: 'select', label: 'SELECT' }, { key: 'start', label: 'START' },
+        { key: 'none', label: 'NADA' },
     ],
-    multiHand: true,  // los juegos Phaser pueden tener varias manos (controls.hands)
-
-    // Acciones funcionales según tipo de juego y contenido (zonas → interact, etc.).
-    computeAllowedActions(cfg, currentFingerMaps) {
-        const type = (cfg.metadata && cfg.metadata.type) || 'platformer';
-        const s = new Set(['none', 'left', 'right']);
-        if (type === 'topdown') { s.add('up'); s.add('down'); }
-        else { s.add('jump'); }
-        const zones = cfg.entities && cfg.entities.zones;
-        if (Array.isArray(zones) && zones.length) s.add('interact');
-        for (const map of currentFingerMaps) {
-            for (let i = 0; i < 5; i++) { if (map[i]) s.add(map[i]); }
-        }
-        return s;
-    },
-
-    prepare(cfg) { return resolveSprites(cfg); },
+    // Multi-mano configurable desde DB (controls.hands). El NES tiene 8 botones
+    // y una mano solo 5 dedos, así que se pueden repartir entre 2 manos.
+    multiHand: true,
 
     createGame(cfg, handInput, onGameOver) {
-        return GameLoader.load(cfg, 'game-container', handInput, (score, won) => onGameOver(score));
+        const container = document.getElementById('game-container');
+        const game = new EmulatorGame({ handInput: handInput, container: container, config: cfg });
+        return game.start().then(function () { return game; });
     },
 
     applyFingerMaps(instance, fingerMapsObjArr) {
-        const scene = instance.scene.getScene('PlayScene');
-        if (scene && scene._fingerMaps) {
-            for (let h = 0; h < fingerMapsObjArr.length; h++) {
-                scene._fingerMaps[h] = Object.assign(scene._fingerMaps[h] || {}, fingerMapsObjArr[h]);
-            }
-        }
+        if (instance && instance.setFingerMaps) instance.setFingerMaps(fingerMapsObjArr);
     },
 
-    restart(instance) {
-        const scene = instance && instance.scene.getScene('PlayScene');
-        if (scene) scene.scene.restart();
-    },
+    restart(instance) { if (instance && instance.restart) instance.restart(); },
 
-    getScore(instance) {
-        const scene = instance && instance.scene && instance.scene.getScene('PlayScene');
-        return (scene && scene.score) || 0;
-    },
+    getScore() { return 0; },
+
+    onResize(instance) { if (instance && instance._resizeCanvas) instance._resizeCanvas(); },
 });
 </script>
 {% endblock %}

@@ -506,6 +506,79 @@ SELECT 'Super Mario Bros. 3',
        }'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 3');
 
+-- ─── JUEGO: Emulador Retro genérico (config-driven, reutilizable) ──
+-- Demuestra el tipo 'emulator': el mismo template/loader corre CUALQUIER ROM.
+-- Para agregar otro juego de emulador, copia este INSERT y cambia metadata.name,
+-- emulator.core / emulator.rom y controls.fingerMap. No se toca código.
+-- (Esta demo reutiliza la ROM de smb3 ya servida en /static/games/smb3/smb3.nes.)
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Emulador NES (Demo)',
+       'Demo del sistema genérico de emulador: corre una ROM de NES con Nostalgist.js y controles mapeados desde la base de datos. Pulgar=izquierda, índice=A(salto), medio=derecha, anular=B(correr), meñique=START.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Emulador NES (Demo)",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Juego de emulador NES genérico, controlado por gestos.",
+           "estimatedDuration": 1800
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "smb3/smb3.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "fingerMap": {
+             "0": "left",
+             "1": "a",
+             "2": "right",
+             "3": "b",
+             "4": "start"
+           },
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Emulador NES (Demo)');
+
+-- ─── JUEGO: Super Mario Bros. 2 (NES, emulador genérico) ──────────
+-- Ejemplo real de agregar un juego de emulador: solo este INSERT.
+-- Requiere la ROM en static/roms/smb2.nes (servida en /static/roms/smb2.nes).
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Super Mario Bros. 2 (NES)',
+       'El clásico Super Mario Bros. 2 de NES corriendo con Nostalgist.js y controlado por gestos. Pulgar=A(salto), índice=derecha, medio=izquierda, anular=B(correr/levantar), meñique=abajo.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Super Mario Bros. 2 (NES)",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Super Mario Bros. 2 (NES) en emulador, control por gestos.",
+           "estimatedDuration": 1800
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/smb2.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "hands": 2,
+           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "select" },
+           "fingerMaps": [
+             { "0": "left", "1": "right", "2": "up", "3": "down", "4": "select" },
+             { "0": "a", "1": "b", "2": "start", "3": "none", "4": "none" }
+           ],
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 2 (NES)');
+
 -- ─── CONFIG DE CONTROLES POR PACIENTE+JUEGO ───────────────────
 -- sensitivities / finger_map soportan dos formas (multi-mano sólo en juegos Phaser):
 --   1 mano  → sensitivities: [50,50,50,50,50]        finger_map: {"0":"jump",...}
