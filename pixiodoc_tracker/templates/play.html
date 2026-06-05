@@ -29,6 +29,10 @@
 .btn-cam-toggle:hover{border-color:var(--teal);color:#fff;}
 .btn-cam-toggle.active{background:rgba(14,159,142,.22);border-color:var(--teal);color:#ccfbf1;}
 .fingers-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;}
+.fingers-row + .hand-label{margin-top:10px;}
+.hand-label{font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 5px;}
+.hand-subhead{font-size:.82rem;font-weight:800;color:#5eead4;margin:14px 0 8px;padding-top:4px;}
+.hand-subhead:first-child{margin-top:0;}
 .finger-ind{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:10px;
   font-size:.72rem;font-weight:800;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);transition:all .15s ease;}
 .finger-ind.active{background:linear-gradient(135deg,var(--teal),#22c55e);color:#fff;border-color:transparent;box-shadow:0 8px 18px var(--teal-soft);}
@@ -100,13 +104,7 @@
 
         <div class="ui segment">
             <div class="panel-title"><svg class="ic"><use href="#i-bolt"/></svg>Dedos activos</div>
-            <div class="fingers-row">
-                <div class="finger-ind" data-finger="0">PUL</div>
-                <div class="finger-ind" data-finger="1">IND</div>
-                <div class="finger-ind" data-finger="2">MED</div>
-                <div class="finger-ind" data-finger="3">ANU</div>
-                <div class="finger-ind" data-finger="4">MEN</div>
-            </div>
+            <div id="fingers-hands"></div>
         </div>
 
         <div class="ui segment">
@@ -170,9 +168,13 @@ const actionLabels = [
     { key: 'up', label: 'UP' }, { key: 'down', label: 'DOWN' }, { key: 'interact', label: 'INTERACT' }, { key: 'none', label: 'NONE' },
 ];
 
-let currentSensitivity = [50, 50, 50, 50, 50];
-let currentFingerMap = { 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' };
-let defaultFingerMap = {};
+// ── Multi-mano ──
+// NUM_HANDS lo define el juego (controls.hands). Todo el estado de sensibilidad y
+// de mapeo de dedos es por mano: currentSensitivities[h] y currentFingerMaps[h].
+let NUM_HANDS = 1;
+let currentSensitivities = [[50, 50, 50, 50, 50]];
+let currentFingerMaps = [{ 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' }];
+let defaultFingerMaps = [{ 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' }];
 let sessionStartTime = Date.now();
 let gameInstance = null;
 let cameraEnabled = false;
@@ -189,8 +191,10 @@ function computeAllowedActions(cfg) {
     else { s.add('jump'); }                                  // resto: salto
     const zones = cfg.entities && cfg.entities.zones;
     if (Array.isArray(zones) && zones.length) s.add('interact');  // solo si hay zonas
-    // Conserva cualquier acción ya mapeada para no romper configs existentes.
-    for (let i = 0; i < 5; i++) { if (currentFingerMap[i]) s.add(currentFingerMap[i]); }
+    // Conserva cualquier acción ya mapeada (en cualquier mano) para no romper configs.
+    for (const map of currentFingerMaps) {
+        for (let i = 0; i < 5; i++) { if (map[i]) s.add(map[i]); }
+    }
     return s;
 }
 
@@ -207,16 +211,38 @@ setInterval(() => {
 }, 1000);
 
 const handInput = new HandInput();
+const FINGER_ABBR = ['PUL', 'IND', 'MED', 'ANU', 'MEN'];
 
-handInput.onFingers((fingers) => {
-    const inds = document.querySelectorAll('.finger-ind');
-    fingers.forEach((f, i) => { if (inds[i]) inds[i].classList.toggle('active', f === 1); });
-    drawLandmarks(handInput.landmarks, fingers);
+// Renderiza una fila de 5 indicadores de dedos por cada mano del juego.
+function buildFingerIndicators() {
+    const wrap = document.getElementById('fingers-hands');
+    if (!wrap) return;
+    let html = '';
+    for (let h = 0; h < NUM_HANDS; h++) {
+        if (NUM_HANDS > 1) html += `<div class="hand-label">Mano ${h + 1}</div>`;
+        html += '<div class="fingers-row">';
+        for (let i = 0; i < 5; i++) {
+            html += `<div class="finger-ind" data-hand="${h}" data-finger="${i}">${FINGER_ABBR[i]}</div>`;
+        }
+        html += '</div>';
+    }
+    wrap.innerHTML = html;
+}
+
+handInput.onHands((hands) => {
+    document.querySelectorAll('.finger-ind').forEach(el => {
+        const h = +el.dataset.hand, i = +el.dataset.finger;
+        const on = hands[h] && hands[h].present && hands[h].fingers[i] === 1;
+        el.classList.toggle('active', !!on);
+    });
+    drawLandmarks(hands);
 });
 
 handInput.onConnect(() => { if (SESSION_ID) handInput._sessionId = SESSION_ID; });
 
-function drawLandmarks(lm, fingers) {
+// Dibuja el esqueleto de TODAS las manos presentes sobre el video.
+const HAND_COLORS = ['rgba(0,128,255,0.6)', 'rgba(255,140,0,0.6)', 'rgba(180,80,255,0.6)', 'rgba(80,220,140,0.6)'];
+function drawLandmarks(hands) {
     const canvas = document.getElementById('landmarks-canvas');
     const video = document.getElementById('camera');
     if (!canvas || !video || video.style.display === 'none') return;
@@ -225,25 +251,29 @@ function drawLandmarks(lm, fingers) {
     canvas.height = rect.height;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!lm || lm.length < 21) return;
     const w = canvas.width, h = canvas.height;
-    ctx.strokeStyle = 'rgba(0, 128, 255, 0.6)';
-    ctx.lineWidth = 2;
-    for (const [a, b] of CONNECTIONS) {
-        ctx.beginPath();
-        ctx.moveTo(lm[a][0] * w, lm[a][1] * h);
-        ctx.lineTo(lm[b][0] * w, lm[b][1] * h);
-        ctx.stroke();
-    }
     const tips = [4, 8, 12, 16, 20];
-    for (let i = 0; i < lm.length; i++) {
-        const isTip = tips.indexOf(i);
-        const isActive = isTip >= 0 && fingers && fingers[isTip] === 1;
-        const radius = isTip >= 0 ? 5 : 3;
-        ctx.beginPath();
-        ctx.arc(lm[i][0] * w, lm[i][1] * h, radius, 0, Math.PI * 2);
-        ctx.fillStyle = isActive ? '#3ddc97' : (isTip >= 0 ? '#ffd23f' : '#00ff00');
-        ctx.fill();
+    for (let hi = 0; hi < hands.length; hi++) {
+        const hand = hands[hi];
+        const lm = hand && hand.landmarks;
+        if (!lm || lm.length < 21) continue;
+        ctx.strokeStyle = HAND_COLORS[hi % HAND_COLORS.length];
+        ctx.lineWidth = 2;
+        for (const [a, b] of CONNECTIONS) {
+            ctx.beginPath();
+            ctx.moveTo(lm[a][0] * w, lm[a][1] * h);
+            ctx.lineTo(lm[b][0] * w, lm[b][1] * h);
+            ctx.stroke();
+        }
+        for (let i = 0; i < lm.length; i++) {
+            const isTip = tips.indexOf(i);
+            const isActive = isTip >= 0 && hand.fingers && hand.fingers[isTip] === 1;
+            const radius = isTip >= 0 ? 5 : 3;
+            ctx.beginPath();
+            ctx.arc(lm[i][0] * w, lm[i][1] * h, radius, 0, Math.PI * 2);
+            ctx.fillStyle = isActive ? '#3ddc97' : (isTip >= 0 ? '#ffd23f' : '#00ff00');
+            ctx.fill();
+        }
     }
 }
 
@@ -327,66 +357,83 @@ function toggleConfig() {
 }
 
 function buildConfigUI() {
+    buildFingerIndicators();
     buildSensitivityUI();
     buildControlsUI();
 }
 
-// Sección SENSIBILIDAD: un slider por dedo.
+// Sección SENSIBILIDAD: un slider por dedo, agrupado por mano.
 function buildSensitivityUI() {
     const container = document.getElementById('sens-rows');
-    container.innerHTML = fingerNames.map((name, i) => {
-        const fingerColor = handInput.fingers[i] ? 'var(--teal)' : 'var(--brand)';
-        return `
+    let html = '';
+    for (let h = 0; h < NUM_HANDS; h++) {
+        if (NUM_HANDS > 1) html += `<h4 class="hand-subhead">Mano ${h + 1}</h4>`;
+        html += fingerNames.map((name, i) => {
+            const hand = handInput.hands[h];
+            const fingerColor = (hand && hand.fingers[i]) ? 'var(--teal)' : 'var(--brand)';
+            return `
         <div class="config-row">
             <span class="config-finger-name" style="color:${fingerColor}">${name}</span>
             <div class="config-slider-wrap">
-                <input type="range" min="0" max="100" value="${currentSensitivity[i]}" oninput="onSensChange(${i}, this.value)">
-                <span class="config-val" id="sens-val-${i}">${currentSensitivity[i]}</span>
+                <input type="range" min="0" max="100" value="${currentSensitivities[h][i]}" oninput="onSensChange(${h}, ${i}, this.value)">
+                <span class="config-val" id="sens-val-${h}-${i}">${currentSensitivities[h][i]}</span>
             </div>
         </div>`;
-    }).join('');
+        }).join('');
+    }
+    container.innerHTML = html;
 }
 
-// Sección CONTROLES: cada acción permitida del juego con un dropdown de dedo.
+// Sección CONTROLES: cada acción permitida del juego con un dropdown de dedo, por mano.
 function buildControlsUI() {
     const container = document.getElementById('control-rows');
     const actions = actionLabels.filter(a => a.key !== 'none' && allowedActionKeys.has(a.key));
-    container.innerHTML = actions.map(a => {
-        const assigned = fingerForAction(a.key); // índice de dedo o -1
-        const opts = ['<option value="-1">— Sin asignar —</option>']
-            .concat(fingerNames.map((fn, fi) =>
-                `<option value="${fi}" ${assigned === fi ? 'selected' : ''}>${fn}</option>`))
-            .join('');
-        return `
+    let html = '';
+    for (let h = 0; h < NUM_HANDS; h++) {
+        if (NUM_HANDS > 1) html += `<h4 class="hand-subhead">Mano ${h + 1}</h4>`;
+        html += actions.map(a => {
+            const assigned = fingerForAction(h, a.key); // índice de dedo o -1
+            const opts = ['<option value="-1">— Sin asignar —</option>']
+                .concat(fingerNames.map((fn, fi) =>
+                    `<option value="${fi}" ${assigned === fi ? 'selected' : ''}>${fn}</option>`))
+                .join('');
+            return `
         <div class="control-row">
             <span class="control-action">${a.label}</span>
-            <select class="control-select" onchange="onActionFingerChange('${a.key}', this.value)">${opts}</select>
+            <select class="control-select" onchange="onActionFingerChange(${h}, '${a.key}', this.value)">${opts}</select>
         </div>`;
-    }).join('');
+        }).join('');
+    }
+    container.innerHTML = html;
 }
 
-// Dedo actualmente asignado a una acción (o -1 si ninguno).
-function fingerForAction(action) {
-    for (let i = 0; i < 5; i++) if (currentFingerMap[i] === action) return i;
+// Dedo de la mano h asignado a una acción (o -1 si ninguno).
+function fingerForAction(hand, action) {
+    const map = currentFingerMaps[hand];
+    for (let i = 0; i < 5; i++) if (map[i] === action) return i;
     return -1;
 }
 
-// Vuelca el fingerMap actual a la escena en vivo.
+// Vuelca los fingerMaps actuales (todas las manos) a la escena en vivo.
 function applyFingerMapToScene() {
     if (!gameInstance) return;
     const scene = gameInstance.scene.getScene('PlayScene');
-    if (scene && scene._fingerMap) {
-        for (let i = 0; i < 5; i++) scene._fingerMap[String(i)] = currentFingerMap[i];
+    if (scene && scene._fingerMaps) {
+        for (let h = 0; h < NUM_HANDS; h++) {
+            if (!scene._fingerMaps[h]) scene._fingerMaps[h] = {};
+            for (let i = 0; i < 5; i++) scene._fingerMaps[h][String(i)] = currentFingerMaps[h][i];
+        }
     }
 }
 
-// Asigna un dedo a una acción (un dedo por acción; el dedo deja su acción previa).
-function onActionFingerChange(action, fingerValue) {
+// Asigna un dedo de la mano h a una acción (un dedo por acción dentro de esa mano).
+function onActionFingerChange(hand, action, fingerValue) {
     const f = parseInt(fingerValue);
-    // Liberar cualquier dedo que tuviera esta acción
-    for (let i = 0; i < 5; i++) if (currentFingerMap[i] === action) currentFingerMap[i] = 'none';
+    const map = currentFingerMaps[hand];
+    // Liberar cualquier dedo de esta mano que tuviera esta acción
+    for (let i = 0; i < 5; i++) if (map[i] === action) map[i] = 'none';
     // Asignar el dedo elegido (si no es "Sin asignar")
-    if (!isNaN(f) && f >= 0) currentFingerMap[f] = action;
+    if (!isNaN(f) && f >= 0) map[f] = action;
     applyFingerMapToScene();
     buildControlsUI(); // re-render: un dedo pudo soltar otra acción
 }
@@ -400,9 +447,10 @@ function onActionFingerChange(action, fingerValue) {
 let refRaf = null;
 let refDisplayCurl = [0, 0, 0, 0, 0];  // curl animado (suavizado)
 let refHighlight = -1;                 // dedo recién ajustado (resaltado)
+let refHighlightHand = 0;              // mano del slider recién ajustado
 
 function refTargetCurl(i) {
-    return handInput.flexionTarget(i);
+    return handInput.flexionTarget(i, refHighlightHand);
 }
 
 function startRefLoop() {
@@ -604,41 +652,58 @@ function updateRefCaption() {
         cap.textContent = 'Mueve un slider para ver cuánto debe cerrarse ese dedo.';
     } else {
         const pct = Math.round(refTargetCurl(refHighlight) * 100);
-        cap.textContent = `${fingerNames[refHighlight]}: debe cerrarse ~${pct}% para contar.`;
+        const handLabel = NUM_HANDS > 1 ? `Mano ${refHighlightHand + 1} · ` : '';
+        cap.textContent = `${handLabel}${fingerNames[refHighlight]}: debe cerrarse ~${pct}% para contar.`;
     }
 }
 
-function onSensChange(finger, value) {
+function onSensChange(hand, finger, value) {
     value = parseInt(value);
-    currentSensitivity[finger] = value;
-    document.getElementById(`sens-val-${finger}`).textContent = value;
-    handInput.setSensitivity(currentSensitivity);
+    currentSensitivities[hand][finger] = value;
+    document.getElementById(`sens-val-${hand}-${finger}`).textContent = value;
+    handInput.setSensitivityForHand(hand, currentSensitivities[hand]);
     refHighlight = finger;
+    refHighlightHand = hand;
     updateRefCaption();
 }
 
 function resetConfig() {
-    currentSensitivity = [50, 50, 50, 50, 50];
-    currentFingerMap = {};
-    for (let i = 0; i < 5; i++) currentFingerMap[i] = defaultFingerMap[String(i)] || defaultFingerMap[i] || 'none';
+    currentSensitivities = [];
+    currentFingerMaps = [];
+    for (let h = 0; h < NUM_HANDS; h++) {
+        currentSensitivities.push([50, 50, 50, 50, 50]);
+        const def = defaultFingerMaps[h] || {};
+        const map = {};
+        for (let i = 0; i < 5; i++) map[i] = def[String(i)] || def[i] || 'none';
+        currentFingerMaps.push(map);
+    }
     buildConfigUI();
-    handInput.setSensitivity(currentSensitivity);
+    handInput.setSensitivities(currentSensitivities);
     applyFingerMapToScene();
     showStatus('Config reseteada');
 }
 
+// Serializa los fingerMaps por mano como objetos {"0":accion,...}.
+function serializeFingerMaps() {
+    return currentFingerMaps.map(map => {
+        const o = {};
+        for (let i = 0; i < 5; i++) o[String(i)] = map[i];
+        return o;
+    });
+}
+
 async function saveConfig() {
-    const fingerMapObj = {};
-    for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
-    if (gameInstance) {
-        const scene = gameInstance.scene.getScene('PlayScene');
-        if (scene && scene._fingerMap) Object.assign(scene._fingerMap, fingerMapObj);
-    }
-    handInput.setSensitivity(currentSensitivity);
+    const fmArr = serializeFingerMaps();
+    applyFingerMapToScene();
+    handInput.setSensitivities(currentSensitivities);
+    // Persistimos forma plana para 1 mano (compatibilidad) y anidada para varias.
+    const payload = NUM_HANDS > 1
+        ? { sensitivities: currentSensitivities, finger_map: fmArr }
+        : { sensitivities: currentSensitivities[0], finger_map: fmArr[0] };
     await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sensitivities: currentSensitivity, finger_map: fingerMapObj }),
+        body: JSON.stringify(payload),
     });
     showStatus('¡Config guardada!');
 }
@@ -661,13 +726,44 @@ async function initGame() {
         const playerConfig = await fetch(`/api/games/${GAME_ID}/player-config/${PATIENT_ID}`).then(r => r.json());
 
         const gameControls = gameConfig.controls || {};
-        defaultFingerMap = gameControls.fingerMap || { 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' };
+        // Nº de manos lo decide el juego (controls.hands). Solo Phaser lo usa.
+        NUM_HANDS = Math.max(1, parseInt(gameControls.hands, 10) || 1);
+        handInput.setNumHands(NUM_HANDS);
 
-        currentSensitivity = playerConfig.sensitivities || [50, 50, 50, 50, 50];
-        const fm = playerConfig.finger_map || defaultFingerMap;
-        for (let i = 0; i < 5; i++) currentFingerMap[i] = fm[String(i)] || fm[i] || 'none';
+        // Mapeos por defecto por mano: controls.fingerMaps[h] o, si falta, fingerMap.
+        const baseMaps = Array.isArray(gameControls.fingerMaps) ? gameControls.fingerMaps : null;
+        const fallbackMap = gameControls.fingerMap || { 0: 'jump', 1: 'right', 2: 'left', 3: 'none', 4: 'none' };
+        defaultFingerMaps = [];
+        for (let h = 0; h < NUM_HANDS; h++) {
+            defaultFingerMaps.push((baseMaps && baseMaps[h]) || fallbackMap);
+        }
 
-        handInput.setSensitivity(currentSensitivity);
+        // Normaliza la sensibilidad guardada (plana = 1 mano, anidada = varias).
+        const sraw = playerConfig.sensitivities;
+        const sNested = Array.isArray(sraw) && Array.isArray(sraw[0]);
+        currentSensitivities = [];
+        for (let h = 0; h < NUM_HANDS; h++) {
+            let arr;
+            if (sNested) arr = sraw[h] || sraw[0];
+            else if (Array.isArray(sraw)) arr = sraw;      // plana: misma para todas
+            currentSensitivities.push((arr || [50, 50, 50, 50, 50]).slice());
+        }
+
+        // Normaliza el mapeo guardado (objeto = 1 mano, arreglo = varias).
+        const fmRaw = playerConfig.finger_map;
+        const fmArr = Array.isArray(fmRaw);
+        currentFingerMaps = [];
+        for (let h = 0; h < NUM_HANDS; h++) {
+            let src;
+            if (fmArr) src = fmRaw[h] || fmRaw[0] || defaultFingerMaps[h];
+            else if (fmRaw && Object.keys(fmRaw).length) src = (h === 0) ? fmRaw : defaultFingerMaps[h];
+            else src = defaultFingerMaps[h];
+            const map = {};
+            for (let i = 0; i < 5; i++) map[i] = src[String(i)] || src[i] || 'none';
+            currentFingerMaps.push(map);
+        }
+
+        handInput.setSensitivities(currentSensitivities);
 
         // Calibración previa de este paciente (si la hizo antes)
         try {
@@ -675,10 +771,11 @@ async function initGame() {
             if (saved) handInput.calibration = JSON.parse(saved);
         } catch (e) {}
 
+        // Inyecta los mapeos resueltos del paciente en la config para el loader.
         gameConfig.controls = gameConfig.controls || {};
-        const fingerMapObj = {};
-        for (let i = 0; i < 5; i++) fingerMapObj[String(i)] = currentFingerMap[i];
-        gameConfig.controls.fingerMap = fingerMapObj;
+        gameConfig.controls.hands = NUM_HANDS;
+        gameConfig.controls.fingerMaps = serializeFingerMaps();
+        gameConfig.controls.fingerMap = gameConfig.controls.fingerMaps[0];
 
         await resolveSprites(gameConfig);
 

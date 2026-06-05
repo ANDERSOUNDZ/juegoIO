@@ -1,5 +1,6 @@
 const HYST_MARGIN = 0.05; // histéresis en espacio de fracción de cierre φ (0..1)
 const EVENT_FLUSH_INTERVAL = 2000; // ms
+const MAX_HANDS = 4; // tope de manos soportadas por el modelo en esta plataforma
 
 // Calibración por dedo de la métrica cruda de flexión: ext = estirado, close = puño.
 // La métrica está normalizada al tamaño de la mano (dist muñeca↔nudillo medio),
@@ -20,14 +21,27 @@ const HAND_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_lan
 
 class HandInput {
     constructor() {
-        this.fingers = [0, 0, 0, 0, 0];
+        // ── Soporte multi-mano ──
+        // `this.hands[h]` mantiene el estado independiente de cada mano detectada.
+        // Las manos se ordenan de izquierda a derecha (por la x de la muñeca) para
+        // que el slot 0 sea siempre estable. Cada juego decide cuántas manos usa
+        // via setNumHands(); por defecto 1 (comportamiento legacy idéntico).
+        this.numHands = 1;
+        this.calibration = FLEX_CAL.map(c => ({ ...c }));  // compartida entre manos
+        this.hands = [this._makeHand()];
+        this.sensitivities = [[50, 50, 50, 50, 50]];        // una fila por mano
+
+        // ── Alias legacy (mano primaria = mano 0) ──
+        // Mantienen funcionando todo el código de una sola mano (prince/smb3/etc).
+        this.fingers = this.hands[0].fingers;
         this.landmarks = null;
-        this.sensitivity = [50, 50, 50, 50, 50];
-        this._lastDiffs = [0, 0, 0, 0, 0];                 // métrica cruda por dedo (live)
-        this.handPresent = false;                          // ¿hay mano en el último frame?
-        this.calibration = FLEX_CAL.map(c => ({ ...c }));  // ext/close por dedo (ajustable)
+        this.handPresent = false;
+        this.sensitivity = this.sensitivities[0];
+        this._lastDiffs = this.hands[0].diffs;
+
         this._onFrame = null;
-        this._onFingers = null;
+        this._onFingers = null;     // callback legacy: recibe los dedos de la mano 0
+        this._onHands = null;       // callback multi-mano: recibe el arreglo de manos
         this._onConnect = null;
         this._video = null;
         this._handLandmarker = null;
@@ -35,25 +49,71 @@ class HandInput {
         this._connected = false;
         this._running = false;
         this._stream = null;
-        this._fSt = [0, 0, 0, 0, 0];
-        this._prevState = [0, 0, 0, 0, 0];
         this._sessionId = null;
+        this._prevState = [0, 0, 0, 0, 0];  // estado previo para registro de eventos (mano 0)
         this._eventBuffer = [];
         this._flushTimer = null;
     }
 
-    setSensitivity(arr) {
-        this.sensitivity = arr.map(s => Math.max(0, Math.min(100, s)));
+    /** Estado fresco de una mano. */
+    _makeHand() {
+        return {
+            fingers: [0, 0, 0, 0, 0],
+            landmarks: null,
+            diffs: [0, 0, 0, 0, 0],
+            present: false,
+            _fSt: [0, 0, 0, 0, 0],  // estado con histéresis por dedo
+        };
     }
 
     /**
-     * Umbral de cierre (fracción φ ∈ [0,1]) que debe superar el dedo i para
-     * contar como flexionado. Misma unidad que usa el dibujo de referencia:
+     * Define cuántas manos rastrear (1..MAX_HANDS). Redimensiona los buffers por
+     * mano y reconfigura el modelo si ya estaba cargado. Idempotente.
+     */
+    setNumHands(n) {
+        n = Math.max(1, Math.min(MAX_HANDS, parseInt(n, 10) || 1));
+        this.numHands = n;
+        while (this.hands.length < n) this.hands.push(this._makeHand());
+        this.hands.length = n;
+        while (this.sensitivities.length < n) this.sensitivities.push([50, 50, 50, 50, 50]);
+        this.sensitivities.length = n;
+        // Re-anclar alias legacy a la mano 0
+        this.sensitivity = this.sensitivities[0];
+        this.fingers = this.hands[0].fingers;
+        // Reconfigurar el modelo en caliente si ya existe
+        if (this._handLandmarker && this._handLandmarker.setOptions) {
+            try { this._handLandmarker.setOptions({ numHands: n }); } catch (e) {}
+        }
+    }
+
+    /** Sensibilidad de la mano 0 (legacy). */
+    setSensitivity(arr) {
+        this.setSensitivityForHand(0, arr);
+    }
+
+    /** Sensibilidad de una mano concreta. */
+    setSensitivityForHand(h, arr) {
+        if (!arr) return;
+        if (!this.sensitivities[h]) this.sensitivities[h] = [50, 50, 50, 50, 50];
+        this.sensitivities[h] = arr.map(s => Math.max(0, Math.min(100, s)));
+        if (h === 0) this.sensitivity = this.sensitivities[0];
+    }
+
+    /** Sensibilidad de todas las manos a la vez (arreglo de arreglos). */
+    setSensitivities(arrs) {
+        if (!Array.isArray(arrs)) return;
+        arrs.forEach((a, h) => this.setSensitivityForHand(h, a));
+    }
+
+    /**
+     * Umbral de cierre (fracción φ ∈ [0,1]) que debe superar el dedo i de la mano h
+     * para contar como flexionado. Misma unidad que usa el dibujo de referencia:
      *   sensibilidad alta → φ≈0 (basta empezar a cerrar)
      *   sensibilidad baja → φ≈1 (hay que cerrar el puño)
      */
-    flexionTarget(i) {
-        return (100 - this.sensitivity[i]) / 100;
+    flexionTarget(i, h = 0) {
+        const sens = this.sensitivities[h] || this.sensitivities[0];
+        return (100 - sens[i]) / 100;
     }
 
     /** Fracción de cierre real 0..1 del dedo i a partir de su métrica cruda. */
@@ -64,14 +124,16 @@ class HandInput {
         return Math.max(0, Math.min(1, (d - c.ext) / span));
     }
 
-    /** Métrica cruda de flexión del último frame (para calibrar). */
-    getRawDiffs() {
-        return this._lastDiffs.slice();
+    /** Métrica cruda de flexión del último frame de la mano h (para calibrar). */
+    getRawDiffs(h = 0) {
+        const hand = this.hands[h] || this.hands[0];
+        return hand.diffs.slice();
     }
 
-    /** Fracción de cierre actual (0..1) del dedo i, en vivo. */
-    flexFractionLive(i) {
-        return this._flexFraction(i, this._lastDiffs[i]);
+    /** Fracción de cierre actual (0..1) del dedo i de la mano h, en vivo. */
+    flexFractionLive(i, h = 0) {
+        const hand = this.hands[h] || this.hands[0];
+        return this._flexFraction(i, hand.diffs[i]);
     }
 
     /** Aplica calibración por dedo. Ignora entradas nulas (deja el valor previo). */
@@ -89,23 +151,49 @@ class HandInput {
         this._onFingers = callback;
     }
 
+    /** Callback multi-mano: se invoca con el arreglo `this.hands` cada frame. */
+    onHands(callback) {
+        this._onHands = callback;
+    }
+
     onConnect(callback) {
         this._onConnect = callback;
     }
 
-    getFingers() {
-        return this.fingers;
+    /** Dedos de la mano h (mano 0 por defecto = legacy). */
+    getFingers(h = 0) {
+        const hand = this.hands[h] || this.hands[0];
+        return hand.fingers;
     }
 
-    getMappedActions(fingerMap) {
+    /** ¿Hay algún dedo cerrado en cualquiera de las manos presentes? */
+    anyFingerClosed() {
+        return this.hands.some(h => h.present && h.fingers.some(f => f === 1));
+    }
+
+    /**
+     * Resuelve las acciones del juego a partir de los dedos cerrados.
+     *  - Si recibe un arreglo de fingerMaps → multi-mano: aplica fingerMaps[h] a la
+     *    mano h y combina (OR) los resultados de todas las manos.
+     *  - Si recibe un solo objeto fingerMap → legacy: lo aplica a la mano 0.
+     */
+    getMappedActions(fingerMaps) {
         const actions = { jump: false, right: false, left: false, up: false, down: false, interact: false };
-        for (let i = 0; i < 5; i++) {
-            if (this.fingers[i] === 1) {
-                const action = fingerMap[String(i)] || fingerMap[i];
-                if (action && action !== 'none') {
-                    actions[action] = true;
+        const apply = (fingers, map) => {
+            if (!map) return;
+            for (let i = 0; i < 5; i++) {
+                if (fingers[i] === 1) {
+                    const action = map[String(i)] || map[i];
+                    if (action && action !== 'none') actions[action] = true;
                 }
             }
+        };
+        if (Array.isArray(fingerMaps)) {
+            for (let h = 0; h < this.hands.length; h++) {
+                apply(this.hands[h].fingers, fingerMaps[h] || fingerMaps[0]);
+            }
+        } else {
+            apply(this.fingers, fingerMaps);  // legacy: solo mano 0
         }
         return actions;
     }
@@ -152,7 +240,7 @@ class HandInput {
                 modelAssetPath: HAND_MODEL_URL,
                 delegate: 'GPU',
             },
-            numHands: 1,
+            numHands: this.numHands,
             runningMode: 'video',
             minHandDetectionConfidence: 0.5,
             minHandPresenceConfidence: 0.5,
@@ -199,31 +287,42 @@ class HandInput {
     }
 
     _onResults(results) {
-        if (results.landmarks && results.landmarks.length > 0) {
-            const lm = results.landmarks[0];
-            this.landmarks = lm.map(l => [l.x, l.y, l.z]);
-            this.handPresent = true;
+        const lms = (results && results.landmarks) || [];
 
-            const diffs = this._computeDiffs(lm);
-            this._lastDiffs = diffs;
-            this._fSt = this._detectFingers(diffs);
-            this.fingers = [...this._fSt];
+        // Orden estable de manos: de izquierda a derecha por la x de la muñeca.
+        // Así el slot 0 corresponde siempre a la mano más a la izquierda en pantalla.
+        const order = lms
+            .map((lm, idx) => ({ idx, x: lm[0].x }))
+            .sort((a, b) => a.x - b.x);
 
-            if (this._onFingers) {
-                this._onFingers(this.fingers);
-            }
-
-            this._recordStateChanges();
-        } else {
-            this.handPresent = false;
-            if (this._fSt.some(v => v !== 0)) {
-                this._fSt = [0, 0, 0, 0, 0];
-                this.fingers = [0, 0, 0, 0, 0];
-                this.landmarks = null;
-                if (this._onFingers) this._onFingers(this.fingers);
-                this._recordStateChanges();
+        for (let h = 0; h < this.hands.length; h++) {
+            const hand = this.hands[h];
+            const src = order[h];
+            if (src) {
+                const lm = lms[src.idx];
+                hand.landmarks = lm.map(l => [l.x, l.y, l.z]);
+                hand.present = true;
+                hand.diffs = this._computeDiffs(lm);
+                hand._fSt = this._detectFingers(hand.diffs, hand._fSt, this.sensitivities[h]);
+                hand.fingers = [...hand._fSt];
+            } else if (hand.present || hand._fSt.some(v => v !== 0)) {
+                hand.present = false;
+                hand._fSt = [0, 0, 0, 0, 0];
+                hand.fingers = [0, 0, 0, 0, 0];
+                hand.landmarks = null;
             }
         }
+
+        // Sincronizar alias legacy con la mano primaria (mano 0)
+        this.fingers = this.hands[0].fingers;
+        this.landmarks = this.hands[0].landmarks;
+        this.handPresent = this.hands[0].present;
+        this._lastDiffs = this.hands[0].diffs;
+
+        if (this._onFingers) this._onFingers(this.hands[0].fingers);
+        if (this._onHands) this._onHands(this.hands);
+
+        this._recordStateChanges();  // registro de eventos: solo mano primaria
     }
 
     _computeDiffs(lm) {
@@ -243,11 +342,12 @@ class HandInput {
         return diffs;
     }
 
-    _detectFingers(diffs) {
+    _detectFingers(diffs, fSt, sens) {
+        const s = sens || this.sensitivities[0];
         return diffs.map((d, i) => {
             const phi = this._flexFraction(i, d); // 0=estirado, 1=puño
-            const target = this.flexionTarget(i);
-            if (this._fSt[i] === 0) {
+            const target = (100 - s[i]) / 100;
+            if (fSt[i] === 0) {
                 // >= para que sensibilidad 0 (target=1, puño completo) sí cuente.
                 return phi >= target ? 1 : 0;
             } else {
@@ -256,18 +356,19 @@ class HandInput {
         });
     }
 
-    /** Only buffer events when a finger's state actually changes */
+    /** Only buffer events when a finger's state actually changes (mano primaria) */
     _recordStateChanges() {
         if (!this._sessionId) return;
         const tipIndices = [4, 8, 12, 16, 20];
         const now = Date.now();
+        const fingers = this.hands[0].fingers;
+        const lm = this.hands[0].landmarks;
         for (let i = 0; i < 5; i++) {
-            if (this.fingers[i] !== this._prevState[i]) {
-                const lm = this.landmarks;
+            if (fingers[i] !== this._prevState[i]) {
                 const tip = tipIndices[i];
                 this._eventBuffer.push({
                     finger_index: i,
-                    state: this.fingers[i],
+                    state: fingers[i],
                     landmark_x: lm ? lm[tip][0] : null,
                     landmark_y: lm ? lm[tip][1] : null,
                     landmark_z: lm ? lm[tip][2] : null,
@@ -275,7 +376,7 @@ class HandInput {
                 });
             }
         }
-        this._prevState = [...this.fingers];
+        this._prevState = [...fingers];
     }
 
     /** Flush buffered events to the server via HTTP POST */

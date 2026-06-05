@@ -300,8 +300,10 @@ function createOverlayScreen(scene, opts) {
                 delay: 100,
                 loop: true,
                 callback: () => {
-                    const fingers = opts.handInput.getFingers();
-                    if (fingers && fingers.some(f => f === 1)) fire();
+                    // Cualquier dedo cerrado en cualquier mano dispara la pantalla.
+                    const hi = opts.handInput;
+                    if (hi.anyFingerClosed ? hi.anyFingerClosed()
+                        : (hi.getFingers() || []).some(f => f === 1)) fire();
                 },
             });
         }
@@ -402,6 +404,11 @@ function createPlayScene(config, handInput) {
     const world = config.world || {};
     const sprites = config.sprites || {};
     const fingerMap = controls.fingerMap || { '0': 'jump', '1': 'right', '2': 'left', '3': 'up', '4': 'down' };
+    // ── Multi-mano (solo juegos Phaser) ──
+    // `controls.hands` = nº de manos que soporta el juego (1 por defecto).
+    // `controls.fingerMaps[h]` = mapeo dedo→acción de la mano h; si falta, usa fingerMap.
+    const numHands = Math.max(1, parseInt(controls.hands, 10) || 1);
+    const fingerMapsCfg = Array.isArray(controls.fingerMaps) ? controls.fingerMaps : null;
     const gameType = config.metadata?.type || 'platformer';
 
     return class PlayScene extends Phaser.Scene {
@@ -470,8 +477,18 @@ function createPlayScene(config, handInput) {
             // Player animation (if spritesheet with multiple frames)
             this._setupPlayerAnims(playerTex);
 
-            // Expose fingerMap for live config changes
-            this._fingerMap = Object.assign({}, fingerMap);
+            // Expose per-hand fingerMaps for live config changes.
+            // `_fingerMaps[h]` controla la mano h; `_fingerMap` es un alias a la
+            // mano 0 (compatibilidad con el editor de controles de una sola mano).
+            this._numHands = numHands;
+            this._fingerMaps = [];
+            for (let h = 0; h < numHands; h++) {
+                const m = (fingerMapsCfg && fingerMapsCfg[h]) ? fingerMapsCfg[h] : fingerMap;
+                this._fingerMaps.push(Object.assign({}, m));
+            }
+            this._fingerMap = this._fingerMaps[0];
+            // Config-driven: avisa al tracker cuántas manos rastrear.
+            if (handInput && handInput.setNumHands) handInput.setNumHands(numHands);
 
             // Create platforms
             this._createPlatforms();
@@ -670,7 +687,7 @@ function createPlayScene(config, handInput) {
             this._checkEvents();
 
             // Get actions from hand input OR keyboard
-            const handActions = handInput ? handInput.getMappedActions(this._fingerMap) : {};
+            const handActions = handInput ? handInput.getMappedActions(this._fingerMaps) : {};
             const kbLeft = this.cursors.left.isDown;
             const kbRight = this.cursors.right.isDown;
             const kbUp = this.cursors.up.isDown;
