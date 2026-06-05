@@ -129,7 +129,14 @@ class PatientRepository(IPatientRepository):
             diagnosis=m.diagnosis,
             notes=m.notes,
             created_at=m.created_at,
-        )
+            patient_user=User(
+                id=m.patient_user.id,
+                email=m.patient_user.email,
+                name=m.patient_user.name,
+                lastname=m.patient_user.lastname,
+                role_id=m.patient_user.role_id,
+                created_at=m.patient_user.created_at
+            ) if m.patient_user else None        )
 
 
 class GameRepository(IGameRepository):

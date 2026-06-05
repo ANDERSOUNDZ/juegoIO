@@ -32,6 +32,7 @@ class Patient:
     diagnosis: Optional[str] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
+    patient_user: Optional[User] = None
 
 
 @dataclass

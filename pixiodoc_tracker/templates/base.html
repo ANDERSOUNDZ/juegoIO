@@ -29,13 +29,68 @@
         <a class="item {% if 'admin' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('pages.admin_users') }}"><svg class="ic"><use href="#i-cog"/></svg>Admin</a>
         {% endif %}
         <div class="right menu">
-            <a class="item theme-toggle" onclick="PIXO.toggleTheme()" title="Cambiar tema"><svg class="ic" id="theme-ic"><use href="#i-moon"/></svg></a>
-            <div class="item">{{ current_user.name }}</div>
-            <div class="item" style="padding-right:6px;"><span class="avatar">{{ current_user.name[:2]|upper }}</span></div>
-            <a class="item" href="{{ url_for('auth.logout') }}">Salir</a>
+            <div class="item">
+              <a class="browse item active">
+                {{ current_user.name + ' ' + current_user.lastname }}
+                <i class="dropdown icon"></i>
+              </a>
+            </div>
+            <div class="ui fluid popup bottom transition hidden">
+              <div class="ui one column relaxed height divided grid">
+                <div class="column">
+                  <div class="ui link list">
+                    <a class="item" onclick="PIXO.toggleTheme()" title="Cambiar tema">
+                        <svg class="ic" id="theme-ic"><use href="#i-moon"/></svg>
+                        Cambiar Tema
+                    </a>
+                    <div class="ui divider"></div>
+                    <a class="item" href="{{ url_for('pages.profile_page', user_id=current_user.id) }}" style="margin-top: 10px">
+                        <i class="user outline icon"></i>
+                        Cuenta
+                    </a>
+                    <a class="item" href="#" onclick="openModal()" style="margin-top: 10px">
+                        <i class="lock icon"></i>
+                        Cambiar Contraseña
+                    </a>
+                    <a class="item" href="{{ url_for('auth.logout') }}" style="margin-top: 10px">
+                        <i class="sign out alternate icon"></i>
+                        Salir
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
         </div>
     </div>
     {% endif %}
+
+    <!-- Modal: cambiar contraseña -->
+    <div class="modal-overlay" id="modal">
+    <div class="modal-card">
+        <div class="modal-head">
+            <div>
+                <h2 id="modal-title">Cambiar Contraseña</h2>
+                <p class="page-sub" style="margin-top:4px;">Complete la información requerida</p>
+            </div>
+            <button class="close-x" type="button" onclick="closeModal()"><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="ui divider"></div>
+        <form id="change-password-form" class="ui form" style="margin-top:14px;">
+            <div class="required field">
+                <label>Contraseña Actual</label>
+                <input type="password" id="f-password" required>
+            </div>
+            <div class="required field">
+                <label>Nueva Contraseña</label>
+                <input type="password" id="f-new-password" required>
+            </div>
+            <div class="required field">
+                <label>Confirmar Contraseña</label>
+                <input type="password" id="f-repit-new-password" required>
+            </div>
+        </form>
+    </div>
+</div>
 
     <main class="{% block main_class %}pixo-wrap{% endblock %}">
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -58,4 +113,26 @@
     <script src="{{ url_for('static', filename='js/pixo-ui.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
+<script>
+$(function () {
+    $('.browse.item').popup({
+        popup: $('.ui.fluid.popup'),
+        hoverable: true,
+        position: 'bottom left',
+        delay: {
+            show: 100,
+            hide: 300
+        }
+    });
+});
+
+function openModal() {
+    document.getElementById('change-password-form').reset();
+    document.getElementById('modal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.remove('active');
+}
+</script>
 </html>

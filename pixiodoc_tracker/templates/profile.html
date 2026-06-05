@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - PIXO Therapy{% endblock %}
+
+{% block content %}
+<div id="patient-info">
+    <div class="ui segment loading-pad">Cargando…</div>
+</div>
+
+{% if current_user.role_id == 3 %}
+<div class="two-col" style="margin-top:16px;">
+    <div class="ui segment">
+        <h3 class="section-title"><svg class="ic"><use href="#i-settings"/></svg>Sensibilidad actual</h3>
+        <div class="ui divider"></div>
+        <div id="sensitivity-config"><p class="muted">Cargando…</p></div>
+        <div style="margin-top:22px;">
+            <h3 class="section-title" style="font-size:.92rem;"><svg class="ic"><use href="#i-list"/></svg>Presets disponibles</h3>
+            <div class="ui divider"></div>
+            <div id="presets-list"></div>
+        </div>
+    </div>
+
+    <div class="ui segment">
+        <h3 class="section-title"><svg class="ic"><use href="#i-history"/></svg>Historial de cambios</h3>
+        <div class="ui divider"></div>
+        <div id="sensitivity-history"><p class="muted">Cargando…</p></div>
+    </div>
+</div>
+<div class="ui segment" style="margin-top:16px;">
+    <h3 class="section-title"><svg class="ic"><use href="#i-play"/></svg>Sesiones de juego</h3>
+    <div class="ui divider"></div>
+    <table class="ui very basic table" style="margin:0;">
+        <thead>
+            <tr><th>Juego</th><th>Fecha</th><th>Score</th><th>Duración</th><th class="right aligned"></th></tr>
+        </thead>
+        <tbody id="sessions-table">
+            <tr><td colspan="5" class="muted">Cargando…</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const USER_ROLE = '{{ current_user.role_id }}';
+const PID = {{ user_id }};
+const PATIENT_ID = '{{ current_user.patient_profile.id }}';
+const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
+
+async function loadAll() {
+    const [user, sens, presets, sessions, history] = await Promise.all([
+        fetch(`/api/users/${PID}`).then(r => r.json()),
+        fetch(`/api/patients/${PATIENT_ID}/sensitivity`).then(r => r.json()),
+        fetch('/api/sensitivity/presets').then(r => r.json()),
+        fetch(`/api/sessions?patient_id=${PATIENT_ID}`).then(r => r.json()),
+        fetch(`/api/patients/${PATIENT_ID}/sensitivity/history`).then(r => r.json()),
+    ]);
+
+    document.getElementById('patient-info').innerHTML = `
+    <div class="ui segment">
+        <div style="margin:0;">
+            <div>
+                <h2 id="modal-title">Información del Perfil</h2>
+                <p class="page-sub" style="margin-top:4px;">Actualice la información de su perfil.</p>
+            </div>
+            <div class="ui divider"></div>
+            <form id="profile-form" class="ui form">
+                <div class="ui two column grid">
+                    <div class="row">
+                        <div class="column required field" style="margin-top:20px;">
+                            <label>Nombre</label>
+                            <input type="text" id="f-name" placeholder="Nombre completo" required>
+                        </div>
+                        <div class="column required field" style="margin-top:20px;">
+                            <label>Apellido</label>
+                            <input type="text" id="f-lastname" placeholder="Apellido completo" required>
+                        </div>
+                        {% if current_user.role_id == 3 %}
+                        <div class="column required field" style="margin-top:20px;">
+                            <label>Documento</label>
+                            <input type="text" id="f-document" placeholder="Documento de Indentificación" required>
+                        </div>
+                        {% endif %}
+                        <div class="column required field" style="margin-top:20px;">
+                            <label>Email</label>
+                            <input type="text" id="f-email" placeholder="Correo Electrónico" required>
+                        </div>
+                        {% if current_user.role_id == 3 %}
+                        <div class="column field" style="margin-top:20px;">
+                            <label>Fecha de nacimiento</label>
+                            <input type="date" id="f-birth-date">
+                        </div>
+                        <div class="column field" style="margin-top:20px;">
+                            <label>Edad</label>
+                            <input type="number" id="f-age" disabled>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+                    <button type="submit" class="ui primary button"><svg class="ic"><use href="#i-check"/></svg>Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    `;
+    document.getElementById('profile-form').addEventListener('submit', updateProfile);
+    document.getElementById('f-name').value = user.name;
+    document.getElementById('f-lastname').value = user.lastname;
+    document.getElementById('f-email').value = user.email;
+
+    if (USER_ROLE === '3') {
+         document.getElementById('f-document').value = user.patient_profile.document;
+         document.getElementById('f-birth-date').value = user.patient_profile.birth_date;
+         document.getElementById('f-age').value = user.patient_profile.age;
+    }
+
+    const sensDiv = document.getElementById('sensitivity-config');
+    const currentSens = sens.sensitivities || [50, 50, 50, 50, 50];
+    sensDiv.innerHTML = fingerNames.map((name, i) => `
+        <div class="sens-slider">
+            <label>${name}</label>
+            <input type="range" min="0" max="100" value="${currentSens[i]}" data-finger="${i}" oninput="this.nextElementSibling.textContent=this.value">
+            <span class="sens-value">${currentSens[i]}</span>
+        </div>
+    `).join('') + `
+        <div class="ui form" style="margin-top:16px;">
+            <div class="field">
+                <label>Razón del cambio</label>
+                <input type="text" id="sens-reason" placeholder="Opcional">
+            </div>
+        </div>
+        ${USER_ROLE !== 'viewer' ? `<button class="ui primary button" style="margin-top:6px;" onclick="saveSensitivity()"><svg class="ic"><use href="#i-check"/></svg>Guardar sensibilidad</button>` : ''}
+    `;
+
+    const presetsDiv = document.getElementById('presets-list');
+    presetsDiv.innerHTML = presets.map(p => {
+        const canEdit = USER_ROLE !== 'viewer';
+        return `<div class="pixo-row">
+            <div class="t">
+                <span class="text-accent">${p.name}</span>
+                <span class="ui basic label" style="margin-left:9px;">${p.sensitivities.join(', ')}</span>
+            </div>
+            ${canEdit ? `<button class="ui mini basic button" onclick="applyPreset(${JSON.stringify(p.sensitivities).replace(/"/g, '&quot;')}, ${p.id})">Aplicar</button>` : ''}
+        </div>`;
+    }).join('');
+
+    const histDiv = document.getElementById('sensitivity-history');
+    if (history.length === 0) {
+        histDiv.innerHTML = '<div class="empty-state">Sin cambios registrados</div>';
+    } else {
+        histDiv.innerHTML = history.slice(0, 10).map(h => {
+            const date = new Date(h.changed_at).toLocaleDateString('es');
+            return `<div class="pixo-row" style="display:block;">
+                <div class="d">${date} ${h.reason ? '· ' + h.reason : ''}</div>
+                <div class="t" style="margin-top:3px;font-variant-numeric:tabular-nums;">[${(h.old_sensitivities || []).join(', ')}] → [${h.new_sensitivities.join(', ')}]</div>
+            </div>`;
+        }).join('');
+    }
+
+    const tbody = document.getElementById('sessions-table');
+    if (sessions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">Sin sesiones</div></td></tr>';
+    } else {
+        tbody.innerHTML = sessions.map(s => {
+            const date = new Date(s.started_at).toLocaleDateString('es');
+            let dur = '-';
+            if (s.started_at && s.ended_at) {
+                const secs = Math.floor((new Date(s.ended_at) - new Date(s.started_at)) / 1000);
+                dur = `${Math.floor(secs/60)}m ${secs%60}s`;
+            }
+            return `<tr>
+                <td style="font-weight:700;">${s.game_name || 'Juego'}</td>
+                <td>${date}</td>
+                <td><span class="ui label score">${s.score || 0}</span></td>
+                <td>${dur}</td>
+                <td class="right aligned"><a href="/sessions/${s.id}/report" class="ui mini basic button">Reporte</a></td>
+            </tr>`;
+        }).join('');
+    }
+}
+
+function applyPreset(sensitivities, presetId) {
+    const sliders = document.querySelectorAll('.sens-slider input[type="range"]');
+    sensitivities.forEach((v, i) => {
+        if (sliders[i]) {
+            sliders[i].value = v;
+            sliders[i].nextElementSibling.textContent = v;
+        }
+    });
+}
+
+async function saveSensitivity() {
+    const sliders = document.querySelectorAll('.sens-slider input[type="range"]');
+    const sensitivities = Array.from(sliders).map(s => parseInt(s.value));
+    const reason = document.getElementById('sens-reason').value;
+    await fetch(`/api/patients/${PID}/sensitivity`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensitivities, reason }),
+    });
+    loadAll();
+}
+
+async function updateProfile() {
+    const data = {
+        name: document.getElementById('f-name').value,
+        lastname: document.getElementById('f-lastname').value,
+        email: document.getElementById('f-email').value,
+    };
+
+    if (USER_ROLE === '3') {
+        data.document = document.getElementById('f-document').value;
+        data.birth_date = document.getElementById('f-birth-date').value;
+    }
+
+    await fetch('/api/users/' + PID, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+}
+
+
+loadAll();
+</script>
+{% endblock %}

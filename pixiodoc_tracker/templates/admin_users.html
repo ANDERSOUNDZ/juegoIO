@@ -91,7 +91,7 @@ async function loadUsers() {
             <td><span class="ui basic label ${u.role === 'admin' ? 'green' : 'blue'}">${roleLabels[u.role] || u.role}</span></td>
             <td>${date}</td>
             <td class="right aligned">
-                <button class="ui mini basic button" onclick="editUser(${u.id}, '${u.name.replace(/'/g, "\\'")}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')"><svg class="ic"><use href="#i-edit"/></svg>Editar</button>
+                <button class="ui mini basic button" onclick="editUser(${u.id}, '${u.name.replace(/'/g, "\\'")}', '${u.lastname.replace(/'/g, "\\'")}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')"><svg class="ic"><use href="#i-edit"/></svg>Editar</button>
                 <button class="ui mini basic red button" onclick="deleteUser(${u.id})"><svg class="ic"><use href="#i-trash"/></svg>Eliminar</button>
             </td>
         </tr>`;

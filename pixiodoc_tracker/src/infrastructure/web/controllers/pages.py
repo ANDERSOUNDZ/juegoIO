@@ -72,3 +72,8 @@ def session_report(sid):
 @role_required(1)
 def admin_users():
     return render_template('admin_users.html')
+
+@main_bp.route('/profile/<int:user_id>')
+@login_required
+def profile_page(user_id):
+    return render_template('profile.html', user_id=user_id)

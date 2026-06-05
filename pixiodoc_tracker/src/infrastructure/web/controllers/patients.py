@@ -41,6 +41,12 @@ def _patient_to_dict(p):
         user_id=p.user_id,
         created_at=p.created_at.isoformat() if p.created_at else None,
         sensitivity=ps.sensitivities if ps else None,
+        user=dict(
+            id=p.patient_user.id,
+            email=p.patient_user.email,
+            name=p.patient_user.name,
+            lastname=p.patient_user.lastname,
+        ) if p.patient_user else None
     )
 
 

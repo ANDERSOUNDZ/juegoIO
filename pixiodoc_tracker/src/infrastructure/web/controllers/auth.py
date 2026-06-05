@@ -1,7 +1,10 @@
+from datetime import date, datetime
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user, LoginManager
 
-from src.infrastructure.persistence.models import UserModel, RoleModel, db
+from src.domain.entities import Patient, User
+from src.domain.exceptions import NotFoundError
+from src.infrastructure.persistence.models import UserModel, RoleModel, db, PatientModel
 from src.infrastructure.web.middleware import role_required
 
 auth_bp = Blueprint('auth', __name__)
@@ -20,6 +23,23 @@ def _validate_role(role_name):
     """Check if role exists in DB table."""
     return RoleModel.query.filter_by(name=role_name).first() is not None
 
+def patient_to_dict(patient):
+    if not patient:
+        return None
+
+    return {
+        "id": patient.id,
+        "therapist_id": patient.therapist_id,
+        "user_id": patient.user_id,
+        "name": patient.name,
+        "lastname": patient.lastname,
+        "document": patient.document,
+        "birth_date": patient.birth_date.isoformat() if patient.birth_date else None,
+        "age": patient.age,
+        "diagnosis": patient.diagnosis,
+        "notes": patient.notes,
+        "created_at": patient.created_at.isoformat() if patient.created_at else None,
+    }
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -117,8 +137,6 @@ def api_logout():
 
 
 # ─── Therapists list ──────────────────────────────────────────────
-
-
 @auth_bp.route('/api/users/therapists', methods=['GET'])
 @login_required
 @role_required(1, 2)
@@ -132,8 +150,22 @@ def api_list_therapists():
     ])
 
 
-# ─── Admin: User Management ────────────────────────────────────────
-
+# ─── Admin: User Management ────────────────────────────────────────nm
+@auth_bp.route('/api/users/<int:pid>', methods=['GET'])
+@login_required
+def get_user(pid):
+    try:
+        user = UserModel.query.filter_by(id=pid).first();
+        return jsonify(
+            id=user.id,
+            name=user.name,
+            lastname=user.lastname,
+            email=user.email,
+            role_id=user.role_id,
+            patient_profile=patient_to_dict(user.patient_profile)
+        )
+    except NotFoundError:
+        return jsonify(error='Usuario no encontrado'), 404
 
 @auth_bp.route('/api/users', methods=['GET'])
 @login_required
@@ -149,7 +181,6 @@ def api_list_users():
         dict(id=u.id, name=u.name, lastname=u.lastname, email=u.email, role=u.role_rel.name, created_at=u.created_at.isoformat() if u.created_at else None)
         for u in users
     ])
-
 
 @auth_bp.route('/api/users', methods=['POST'])
 @login_required
@@ -179,7 +210,6 @@ def api_create_user():
 
 @auth_bp.route('/api/users/<int:uid>', methods=['PUT'])
 @login_required
-@role_required(1)
 def api_update_user(uid):
     data = request.get_json()
     if not data:
@@ -201,8 +231,30 @@ def api_update_user(uid):
         _set_role_id(user, data['role'])
     if 'password' in data and data['password']:
         user.set_password(data['password'])
+
+    if user.role_id == 3:
+        patient = PatientModel.query.filter_by(user_id=user.id).first()
+        if not patient:
+            return jsonify(error='Paciente no encontrado'), 404
+        if 'name' in data and data['name']:
+            patient.name = data['name']
+        if 'lastname' in data and data['lastname']:
+            patient.lastname = data['lastname']
+        if 'document' in data and data['document']:
+            patient.document = data['document']
+        if 'birth_date' in data and data['birth_date']:
+            birth_date_str = data.get('birth_date')
+            birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
+            patient.birth_date = birth_date
+            today = date.today()
+            patient.age = (
+                    today.year
+                    - birth_date.year
+                    - ((today.month, today.day) < (birth_date.month, birth_date.day))
+            )
+
     db.session.commit()
-    return jsonify(id=user.id, name=user.name, email=user.email, role=user.role)
+    return jsonify(id=user.id, name=user.name, email=user.email)
 
 
 @auth_bp.route('/api/users/<int:uid>', methods=['DELETE'])
