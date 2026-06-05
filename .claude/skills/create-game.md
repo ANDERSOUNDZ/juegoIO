@@ -161,8 +161,93 @@ The user will describe a game they want. You must:
         { "type": "action_type", ...action_fields }
       ]
     }
+  ],
+  "countdown": 3,
+  "levelDefaults": { "countdown": 3 },
+  "levels": [
+    {
+      "name": "string — level name",
+      "countdown": 3,
+      "intro": { "title": "NIVEL 1", "subtitle": "El comienzo", "prompt": "SPACE / Toca para empezar" },
+      "rules": { "winCondition": { "type": "score", "target": 300 } },
+      "entities": { "enemies": { "count": 2, "speed": 60 } },
+      "world": { "backgroundColor": "#0a2e1a" },
+      "physics": { "gravity": { "y": 500 } },
+      "events": [ ]
+    }
   ]
 }
+```
+
+## Levels System (multi-level games)
+
+A game becomes multi-level just by adding a `levels` array to the config — **no DB
+migration needed** (the whole config is stored as JSONB). Everything is optional and
+backward compatible: a config **without** `levels` behaves exactly as a single-level game.
+
+### How it flows
+1. Player starts the game (StartScene) → **Level 1** begins (with its countdown).
+2. When a level's `winCondition` is met → a **"NIVEL X"** announcement screen appears.
+3. On SPACE / tap / finger → the next level begins, after its start-of-round countdown.
+4. After the **last** level's win → the normal win/GameOver screen (total score across levels).
+5. Losing retries the **current** level (its countdown runs again).
+
+### Level object fields (all optional)
+| Field | Description |
+|-------|-------------|
+| `name` | Shown as the subtitle on the "NIVEL X" screen and the "completed" banner |
+| `countdown` | Seconds of `3·2·1·¡YA!` before this round starts (overrides `levelDefaults`/`countdown`) |
+| `intro` | `{ title, subtitle, prompt, titleColor, subtitleColor, ... }` to style the announcement |
+| `rules` | Per-level overrides — most importantly `winCondition` (deep-merged onto base `rules`) |
+| `entities` | Per-level overrides for player/platforms/collectibles/enemies/zones (deep-merged) |
+| `world` | Per-level overrides, e.g. `backgroundColor` (deep-merged) |
+| `physics` | Per-level overrides, e.g. `gravity.y` (deep-merged) |
+| `events` | Per-level events — **replaces** the base `events` array for that level |
+
+**Merge semantics:** objects deep-merge onto the base config; **arrays replace** (so
+`entities.platforms.positions` or `events` fully replace, they don't append). Sprites are
+shared across all levels — define them once at the top-level `sprites`.
+
+### Countdown ("timer al inicio de cada partida")
+- Per level: `level.countdown`. Default for all levels: `levelDefaults.countdown`.
+- Single-level games (no `levels`): top-level `countdown`.
+- `0` (or omitted) disables it. Style via `screens.countdown` = `{ color, goColor, goText, size }`.
+
+### Announcement screen styling
+`screens.levelIntro` = `{ titleColor, subtitleColor, prompt, promptColor, backgroundColor, ... }`
+sets defaults for all "NIVEL X" screens; each `level.intro` can override per level.
+
+### Win conditions usable per level
+`score` (≥ `target`), `collect_count` (≥ `target`), `collect_all` (all collectibles gone),
+`time` (elapsed ≥ `seconds`), and `survive` (last until the `rules.timer` reaches 0 → win
+instead of lose). Give each level its own `winCondition` so levels have distinct goals.
+
+### Example: 3-level platformer
+```json
+"countdown": 3,
+"levelDefaults": { "countdown": 3 },
+"levels": [
+  {
+    "name": "Calentamiento",
+    "rules": { "winCondition": { "type": "score", "target": 200 } },
+    "entities": { "enemies": { "count": 0 } },
+    "world": { "backgroundColor": "#12203a" }
+  },
+  {
+    "name": "Se complica",
+    "rules": { "winCondition": { "type": "score", "target": 400 } },
+    "entities": { "enemies": { "count": 2, "speed": 60 }, "platforms": { "procedural": { "maxGap": 95 } } },
+    "world": { "backgroundColor": "#1a0a2e" }
+  },
+  {
+    "name": "Final",
+    "countdown": 5,
+    "intro": { "subtitle": "¡Último nivel! Aguanta 30s", "titleColor": "#ff5c8a" },
+    "rules": { "winCondition": { "type": "survive" }, "timer": 30 },
+    "entities": { "enemies": { "count": 4, "speed": 80, "ai": "chase" } },
+    "world": { "backgroundColor": "#2e0a14" }
+  }
+]
 ```
 
 ## Events System

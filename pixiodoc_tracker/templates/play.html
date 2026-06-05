@@ -60,19 +60,24 @@
 .config-slider-wrap{display:flex;align-items:center;gap:10px;}
 .config-slider-wrap input[type="range"]{flex:1;accent-color:var(--teal);height:6px;}
 .config-val{width:38px;text-align:right;font-size:.9rem;font-weight:800;color:#5eead4;}
-.config-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;}
-.config-actions button{min-height:32px;padding:0 10px;font-family:inherit;font-weight:800;font-size:.7rem;
-  border:1px solid rgba(148,163,184,.28);border-radius:9px;background:rgba(15,23,42,.65);color:#cbd5e1;cursor:pointer;transition:all .12s ease;}
-.config-actions button.selected{background:linear-gradient(135deg,#f97316,#dc2626);color:#fff;border-color:transparent;}
-.config-actions button:hover:not(.selected){border-color:var(--teal);color:#fff;}
 .config-bottom{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
 .config-status{font-size:.85rem;font-weight:700;color:#5eead4;text-align:center;margin-top:12px;min-height:20px;}
+.config-section{margin-bottom:22px;}
+.config-section-title{color:#fff;font-size:.95rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  margin:0 0 4px;padding-bottom:8px;border-bottom:1px solid rgba(148,163,184,.18);}
+.config-section-hint{color:#94a3b8;font-size:.76rem;margin:0 0 12px;}
+.control-row{display:grid;grid-template-columns:1fr minmax(150px,200px);align-items:center;gap:12px;margin-bottom:10px;
+  padding:12px 14px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(255,255,255,.04);}
+.control-action{font-size:.9rem;font-weight:800;color:var(--brand);}
+.control-select{min-height:38px;padding:0 10px;font-family:inherit;font-weight:700;font-size:.82rem;
+  border:1px solid rgba(148,163,184,.28);border-radius:10px;background:rgba(15,23,42,.85);color:#e2e8f0;cursor:pointer;}
+.control-select:focus{outline:none;border-color:var(--teal);}
 @media(max-width:1024px){
   .play-wrapper,.play-wrapper.fullscreen{grid-template-columns:1fr;height:auto;}
   .play-wrapper.fullscreen{overflow-y:auto;}
   .game-area{min-height:420px;}
   .config-row{grid-template-columns:1fr;}
-  .config-actions{justify-content:flex-start;}
+  .control-row{grid-template-columns:1fr;gap:8px;}
 }
 </style>
 {% endblock %}
@@ -121,15 +126,25 @@
         <button class="fs-btn" onclick="toggleFullscreen()" title="Pantalla completa (F11)"><svg class="ic"><use href="#i-expand"/></svg></button>
         <div class="config-overlay" id="config-overlay">
             <h2>CONFIG</h2>
-            <p class="config-subtitle">Sensibilidad y controles</p>
-            <div class="ref-hand-wrap">
-                <canvas id="ref-hand" width="280" height="240"></canvas>
-                <p class="ref-hand-caption" id="ref-hand-caption">Mueve un slider para ver cuánto debe cerrarse ese dedo.</p>
-                <button class="ui basic button" id="btn-calibrate" onclick="calibrateFingers()" style="min-height:34px;">
-                    Calibrar con mi mano
-                </button>
+
+            <div class="config-section">
+                <h3 class="config-section-title">Sensibilidad</h3>
+                <div class="ref-hand-wrap">
+                    <canvas id="ref-hand" width="280" height="240"></canvas>
+                    <p class="ref-hand-caption" id="ref-hand-caption">Mueve un slider para ver cuánto debe cerrarse ese dedo.</p>
+                    <button class="ui basic button" id="btn-calibrate" onclick="calibrateFingers()" style="min-height:34px;">
+                        Calibrar con mi mano
+                    </button>
+                </div>
+                <div id="sens-rows"></div>
             </div>
-            <div id="config-rows"></div>
+
+            <div class="config-section">
+                <h3 class="config-section-title">Controles</h3>
+                <p class="config-section-hint">Elige qué dedo ejecuta cada acción del juego.</p>
+                <div id="control-rows"></div>
+            </div>
+
             <div class="config-bottom">
                 <button class="ui basic button" onclick="resetConfig()">Reset</button>
                 <button class="ui primary button" onclick="saveConfig()">Guardar</button>
@@ -161,6 +176,23 @@ let defaultFingerMap = {};
 let sessionStartTime = Date.now();
 let gameInstance = null;
 let cameraEnabled = false;
+
+// Acciones que el juego actual realmente usa (se calcula en initGame).
+// Por defecto, todas; el config solo mostrará botones para estas.
+let allowedActionKeys = new Set(actionLabels.map(a => a.key));
+
+// Deriva las acciones funcionales del juego según su tipo y contenido.
+function computeAllowedActions(cfg) {
+    const type = (cfg.metadata && cfg.metadata.type) || 'platformer';
+    const s = new Set(['none', 'left', 'right']);  // mover izq/der aplica a todos
+    if (type === 'topdown') { s.add('up'); s.add('down'); }  // topdown: 4 direcciones
+    else { s.add('jump'); }                                  // resto: salto
+    const zones = cfg.entities && cfg.entities.zones;
+    if (Array.isArray(zones) && zones.length) s.add('interact');  // solo si hay zonas
+    // Conserva cualquier acción ya mapeada para no romper configs existentes.
+    for (let i = 0; i < 5; i++) { if (currentFingerMap[i]) s.add(currentFingerMap[i]); }
+    return s;
+}
 
 const CONNECTIONS = [
     [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],
@@ -295,7 +327,13 @@ function toggleConfig() {
 }
 
 function buildConfigUI() {
-    const container = document.getElementById('config-rows');
+    buildSensitivityUI();
+    buildControlsUI();
+}
+
+// Sección SENSIBILIDAD: un slider por dedo.
+function buildSensitivityUI() {
+    const container = document.getElementById('sens-rows');
     container.innerHTML = fingerNames.map((name, i) => {
         const fingerColor = handInput.fingers[i] ? 'var(--teal)' : 'var(--brand)';
         return `
@@ -305,15 +343,52 @@ function buildConfigUI() {
                 <input type="range" min="0" max="100" value="${currentSensitivity[i]}" oninput="onSensChange(${i}, this.value)">
                 <span class="config-val" id="sens-val-${i}">${currentSensitivity[i]}</span>
             </div>
-            <div class="config-actions">
-                ${actionLabels.map(a => `
-                    <button data-finger="${i}" data-action="${a.key}"
-                        class="${currentFingerMap[i] === a.key ? 'selected' : ''}"
-                        onclick="onActionChange(${i}, '${a.key}', this)">${a.label}</button>
-                `).join('')}
-            </div>
         </div>`;
     }).join('');
+}
+
+// Sección CONTROLES: cada acción permitida del juego con un dropdown de dedo.
+function buildControlsUI() {
+    const container = document.getElementById('control-rows');
+    const actions = actionLabels.filter(a => a.key !== 'none' && allowedActionKeys.has(a.key));
+    container.innerHTML = actions.map(a => {
+        const assigned = fingerForAction(a.key); // índice de dedo o -1
+        const opts = ['<option value="-1">— Sin asignar —</option>']
+            .concat(fingerNames.map((fn, fi) =>
+                `<option value="${fi}" ${assigned === fi ? 'selected' : ''}>${fn}</option>`))
+            .join('');
+        return `
+        <div class="control-row">
+            <span class="control-action">${a.label}</span>
+            <select class="control-select" onchange="onActionFingerChange('${a.key}', this.value)">${opts}</select>
+        </div>`;
+    }).join('');
+}
+
+// Dedo actualmente asignado a una acción (o -1 si ninguno).
+function fingerForAction(action) {
+    for (let i = 0; i < 5; i++) if (currentFingerMap[i] === action) return i;
+    return -1;
+}
+
+// Vuelca el fingerMap actual a la escena en vivo.
+function applyFingerMapToScene() {
+    if (!gameInstance) return;
+    const scene = gameInstance.scene.getScene('PlayScene');
+    if (scene && scene._fingerMap) {
+        for (let i = 0; i < 5; i++) scene._fingerMap[String(i)] = currentFingerMap[i];
+    }
+}
+
+// Asigna un dedo a una acción (un dedo por acción; el dedo deja su acción previa).
+function onActionFingerChange(action, fingerValue) {
+    const f = parseInt(fingerValue);
+    // Liberar cualquier dedo que tuviera esta acción
+    for (let i = 0; i < 5; i++) if (currentFingerMap[i] === action) currentFingerMap[i] = 'none';
+    // Asignar el dedo elegido (si no es "Sin asignar")
+    if (!isNaN(f) && f >= 0) currentFingerMap[f] = action;
+    applyFingerMapToScene();
+    buildControlsUI(); // re-render: un dedo pudo soltar otra acción
 }
 
 // ── Mano de referencia ──
@@ -542,22 +617,13 @@ function onSensChange(finger, value) {
     updateRefCaption();
 }
 
-function onActionChange(finger, action, btn) {
-    currentFingerMap[finger] = action;
-    const row = btn.closest('.config-row');
-    row.querySelectorAll('.config-actions button').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    if (gameInstance) {
-        const scene = gameInstance.scene.getScene('PlayScene');
-        if (scene && scene._fingerMap) scene._fingerMap[String(finger)] = action;
-    }
-}
-
 function resetConfig() {
     currentSensitivity = [50, 50, 50, 50, 50];
-    currentFingerMap = Object.assign({}, defaultFingerMap);
+    currentFingerMap = {};
+    for (let i = 0; i < 5; i++) currentFingerMap[i] = defaultFingerMap[String(i)] || defaultFingerMap[i] || 'none';
     buildConfigUI();
     handInput.setSensitivity(currentSensitivity);
+    applyFingerMapToScene();
     showStatus('Config reseteada');
 }
 
@@ -616,6 +682,7 @@ async function initGame() {
 
         await resolveSprites(gameConfig);
 
+        allowedActionKeys = computeAllowedActions(gameConfig);
         buildConfigUI();
         gameInstance = GameLoader.load(gameConfig, 'game-container', handInput, (score, won) => { endGame(score); });
     } catch (e) {

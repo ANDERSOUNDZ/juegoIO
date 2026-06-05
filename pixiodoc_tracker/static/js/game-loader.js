@@ -26,6 +26,25 @@ const GameLoader = {
         const physics = config.physics || { type: 'arcade', gravity: { x: 0, y: 300 } };
         const world = config.world || { width: 400, height: 600 };
 
+        // ── Level system ──
+        // If the config declares `levels`, snapshot the base sections so each level
+        // can be re-derived as (base + level overrides) on every (re)start. The base
+        // objects are kept as the SAME references the scenes capture, so applyLevel()
+        // can mutate them in place and the running scene sees the level's values.
+        if (Array.isArray(config.levels) && config.levels.length > 0) {
+            config.entities = config.entities || {};
+            config.rules = config.rules || {};
+            config.world = config.world || {};
+            config.physics = config.physics || {};
+            config.__levelBase = {
+                entities: deepClone(config.entities),
+                rules: deepClone(config.rules),
+                world: deepClone(config.world),
+                physics: deepClone(config.physics),
+                events: deepClone(config.events),
+            };
+        }
+
         const phaserConfig = {
             type: Phaser.WEBGL,
             parent: containerId,
@@ -42,6 +61,7 @@ const GameLoader = {
             scene: [
                 createBootScene(config, handInput),
                 createStartScene(config, handInput),
+                createLevelIntroScene(config, handInput),
                 createPlayScene(config, handInput),
                 createGameOverScene(config, handInput, onGameOver),
             ],
@@ -55,6 +75,101 @@ const GameLoader = {
         return new Phaser.Game(phaserConfig);
     },
 };
+
+// ═══════════════════════════════════════════════════════════════
+//  Level system helpers (reusable, config-driven)
+// ═══════════════════════════════════════════════════════════════
+
+/** Structured deep clone via JSON (config is always JSON-serializable). */
+function deepClone(o) {
+    return o === undefined ? undefined : JSON.parse(JSON.stringify(o));
+}
+
+/**
+ * Deep-merge `override` onto `base`. Objects merge recursively; arrays and
+ * primitives REPLACE. Always returns a fresh value (never mutates inputs).
+ */
+function mergeDeep(base, override) {
+    if (override === undefined) return deepClone(base);
+    if (override === null || typeof override !== 'object' || Array.isArray(override)) {
+        return deepClone(override);
+    }
+    const out = (base && typeof base === 'object' && !Array.isArray(base)) ? Object.assign({}, base) : {};
+    for (const k of Object.keys(override)) {
+        out[k] = mergeDeep(out[k], override[k]);
+    }
+    return out;
+}
+
+/** Replace the CONTENTS of `target` with `source`, keeping the same reference. */
+function assignInPlace(target, source) {
+    if (!target || typeof target !== 'object') return;
+    for (const k of Object.keys(target)) delete target[k];
+    Object.assign(target, source || {});
+}
+
+/**
+ * Rebuild config sections for level `index` as (base snapshot + level overrides),
+ * mutating the live config objects in place so the running scene picks them up.
+ */
+function applyLevel(config, index) {
+    const base = config.__levelBase;
+    if (!base) return;
+    const levels = Array.isArray(config.levels) ? config.levels : [];
+    const lvl = levels[index] || {};
+
+    // Rules deep-merge, but win/lose conditions REPLACE wholesale when a level
+    // redefines them (so switching e.g. score → survive doesn't keep a stale `target`).
+    const mergedRules = mergeDeep(base.rules || {}, lvl.rules || {});
+    if (lvl.rules && lvl.rules.winCondition) mergedRules.winCondition = deepClone(lvl.rules.winCondition);
+    if (lvl.rules && lvl.rules.loseCondition) mergedRules.loseCondition = deepClone(lvl.rules.loseCondition);
+
+    assignInPlace(config.entities, mergeDeep(base.entities || {}, lvl.entities || {}));
+    assignInPlace(config.rules, mergedRules);
+    assignInPlace(config.world, mergeDeep(base.world || {}, lvl.world || {}));
+    assignInPlace(config.physics, mergeDeep(base.physics || {}, lvl.physics || {}));
+    config.events = lvl.events ? deepClone(lvl.events) : deepClone(base.events);
+}
+
+/**
+ * Big animated "3 · 2 · 1 · ¡YA!" countdown overlay. Calls onDone() when finished.
+ * Reusable at the start of every round/level ("timer al inicio de cada partida").
+ */
+function runCountdown(scene, seconds, onDone, opts) {
+    opts = opts || {};
+    const total = Math.floor(seconds || 0);
+    if (total < 1) { onDone(); return; }
+
+    const W = scene.scale.width;
+    const H = scene.scale.height;
+    const txt = scene.add.text(W / 2, H / 2, '', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: opts.size || '72px',
+        fontWeight: 'bold',
+        color: opts.color || '#ffd23f',
+        stroke: '#000000',
+        strokeThickness: 7,
+        align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+
+    let n = total;
+    const tick = () => {
+        const last = n <= 0;
+        txt.setText(last ? (opts.goText || '¡YA!') : String(n));
+        txt.setColor(last ? (opts.goColor || '#3ddc97') : (opts.color || '#ffd23f'));
+        txt.setScale(0.3);
+        txt.setAlpha(1);
+        scene.tweens.add({ targets: txt, scale: 1, duration: 300, ease: 'Back.out' });
+        scene.tweens.add({ targets: txt, alpha: 0, delay: 550, duration: 400 });
+        if (last) {
+            scene.time.delayedCall(900, () => { txt.destroy(); onDone(); });
+            return;
+        }
+        n--;
+        scene.time.delayedCall(1000, tick);
+    };
+    tick();
+}
 
 /**
  * BootScene — Preloads image-type sprites, then starts PlayScene.
@@ -96,6 +211,9 @@ function createBootScene(config, handInput) {
                 g.generateTexture('particle-star', 8, 8);
                 g.destroy();
             }
+            // Level progression state (shared across scenes for this game).
+            this.registry.set('currentLevel', 0);
+            this.registry.set('totalScore', 0);
             this.scene.start('StartScene');
         }
     };
@@ -214,6 +332,63 @@ function createStartScene(config, handInput) {
                 backgroundAlpha: startCfg.backgroundAlpha ?? 1,
                 delay: startCfg.delay ?? 300,
                 handInput,
+                onTrigger: () => {
+                    // Fresh run: start at level 0 with a clean cumulative score.
+                    this.registry.set('currentLevel', 0);
+                    this.registry.set('totalScore', 0);
+                    this.scene.start('PlayScene');
+                },
+            });
+        }
+    };
+}
+
+/**
+ * LevelIntroScene — "NIVEL X" announcement shown between levels. Waits for
+ * SPACE / tap / finger, then starts the next level's PlayScene (which runs its
+ * own start-of-round countdown). Fully styleable via config.screens.levelIntro
+ * and per-level `level.intro`.
+ */
+function createLevelIntroScene(config, handInput) {
+    const screens = config.screens || {};
+    const introCfg = screens.levelIntro || {};
+
+    return class LevelIntroScene extends Phaser.Scene {
+        constructor() {
+            super('LevelIntroScene');
+        }
+
+        init(data) {
+            this._data = data || {};
+        }
+
+        create() {
+            const levels = Array.isArray(config.levels) ? config.levels : [];
+            const idx = this.registry.get('currentLevel') || 0;
+            const lvl = levels[idx] || {};
+            const lvlIntro = lvl.intro || {};
+
+            const title = lvlIntro.title || `NIVEL ${idx + 1}`;
+            let subtitle = lvlIntro.subtitle || lvl.name || '';
+            if (this._data.fromWin && this._data.completedName) {
+                subtitle = `${this._data.completedName}  ✓\n${subtitle}`.trim();
+            }
+
+            createOverlayScreen(this, {
+                title,
+                titleColor: lvlIntro.titleColor || introCfg.titleColor || '#3ddc97',
+                titleSize: lvlIntro.titleSize || introCfg.titleSize || '22px',
+                subtitle: subtitle || null,
+                subtitleColor: lvlIntro.subtitleColor || introCfg.subtitleColor || '#ffd23f',
+                subtitleSize: lvlIntro.subtitleSize || introCfg.subtitleSize,
+                prompt: lvlIntro.prompt || introCfg.prompt || 'SPACE / Toca para empezar',
+                promptColor: lvlIntro.promptColor || introCfg.promptColor,
+                promptSize: lvlIntro.promptSize || introCfg.promptSize,
+                backgroundColor: lvlIntro.backgroundColor || introCfg.backgroundColor
+                    || config.world?.backgroundColor || '#1a0a2e',
+                backgroundAlpha: introCfg.backgroundAlpha ?? 1,
+                delay: introCfg.delay ?? 400,
+                handInput,
                 onTrigger: () => this.scene.start('PlayScene'),
             });
         }
@@ -235,13 +410,29 @@ function createPlayScene(config, handInput) {
         }
 
         create() {
+            // ── Apply the current level's overrides onto the live config ──
+            // (no-op for games without a `levels` array — identical legacy behavior).
+            this._levelIndex = this.registry.get('currentLevel') || 0;
+            applyLevel(config, this._levelIndex);
+
             // Reset state on every (re)start
             this.score = 0;
             this.lives = rules.lives || 1;
             this.gameTimer = null;
             this.timeLeft = rules.timer || undefined;
+            this._levelDone = false;
+            this._frozen = false;
             const W = this.scale.width;
             const H = this.scale.height;
+
+            // Per-level physics gravity + background color
+            if (config.physics?.gravity && this.physics?.world) {
+                this.physics.world.gravity.x = config.physics.gravity.x || 0;
+                this.physics.world.gravity.y = config.physics.gravity.y || 0;
+            }
+            if (world.backgroundColor) {
+                this.cameras.main.setBackgroundColor(world.backgroundColor);
+            }
 
             // ── Background parallax layers ──
             this._createBackground();
@@ -407,10 +598,17 @@ function createPlayScene(config, handInput) {
                 this.time.addEvent({
                     delay: 1000,
                     callback: () => {
+                        if (this._frozen) return;  // paused during the countdown
                         this.timeLeft--;
                         this._updateHUD();
                         if (this.timeLeft <= 0) {
-                            this.scene.start('GameOverScene', { score: this.score });
+                            // Surviving until the clock runs out is a WIN if the
+                            // level asks for it; otherwise time-out is a loss.
+                            if (rules.winCondition?.type === 'survive') {
+                                this._completeLevel();
+                            } else {
+                                this.scene.start('GameOverScene', { score: this.score });
+                            }
                         }
                     },
                     loop: true,
@@ -449,10 +647,25 @@ function createPlayScene(config, handInput) {
             this._elapsedTime = 0;
             this._totalCollected = 0;
             this._initEvents();
+
+            // ── Start-of-round countdown ("timer al inicio de cada partida") ──
+            // Freezes physics until 3·2·1·¡YA! finishes. Runs on every level entry
+            // and retry. Configure via level.countdown / config.countdown.
+            const cd = this._levelCountdown();
+            if (cd > 0) {
+                this._frozen = true;
+                this.physics.pause();
+                const cdCfg = (config.screens && config.screens.countdown) || {};
+                runCountdown(this, cd, () => {
+                    this._frozen = false;
+                    this.physics.resume();
+                }, cdCfg);
+            }
         }
 
         update(time, delta) {
             if (!this.player || !this.player.body) return;
+            if (this._frozen) return;
             this._elapsedTime += delta / 1000;
             this._checkEvents();
 
@@ -527,10 +740,8 @@ function createPlayScene(config, handInput) {
                 });
             }
 
-            // Win condition check
-            if (rules.winCondition?.type === 'score' && this.score >= rules.winCondition.target) {
-                this.scene.start('GameOverScene', { score: this.score, won: true });
-            }
+            // Win condition check (level-aware)
+            if (this._checkWin()) this._completeLevel();
 
             // Auto-scroll camera
             if (this._autoScroll) {
@@ -580,6 +791,64 @@ function createPlayScene(config, handInput) {
             if (this._playerLight && this.player.active) {
                 this._playerLight.x = this.player.x;
                 this._playerLight.y = this.player.y;
+            }
+        }
+
+        // ── Level system ──
+
+        /** Resolve the countdown (seconds) shown before this round starts. */
+        _levelCountdown() {
+            const levels = Array.isArray(config.levels) ? config.levels : [];
+            const lvl = levels[this._levelIndex] || {};
+            if (typeof lvl.countdown === 'number') return lvl.countdown;
+            if (config.levelDefaults && typeof config.levelDefaults.countdown === 'number') {
+                return config.levelDefaults.countdown;
+            }
+            if (typeof config.countdown === 'number') return config.countdown;
+            return 0;
+        }
+
+        /** True when the current level's win condition is satisfied. */
+        _checkWin() {
+            const wc = rules.winCondition;
+            if (!wc) return false;
+            switch (wc.type) {
+                case 'score':
+                    return this.score >= (wc.target || 0);
+                case 'collect_count':
+                    return this._totalCollected >= (wc.target || wc.value || 0);
+                case 'collect_all':
+                    return this.collectibles
+                        ? (this._totalCollected > 0 && this.collectibles.countActive() === 0)
+                        : false;
+                case 'time':
+                    return this._elapsedTime >= (wc.seconds || wc.target || 0);
+                // 'survive' is resolved by the game timer when it reaches 0.
+                default:
+                    return false;
+            }
+        }
+
+        /** Advance to the next level, or finish the game after the last one. */
+        _completeLevel() {
+            if (this._levelDone) return;
+            this._levelDone = true;
+
+            const levels = Array.isArray(config.levels) ? config.levels : [];
+            const idx = this.registry.get('currentLevel') || 0;
+            const accumulated = (this.registry.get('totalScore') || 0) + this.score;
+
+            if (levels.length && idx < levels.length - 1) {
+                // More levels remain → announce the next one.
+                this.registry.set('totalScore', accumulated);
+                this.registry.set('currentLevel', idx + 1);
+                this.scene.start('LevelIntroScene', {
+                    fromWin: true,
+                    completedName: (levels[idx] && levels[idx].name) || `Nivel ${idx + 1}`,
+                });
+            } else {
+                // Last level (or single-level game) → full win.
+                this.scene.start('GameOverScene', { score: accumulated, won: true });
             }
         }
 
