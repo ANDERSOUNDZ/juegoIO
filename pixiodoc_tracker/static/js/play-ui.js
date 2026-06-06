@@ -587,8 +587,8 @@
             defaultFingerMaps = [];
             for (var h = 0; h < NUM_HANDS; h++) defaultFingerMaps.push((baseMaps && baseMaps[h]) || fallbackMap);
 
-            // Normaliza sensibilidad guardada (plana = 1 mano, anidada = varias).
-            var sraw = playerConfig.sensitivities;
+            // Sensibilidad: URL param (elección del terapeuta/paciente) > player_game_config > default 50s
+            var sraw = (pctx.sensitivity && pctx.sensitivity.length) ? pctx.sensitivity : playerConfig.sensitivities;
             var sNested = Array.isArray(sraw) && Array.isArray(sraw[0]);
             currentSensitivities = [];
             for (var hs = 0; hs < NUM_HANDS; hs++) {

@@ -170,6 +170,8 @@ window.PLAY_CTX = {
     gameId: {{ game_id }},
     sessionId: parseInt(params.get('session_id')),
     patientId: parseInt(params.get('patient_id')),
+    calibration: (function() { try { return JSON.parse(params.get('calibration')); } catch(e) { return null; } })(),
+    sensitivity: (function() { try { var s = JSON.parse(params.get('sensitivity')); return Array.isArray(s) && !Array.isArray(s[0]) ? s : null; } catch(e) { return null; } })(),
 };
 
 PlayUI.init({
