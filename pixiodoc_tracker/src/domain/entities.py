@@ -92,6 +92,7 @@ class PatientSensitivity:
     based_on_preset: Optional[int] = None
     updated_at: Optional[datetime] = None
     updated_by: Optional[int] = None
+    calibration_data: Optional[list] = None
 
 
 @dataclass

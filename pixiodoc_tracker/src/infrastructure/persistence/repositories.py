@@ -304,6 +304,7 @@ class PatientSensitivityRepository(IPatientSensitivityRepository):
         m.based_on_preset = sensitivity.based_on_preset
         m.updated_at = sensitivity.updated_at
         m.updated_by = sensitivity.updated_by
+        m.calibration_data = sensitivity.calibration_data
         db.session.commit()
         return self._to_entity(m)
 
@@ -314,6 +315,7 @@ class PatientSensitivityRepository(IPatientSensitivityRepository):
             sensitivities=m.sensitivities,
             based_on_preset=m.based_on_preset,
             updated_at=m.updated_at, updated_by=m.updated_by,
+            calibration_data=getattr(m, 'calibration_data', None),
         )
 
 
