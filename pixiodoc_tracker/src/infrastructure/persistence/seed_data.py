@@ -69,13 +69,13 @@ SELECT 'Plataformas Terap\u00e9uticas',
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Plataformas Terap\u00e9uticas');
 
 -- Link sprites: Plataformas Terap\u00e9uticas
-UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_object(
+UPDATE games SET config = (config::jsonb || jsonb_build_object('sprites', jsonb_build_object(
     'player', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE category = 'player' LIMIT 1)),
     'platform', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE category = 'platform' LIMIT 1)),
     'coin', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE category = 'coin' LIMIT 1)),
     'enemy', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE category = 'enemy' LIMIT 1))
-))
-WHERE name = 'Plataformas Terap\u00e9uticas' AND NOT (config ? 'sprites');
+)))::json
+WHERE name = 'Plataformas Terap\u00e9uticas' AND config->>'sprites' IS NULL;
 
 -- ─── SPRITES: Pumpkin Panic ────────────────────────────────────
 INSERT INTO sprites (name, category, type, width, height, data, image_url, frame_count)
@@ -146,13 +146,13 @@ SELECT 'Pumpkin Panic - Granja Embrujada',
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Pumpkin Panic - Granja Embrujada');
 
 -- Link sprites: Pumpkin Panic
-UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_object(
+UPDATE games SET config = (config::jsonb || jsonb_build_object('sprites', jsonb_build_object(
     'player', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Granjero Asustado' LIMIT 1)),
     'platform', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Tierra Granja' LIMIT 1)),
     'coin', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Calabaza' LIMIT 1)),
     'enemy', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Fantasma' LIMIT 1)),
     'background', jsonb_build_object('sprite_id', (SELECT id FROM sprites WHERE name = 'Fondo Granja Noche' LIMIT 1))
-))
-WHERE name = 'Pumpkin Panic - Granja Embrujada' AND NOT (config ? 'sprites');
+)))::json
+WHERE name = 'Pumpkin Panic - Granja Embrujada' AND config->>'sprites' IS NULL;
 
 """
