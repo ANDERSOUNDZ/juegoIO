@@ -1,11 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Calibración - PIXO Therapy{% endblock %}
 
+{% block head %}
+<style>
+.cal-step-dot {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2px solid var(--bor); background: var(--surface);
+    color: var(--muted); font-weight: 700; font-size: .7rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all .3s; cursor: default;
+}
+.cal-step-dot.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.cal-step-dot.done   { background: var(--pos);   border-color: var(--pos);   color: #fff; }
+.cal-step-line { flex: 1; height: 2px; background: var(--bor); transition: background .3s; }
+.cal-step-line.done  { background: var(--pos); }
+.phase-badge {
+    display: inline-block; padding: 3px 11px; border-radius: 20px;
+    font-size: .7rem; font-weight: 800; letter-spacing: .1em; color: #fff;
+    text-transform: uppercase; transition: background .3s;
+}
+.cal-dot {
+    background: rgba(0,0,0,.45); color: #fff; font-size: .68rem;
+    font-weight: 700; padding: 4px 8px; border-radius: 20px; transition: all .15s;
+}
+.cal-dot.active  { background: var(--brand); }
+.cal-dot.current { outline: 2px solid #5eead4; outline-offset: 2px; }
+.sens-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.sens-row label { width:60px; font-size:.85rem; font-weight:600; color:var(--ink); flex-shrink:0; }
+.sens-row input[type="range"] { flex:1; accent-color:var(--teal); }
+.sens-row .sv { width:30px; text-align:right; font-size:.85rem; font-variant-numeric:tabular-nums; font-weight:700; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="toolbar">
     <div>
         <h1 class="ui header page-title">Calibración de sensibilidad</h1>
-        <p class="page-sub">Ajusta la detección de dedos a la movilidad del paciente.</p>
+        <p class="page-sub">Calibra cada dedo por separado para mayor precisión.</p>
     </div>
     <div class="acts">
         {% if not is_self %}
@@ -16,36 +47,48 @@
     </div>
 </div>
 
-<!-- Step indicators -->
-<div style="display:flex;align-items:center;gap:0;margin-bottom:24px;">
-    <div class="cal-step-dot active" id="dot-1">1</div>
-    <div class="cal-step-line" id="line-1"></div>
-    <div class="cal-step-dot" id="dot-2">2</div>
-    <div class="cal-step-line" id="line-2"></div>
-    <div class="cal-step-dot" id="dot-3">3</div>
+<!-- Step indicator: 5 fingers + review -->
+<div style="display:flex;align-items:center;gap:0;margin-bottom:8px;">
+    <div class="cal-step-dot active" id="fdot-0">PUL</div>
+    <div class="cal-step-line" id="fline-0"></div>
+    <div class="cal-step-dot" id="fdot-1">IND</div>
+    <div class="cal-step-line" id="fline-1"></div>
+    <div class="cal-step-dot" id="fdot-2">MED</div>
+    <div class="cal-step-line" id="fline-2"></div>
+    <div class="cal-step-dot" id="fdot-3">ANU</div>
+    <div class="cal-step-line" id="fline-3"></div>
+    <div class="cal-step-dot" id="fdot-4">MEN</div>
+    <div class="cal-step-line" id="fline-4"></div>
+    <div class="cal-step-dot" id="fdot-5">✓</div>
+</div>
+
+<!-- Phase badge + counter -->
+<div style="text-align:center;margin-bottom:20px;" id="phase-header">
+    <span class="phase-badge" id="phase-badge" style="background:var(--brand);">EXTENDER</span>
+    <span id="phase-counter" style="color:var(--muted);font-size:.82rem;margin-left:8px;">Dedo 1 de 5</span>
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
 
-    <!-- Left: camera feed -->
+    <!-- Camera -->
     <div class="ui segment" style="padding:0;overflow:hidden;position:relative;aspect-ratio:4/3;">
         <video id="camera" autoplay playsinline muted
                style="width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1);"></video>
         <canvas id="cal-canvas"
                 style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;transform:scaleX(-1);"></canvas>
 
-        <!-- Finger dots overlay at bottom -->
-        <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:10px;" id="finger-dots-cam">
-            <div class="cal-dot" id="cdot-0">PUL</div>
+        <!-- Finger indicator dots -->
+        <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:8px;">
+            <div class="cal-dot current" id="cdot-0">PUL</div>
             <div class="cal-dot" id="cdot-1">IND</div>
             <div class="cal-dot" id="cdot-2">MED</div>
             <div class="cal-dot" id="cdot-3">ANU</div>
             <div class="cal-dot" id="cdot-4">MEN</div>
         </div>
 
-        <!-- No hand warning -->
+        <!-- No-hand warning -->
         <div id="no-hand-msg" style="position:absolute;top:12px;left:0;right:0;text-align:center;display:none;">
-            <span style="background:rgba(0,0,0,.6);color:#fff;padding:4px 12px;border-radius:20px;font-size:.82rem;">Coloca la mano frente a la cámara</span>
+            <span style="background:rgba(0,0,0,.65);color:#fff;padding:4px 14px;border-radius:20px;font-size:.82rem;">Coloca la mano frente a la cámara</span>
         </div>
 
         <!-- Loading overlay -->
@@ -55,70 +98,50 @@
         </div>
     </div>
 
-    <!-- Right: instructions per step -->
+    <!-- Wizard panels -->
     <div>
 
-        <!-- Step 1 -->
-        <div id="panel-1" class="ui segment">
-            <h2 style="margin:0 0 6px;font-size:1.2rem;font-weight:800;">Paso 1 — Mano abierta</h2>
-            <p style="color:var(--muted);margin:0 0 20px;">Extiende todos los dedos completamente frente a la cámara y mantenlos quietos.</p>
-            <div style="display:flex;justify-content:center;margin-bottom:16px;">
-                <svg viewBox="0 0 80 100" style="width:80px;height:100px;color:var(--brand);opacity:.7;">
-                    <path d="M38 90V55M38 55V20a3 3 0 0 1 6 0v35M44 55V15a3 3 0 0 1 6 0v40M50 55V20a3 3 0 0 1 6 0v35M32 55V25a3 3 0 0 1 6 0v30M26 50V38a3 3 0 0 1 6 0v12" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/>
-                    <path d="M26 50c0 6 2 14 6 18l6 8 6-8c4-4 6-12 6-18" stroke="currentColor" stroke-width="3" fill="none"/>
-                </svg>
+        <!-- Panel: finger calibration (ext or close) -->
+        <div id="panel-finger" class="ui segment">
+            <h2 id="phase-title" style="margin:0 0 6px;font-size:1.2rem;font-weight:800;">Pulgar — Extender</h2>
+            <p id="phase-instruction" style="color:var(--muted);margin:0 0 20px;line-height:1.5;">
+                Extiende el pulgar completamente. Los demás dedos pueden estar relajados.
+            </p>
+
+            <div id="prog-wrap" style="height:8px;background:var(--bor);border-radius:4px;overflow:hidden;margin-bottom:10px;">
+                <div id="prog-bar" style="height:100%;width:0%;background:var(--brand);transition:width .1s linear;border-radius:4px;"></div>
             </div>
-            <div id="prog-bar-wrap-1" style="height:8px;background:var(--bor);border-radius:4px;overflow:hidden;margin-bottom:14px;">
-                <div id="prog-bar-1" style="height:100%;width:0%;background:var(--brand);transition:width .1s linear;border-radius:4px;"></div>
-            </div>
-            <p id="prog-label-1" style="text-align:center;font-size:.85rem;color:var(--muted);margin-bottom:14px;">Esperando mano…</p>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button class="ui basic button" onclick="captureManual()" id="btn-capture-1">Capturar ahora</button>
+            <p id="prog-label" style="text-align:center;font-size:.85rem;color:var(--muted);margin-bottom:18px;">Esperando mano…</p>
+
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="ui basic button" onclick="goBackPhase()" id="btn-back" style="display:none;">‹ Atrás</button>
+                <button class="ui basic button" onclick="captureManual()" style="margin-left:auto;">Capturar ahora</button>
             </div>
         </div>
 
-        <!-- Step 2 -->
-        <div id="panel-2" class="ui segment" style="display:none;">
-            <h2 style="margin:0 0 6px;font-size:1.2rem;font-weight:800;">Paso 2 — Puño cerrado</h2>
-            <p style="color:var(--muted);margin:0 0 20px;">Cierra la mano haciendo un puño y mantenlo quieto.</p>
-            <div style="display:flex;justify-content:center;margin-bottom:16px;">
-                <svg viewBox="0 0 80 100" style="width:80px;height:100px;color:var(--brand);opacity:.7;">
-                    <rect x="20" y="40" width="40" height="45" rx="8" stroke="currentColor" stroke-width="4" fill="none"/>
-                    <path d="M20 52h40M20 62h40" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/>
-                    <path d="M28 40V30a4 4 0 0 1 8 0v10M36 40V28a4 4 0 0 1 8 0v12M44 40V30a4 4 0 0 1 8 0v10" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/>
-                    <path d="M20 50v-6a4 4 0 0 1 8 0v6" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/>
-                </svg>
-            </div>
-            <div id="prog-bar-wrap-2" style="height:8px;background:var(--bor);border-radius:4px;overflow:hidden;margin-bottom:14px;">
-                <div id="prog-bar-2" style="height:100%;width:0%;background:var(--brand);transition:width .1s linear;border-radius:4px;"></div>
-            </div>
-            <p id="prog-label-2" style="text-align:center;font-size:.85rem;color:var(--muted);margin-bottom:14px;">Esperando mano…</p>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button class="ui basic button" onclick="goBack()" style="margin-right:auto;">‹ Atrás</button>
-                <button class="ui basic button" onclick="captureManual()">Capturar ahora</button>
-            </div>
-        </div>
-
-        <!-- Step 3 -->
-        <div id="panel-3" class="ui segment" style="display:none;">
-            <h2 style="margin:0 0 6px;font-size:1.2rem;font-weight:800;">Paso 3 — Prueba y guarda</h2>
-            <p style="color:var(--muted);margin:0 0 16px;font-size:.9rem;">Mueve los dedos para probar la detección. Ajusta el umbral de cada dedo si es necesario.</p>
-            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;" id="sens-sliders"></div>
-            <div class="ui message" style="padding:10px 14px;margin-bottom:12px;font-size:.85rem;">
+        <!-- Panel: review + adjust + save -->
+        <div id="panel-review" class="ui segment" style="display:none;">
+            <h2 style="margin:0 0 6px;font-size:1.2rem;font-weight:800;">Ajustar y guardar</h2>
+            <p style="color:var(--muted);margin:0 0 16px;font-size:.9rem;line-height:1.5;">Mueve los dedos para probar la detección. Ajusta el umbral si hace falta.</p>
+            <div id="sens-sliders" style="margin-bottom:14px;"></div>
+            <div class="ui message" style="padding:10px 14px;margin-bottom:14px;font-size:.84rem;">
                 <svg class="ic" style="vertical-align:middle;width:14px;height:14px;margin-right:4px;"><use href="#i-bolt"/></svg>
-                Los puntos de color sobre la cámara se iluminan cuando el dedo es detectado como cerrado.
+                Las etiquetas encima de la cámara se iluminan cuando el dedo se detecta cerrado.
             </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button class="ui basic button" onclick="goBack()" style="margin-right:auto;">‹ Atrás</button>
-                <button class="ui primary button" onclick="saveCalibration()" id="btn-save">
+            <div id="save-error" style="display:none;color:#ef4444;font-size:.85rem;padding:8px 12px;background:rgba(239,68,68,.08);border-radius:6px;margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="ui basic button" onclick="goBackPhase()">‹ Rehacer último dedo</button>
+                <button class="ui primary button" onclick="saveCalibration()" id="btn-save" style="margin-left:auto;">
                     <svg class="ic"><use href="#i-check"/></svg>Guardar calibración
                 </button>
             </div>
         </div>
 
-        <!-- Step done -->
+        <!-- Panel: done -->
         <div id="panel-done" class="ui segment" style="display:none;text-align:center;padding:32px;">
-            <svg style="width:48px;height:48px;color:var(--pos);margin-bottom:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+            <svg style="width:48px;height:48px;color:var(--pos);margin-bottom:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>
+            </svg>
             <h2 style="margin:0 0 8px;">¡Calibración guardada!</h2>
             <p style="color:var(--muted);margin:0 0 20px;">La detección de dedos ahora está ajustada a este paciente.</p>
             <div style="display:flex;gap:10px;justify-content:center;">
@@ -135,74 +158,41 @@
 </div>
 {% endblock %}
 
-{% block head %}
-<style>
-.cal-step-dot {
-    width: 32px; height: 32px; border-radius: 50%;
-    border: 2px solid var(--bor); background: var(--surface);
-    color: var(--muted); font-weight: 700; font-size: .85rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all .3s;
-}
-.cal-step-dot.active { background: var(--brand); border-color: var(--brand); color: #fff; }
-.cal-step-dot.done { background: var(--pos); border-color: var(--pos); color: #fff; }
-.cal-step-line { flex: 1; height: 2px; background: var(--bor); transition: background .3s; }
-.cal-step-line.done { background: var(--pos); }
-.cal-dot {
-    background: rgba(0,0,0,.5); color: #fff; font-size: .7rem;
-    font-weight: 700; padding: 4px 8px; border-radius: 20px; transition: background .15s;
-}
-.cal-dot.active { background: var(--brand); }
-</style>
-{% endblock %}
-
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
 <script>
 const PATIENT_ID = {{ patient_id }};
-const IS_SELF = {{ 'true' if is_self else 'false' }};
-const SAVE_URL = IS_SELF ? '/api/patients/self/sensitivity' : '/api/patients/' + PATIENT_ID + '/sensitivity';
+const IS_SELF    = {{ 'true' if is_self else 'false' }};
+const SAVE_URL   = IS_SELF
+    ? '/api/patients/self/sensitivity'
+    : '/api/patients/' + PATIENT_ID + '/sensitivity';
+
 const FINGER_NAMES = ['Pulgar', 'Índice', 'Medio', 'Anular', 'Meñique'];
-const STABLE_SECS = 2;
-const BUFFER_FRAMES = 60;
-const CONNECTIONS = [
+const FINGER_SHORT = ['PUL', 'IND', 'MED', 'ANU', 'MEN'];
+const FINGER_TIPS  = [4, 8, 12, 16, 20];   // landmark index per finger
+const STABLE_SECS  = 2;
+const BUF_FRAMES   = 40;
+const CONNECTIONS  = [
     [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
     [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
     [0,17],[17,18],[18,19],[19,20],
 ];
 
-let handInput = new HandInput();
-let step = 1;
-let frameBuffer = [];
-let extCapture = null;
-let closeCapture = null;
-let stableStart = null;
+// ── State ─────────────────────────────────────────────────────────
+let handInput   = new HandInput();
+let fingerIdx   = 0;      // 0..4
+let phase       = 'ext';  // 'ext' | 'close' | 'review' | 'done'
+
+// Per-finger captures: scalar raw diff for each finger
+let extCaps   = [null, null, null, null, null];
+let closeCaps = [null, null, null, null, null];
 let currentSens = [50, 50, 50, 50, 50];
+
+let frameBuffer   = [];
+let stableStart   = null;
 let manualCapture = false;
 
-// ── Stepper helpers ─────────────────────────────────────────────
-function setStep(n) {
-    step = n;
-    for (let i = 1; i <= 3; i++) {
-        const dot = document.getElementById('dot-' + i);
-        const panel = document.getElementById('panel-' + i);
-        dot.className = 'cal-step-dot' + (i < n ? ' done' : i === n ? ' active' : '');
-        if (panel) panel.style.display = i === n ? '' : 'none';
-        if (i < 3) {
-            const line = document.getElementById('line-' + i);
-            line.className = 'cal-step-line' + (i < n ? ' done' : '');
-        }
-    }
-    stableStart = null;
-    frameBuffer = [];
-    manualCapture = false;
-}
-
-function goBack() {
-    if (step > 1) setStep(step - 1);
-}
-
-// ── Camera + hand tracking ───────────────────────────────────────
+// ── Camera init ───────────────────────────────────────────────────
 async function init() {
     document.getElementById('cam-status').textContent = 'Cargando modelo de mano…';
     try {
@@ -210,117 +200,128 @@ async function init() {
         document.getElementById('cam-status').textContent = 'Iniciando cámara…';
         await handInput.connect();
         document.getElementById('cam-loading').style.display = 'none';
-    } catch (e) {
-        document.getElementById('cam-status').textContent = 'Error: ' + (e.message || e);
+    } catch(e) {
+        document.getElementById('cam-status').textContent = 'Error al iniciar: ' + (e.message || e);
         return;
     }
 
     handInput.onHands(function(hands) {
         const hand = hands[0];
         drawCalCanvas(hand.landmarks, hand.present ? hand.fingers : null);
-        onFrame(hand);
+        if (phase === 'ext' || phase === 'close') onFrame(hand);
+        else if (phase === 'review') updateReviewDots(hand);
     });
 }
 
+// ── Per-frame capture logic ────────────────────────────────────────
 function onFrame(hand) {
-    const noHandMsg = document.getElementById('no-hand-msg');
+    const noHand = document.getElementById('no-hand-msg');
 
     if (!hand.present) {
-        noHandMsg.style.display = 'block';
+        noHand.style.display = 'block';
         stableStart = null;
-        setProgress(step, 0, 'Coloca la mano frente a la cámara…');
-        for (let i = 0; i < 5; i++) setDot(i, false);
+        frameBuffer = [];
+        setProgress(0, 'Coloca la mano frente a la cámara…');
         return;
     }
+    noHand.style.display = 'none';
 
-    noHandMsg.style.display = 'none';
+    // Only buffer the raw diff of the finger we're calibrating right now
+    const diff = handInput.getRawDiffs(0)[fingerIdx];
+    frameBuffer.push(diff);
+    if (frameBuffer.length > BUF_FRAMES) frameBuffer.shift();
 
-    if (step === 1 || step === 2) {
-        frameBuffer.push(handInput.getRawDiffs(0));
-        if (frameBuffer.length > BUFFER_FRAMES) frameBuffer.shift();
+    if (!stableStart) stableStart = Date.now();
+    const elapsed = (Date.now() - stableStart) / 1000;
+    const pct = Math.min(elapsed / STABLE_SECS, 1);
 
-        if (!stableStart) stableStart = Date.now();
-        const elapsed = (Date.now() - stableStart) / 1000;
-        const pct = Math.min(elapsed / STABLE_SECS, 1);
-        setProgress(step, pct, pct < 1
-            ? 'Mantenlo quieto… ' + Math.ceil((1 - elapsed) * 10) / 10 + 's'
-            : '¡Listo! Capturando…');
+    setProgress(pct, pct < 1
+        ? 'Mantén quieto… ' + (Math.ceil((STABLE_SECS - elapsed) * 10) / 10).toFixed(1) + 's'
+        : '¡Listo! Capturando…');
 
-        if ((elapsed >= STABLE_SECS || manualCapture) && frameBuffer.length >= 20) {
-            manualCapture = false;
-            if (step === 1) captureExt();
-            else if (step === 2) captureClose();
-        }
-    }
-
-    if (step === 3) {
-        for (let i = 0; i < 5; i++) setDot(i, hand.fingers[i] === 1);
+    if ((elapsed >= STABLE_SECS || manualCapture) && frameBuffer.length >= 8) {
+        manualCapture = false;
+        const avg = frameBuffer.reduce((s, v) => s + v, 0) / frameBuffer.length;
+        if (phase === 'ext')   extCaps[fingerIdx]   = avg;
+        else                   closeCaps[fingerIdx] = avg;
+        frameBuffer = [];
+        stableStart = null;
+        advanceState();
     }
 }
 
 function captureManual() {
-    if (frameBuffer.length < 5) {
+    if (phase === 'review') return;
+    if (frameBuffer.length < 3) {
         alert('Coloca la mano frente a la cámara primero.');
         return;
     }
     manualCapture = true;
 }
 
-function captureExt() {
-    extCapture = averageBuffer();
-    setStep(2);
+// ── State machine ─────────────────────────────────────────────────
+function advanceState() {
+    if (phase === 'ext') {
+        phase = 'close';
+    } else {  // phase === 'close'
+        fingerIdx++;
+        if (fingerIdx >= 5) {
+            phase = 'review';
+            setupReview();
+        } else {
+            phase = 'ext';
+        }
+    }
+    updateUI();
 }
 
-function captureClose() {
-    closeCapture = averageBuffer();
-    const cal = extCapture.map((e, i) => ({ ext: e, close: closeCapture[i] }));
+function goBackPhase() {
+    manualCapture = false;
+    if (phase === 'review') {
+        fingerIdx = 4;
+        phase = 'close';
+        closeCaps[4] = null;
+    } else if (phase === 'close') {
+        phase = 'ext';
+        extCaps[fingerIdx] = null;
+    } else {  // ext
+        if (fingerIdx === 0) return;
+        fingerIdx--;
+        phase = 'close';
+        closeCaps[fingerIdx] = null;
+    }
+    frameBuffer = [];
+    stableStart = null;
+    updateUI();
+}
+
+// ── Review phase ──────────────────────────────────────────────────
+async function setupReview() {
+    const cal = extCaps.map((e, i) => ({ ext: e, close: closeCaps[i] }));
     handInput.applyCalibration(cal);
-    loadCurrentSens();
-    setStep(3);
-}
 
-function averageBuffer() {
-    if (!frameBuffer.length) return [0,0,0,0,0];
-    const sum = [0,0,0,0,0];
-    frameBuffer.forEach(d => d.forEach((v, i) => sum[i] += v));
-    return sum.map(v => v / frameBuffer.length);
-}
-
-// ── Step 3: sliders + live detection ────────────────────────────
-async function loadCurrentSens() {
     try {
         const data = await fetch('/api/patients/' + PATIENT_ID + '/sensitivity').then(r => r.json());
         if (data.sensitivities) currentSens = data.sensitivities.slice();
     } catch(e) {}
-    buildSliders();
-    // Update live detection using calibrated sensitivity
+
     handInput.setSensitivityForHand(0, currentSens);
+    buildSliders();
 }
 
 function buildSliders() {
-    const container = document.getElementById('sens-sliders');
-    container.innerHTML = FINGER_NAMES.map((name, i) => `
-        <div style="display:flex;align-items:center;gap:10px;">
-            <span style="width:60px;font-size:.85rem;font-weight:600;color:var(--ink);">${name}</span>
-            <div class="cal-dot" id="sdot-${i}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.65rem;">${i}</div>
+    document.getElementById('sens-sliders').innerHTML = FINGER_NAMES.map((name, i) => `
+        <div class="sens-row">
+            <label>${name}</label>
+            <div class="cal-dot" id="sdot-${i}"
+                 style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.65rem;">
+                ${FINGER_SHORT[i]}
+            </div>
             <input type="range" min="0" max="100" value="${currentSens[i]}"
-                   style="flex:1;" oninput="onSensChange(${i}, this.value)">
-            <span id="sv-${i}" style="width:28px;text-align:right;font-size:.85rem;font-variant-numeric:tabular-nums;">${currentSens[i]}</span>
+                   oninput="onSensChange(${i}, this.value)">
+            <span class="sv" id="sv-${i}">${currentSens[i]}</span>
         </div>
     `).join('');
-    // Hook live detection to update dots
-    handInput.onHands(function(hands) {
-        const hand = hands[0];
-        drawCalCanvas(hand.landmarks, hand.present ? hand.fingers : null);
-        if (step === 3) {
-            for (let i = 0; i < 5; i++) {
-                setDot(i, hand.fingers[i] === 1);
-                const sd = document.getElementById('sdot-' + i);
-                if (sd) sd.className = 'cal-dot' + (hand.present && hand.fingers[i] === 1 ? ' active' : '');
-            }
-        }
-        if (step === 1 || step === 2) onFrame(hand);
-    });
 }
 
 function onSensChange(finger, value) {
@@ -330,14 +331,26 @@ function onSensChange(finger, value) {
     handInput.setSensitivityForHand(0, currentSens);
 }
 
-// ── Save ─────────────────────────────────────────────────────────
+function updateReviewDots(hand) {
+    for (let i = 0; i < 5; i++) {
+        const on = hand.present && hand.fingers[i] === 1;
+        const sd = document.getElementById('sdot-' + i);
+        const cd = document.getElementById('cdot-' + i);
+        if (sd) sd.className = 'cal-dot' + (on ? ' active' : '');
+        if (cd) cd.className = 'cal-dot' + (on ? ' active' : '');
+    }
+}
+
+// ── Save ──────────────────────────────────────────────────────────
 async function saveCalibration() {
-    const btn = document.getElementById('btn-save');
+    const btn  = document.getElementById('btn-save');
+    const errEl = document.getElementById('save-error');
     btn.disabled = true;
     btn.textContent = 'Guardando…';
+    errEl.style.display = 'none';
 
-    const calibration_data = extCapture && closeCapture
-        ? extCapture.map((e, i) => ({ ext: e, close: closeCapture[i] }))
+    const calibration_data = extCaps.every(v => v !== null) && closeCaps.every(v => v !== null)
+        ? extCaps.map((e, i) => ({ ext: e, close: closeCaps[i] }))
         : null;
 
     try {
@@ -346,65 +359,143 @@ async function saveCalibration() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sensitivities: currentSens, calibration_data }),
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Error');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || ('HTTP ' + res.status));
+        }
 
-        // Also save to localStorage for immediate use on this device
         if (calibration_data) {
             try { localStorage.setItem('pixo_calib_' + PATIENT_ID, JSON.stringify(calibration_data)); } catch(e) {}
         }
 
         handInput.disconnect();
-        document.getElementById('panel-3').style.display = 'none';
-        document.getElementById('panel-done').style.display = '';
-        document.getElementById('dot-3').className = 'cal-step-dot done';
+        phase = 'done';
+        updateUI();
+
     } catch(e) {
         btn.disabled = false;
         btn.innerHTML = '<svg class="ic"><use href="#i-check"/></svg>Guardar calibración';
-        alert('Error al guardar: ' + e.message);
+        errEl.textContent = 'Error al guardar: ' + e.message;
+        errEl.style.display = 'block';
     }
 }
 
-// ── UI helpers ───────────────────────────────────────────────────
-function setProgress(s, pct, label) {
-    const bar = document.getElementById('prog-bar-' + s);
-    const lbl = document.getElementById('prog-label-' + s);
+// ── UI render ─────────────────────────────────────────────────────
+function updateUI() {
+    const isCapturing = phase === 'ext' || phase === 'close';
+
+    // Step dots
+    for (let i = 0; i < 5; i++) {
+        const hasBoth = extCaps[i] !== null && closeCaps[i] !== null;
+        const isCurrent = i === fingerIdx && isCapturing;
+        document.getElementById('fdot-' + i).className =
+            'cal-step-dot' + (hasBoth ? ' done' : isCurrent ? ' active' : '');
+        const line = document.getElementById('fline-' + i);
+        if (line) line.className = 'cal-step-line' + (hasBoth ? ' done' : '');
+    }
+    document.getElementById('fdot-5').className =
+        'cal-step-dot' + (phase === 'review' || phase === 'done' ? ' active' : '');
+
+    // Panel visibility
+    document.getElementById('panel-finger').style.display = isCapturing ? '' : 'none';
+    document.getElementById('panel-review').style.display = phase === 'review' ? '' : 'none';
+    document.getElementById('panel-done').style.display   = phase === 'done'   ? '' : 'none';
+
+    // Phase header
+    const badge   = document.getElementById('phase-badge');
+    const counter = document.getElementById('phase-counter');
+    const header  = document.getElementById('phase-header');
+    if (isCapturing) {
+        header.style.display = '';
+        badge.textContent   = phase === 'ext' ? 'EXTENDER' : 'CERRAR';
+        badge.style.background = phase === 'ext' ? 'var(--brand)' : '#10b981';
+        counter.textContent = 'Dedo ' + (fingerIdx + 1) + ' de 5';
+    } else {
+        header.style.display = 'none';
+    }
+
+    // Panel finger content
+    if (isCapturing) {
+        const isExt = phase === 'ext';
+        document.getElementById('phase-title').textContent =
+            FINGER_NAMES[fingerIdx] + (isExt ? ' — Extender' : ' — Cerrar');
+        document.getElementById('phase-instruction').textContent = isExt
+            ? 'Extiende el ' + FINGER_NAMES[fingerIdx].toLowerCase() + ' completamente frente a la cámara. Los demás dedos pueden estar relajados.'
+            : 'Dobla el ' + FINGER_NAMES[fingerIdx].toLowerCase() + ' todo lo que puedas hacia la palma. Los demás dedos pueden estar relajados.';
+
+        const canBack = !(phase === 'ext' && fingerIdx === 0);
+        document.getElementById('btn-back').style.display = canBack ? '' : 'none';
+        setProgress(0, 'Esperando mano…');
+    }
+
+    // Camera finger dots: highlight current
+    for (let i = 0; i < 5; i++) {
+        const cd = document.getElementById('cdot-' + i);
+        if (cd) cd.className = 'cal-dot' + (i === fingerIdx && isCapturing ? ' current' : '');
+    }
+}
+
+function setProgress(pct, label) {
+    const bar = document.getElementById('prog-bar');
+    const lbl = document.getElementById('prog-label');
     if (bar) bar.style.width = (pct * 100) + '%';
     if (lbl) lbl.textContent = label;
 }
 
-function setDot(i, on) {
-    const el = document.getElementById('cdot-' + i);
-    if (el) el.className = 'cal-dot' + (on ? ' active' : '');
-}
-
+// ── Canvas drawing ────────────────────────────────────────────────
 function drawCalCanvas(lm, fingers) {
     const canvas = document.getElementById('cal-canvas');
-    const video = document.getElementById('camera');
+    const video  = document.getElementById('camera');
     if (!canvas || !video) return;
     const rect = video.getBoundingClientRect();
-    canvas.width = rect.width;
+    canvas.width  = rect.width;
     canvas.height = rect.height;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!lm) return;
 
     const w = canvas.width, h = canvas.height;
-    const tips = [4, 8, 12, 16, 20];
-    const px = (p) => [p[0] * w, p[1] * h];
+    const px = p => [p[0] * w, p[1] * h];
+    const isCapturing = phase === 'ext' || phase === 'close';
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    // Skeleton
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 1.5;
     CONNECTIONS.forEach(([a, b]) => {
         const [ax, ay] = px(lm[a]), [bx, by] = px(lm[b]);
         ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
     });
 
-    tips.forEach((t, i) => {
+    // Finger tips
+    FINGER_TIPS.forEach((t, i) => {
         const [x, y] = px(lm[t]);
-        const on = fingers && fingers[i] === 1;
-        ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
-        ctx.fillStyle = on ? 'rgba(0,200,120,0.9)' : 'rgba(255,255,255,0.7)';
-        ctx.fill();
+        const isCurrent = isCapturing && i === fingerIdx;
+
+        if (isCurrent) {
+            // Glow ring for current finger
+            const color = phase === 'ext' ? '99,102,241' : '16,185,129';
+            ctx.beginPath();
+            ctx.arc(x, y, 15, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(' + color + ',0.85)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            // Filled center
+            ctx.beginPath();
+            ctx.arc(x, y, 7, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(' + color + ',0.9)';
+            ctx.fill();
+            // Label above
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(FINGER_SHORT[i], x, y - 22);
+        } else {
+            const on = phase === 'review' && fingers && fingers[i] === 1;
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = on ? 'rgba(0,200,120,0.9)' : 'rgba(255,255,255,0.45)';
+            ctx.fill();
+        }
     });
 }
 
