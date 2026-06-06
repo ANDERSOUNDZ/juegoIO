@@ -210,7 +210,7 @@ class SessionRepository(ISessionRepository):
             # Terapeuta: si se pide un paciente específico, ve TODAS sus sesiones
             # siempre que ese paciente le pertenezca; de lo contrario solo las suyas
             if patient_id:
-                owns = PatientModel.query.filter_by(id=patient_id, user_id=user_id).first()
+                owns = PatientModel.query.filter_by(id=patient_id, therapist_id=user_id).first()
                 if owns:
                     q = q.filter_by(patient_id=patient_id)
                 else:
