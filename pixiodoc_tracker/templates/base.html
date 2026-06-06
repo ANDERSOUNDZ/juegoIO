@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}PIXO Therapy{% endblock %}</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><path d='M21 10v-1a2 2 0 0 0-4 0v5m0 0V8a2 2 0 0 0-4 0v6m0-.5V10a2 2 0 0 0-4 0v8m12-6a2 2 0 1 1 4 0v5a8 8 0 0 1-8 8h-2c-2.5 0-4-.8-5.4-2.1L6 25.3a1.8 1.8 0 0 1 2.5-2.6L10 24' stroke='white' stroke-width='1.8' stroke-linecap='round' fill='none'/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✋</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                         <i class="user outline icon"></i>
                         Cuenta
                     </a>
-                    <a class="item" href="#" onclick="openPasswordModal()" style="margin-top: 10px">
+                    <a class="item" href="#" onclick="openModalChangesPassword()" style="margin-top: 10px">
                         <i class="lock icon"></i>
                         Cambiar Contraseña
                     </a>
@@ -118,28 +118,35 @@
     {% endif %}
 
     <!-- Modal: cambiar contraseña -->
-    <div class="modal-overlay" id="password-modal">
+    <div class="modal-overlay" id="modal-changes-password">
     <div class="modal-card">
         <div class="modal-head">
             <div>
-                <h2>Cambiar Contraseña</h2>
+                <h2 id="modal-title">Cambiar Contraseña</h2>
                 <p class="page-sub" style="margin-top:4px;">Complete la información requerida</p>
             </div>
-            <button class="close-x" type="button" onclick="closePasswordModal()"><svg class="ic"><use href="#i-x"/></svg></button>
+            <button class="close-x" type="button" onclick="closeModalChangesPassword()"><svg class="ic"><use href="#i-x"/></svg></button>
         </div>
         <div class="ui divider"></div>
         <form id="change-password-form" class="ui form" style="margin-top:14px;">
             <div class="required field">
                 <label>Contraseña Actual</label>
-                <input type="password" id="f-current-password" required autocomplete="current-password">
+                <input type="password" id="f-password">
+                <div id="error-current-password" class="ui pointing red basic label hidden"></div>
             </div>
             <div class="required field">
                 <label>Nueva Contraseña</label>
-                <input type="password" id="f-new-password" required autocomplete="new-password">
+                <input type="password" id="f-new-password">
+                <div id="error-password" class="ui pointing red basic label hidden"></div>
             </div>
             <div class="required field">
-                <label>Confirmar Contraseña</label>
-                <input type="password" id="f-repit-new-password" required autocomplete="new-password">
+                <label>Verificar Contraseña</label>
+                <input type="password" id="f-confirm-password">
+                <div id="error-confirm-password" class="ui pointing red basic label hidden"></div>
+            </div>
+            <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:18px;">
+                <button class="ui basic button" type="button" onclick="closeModalChangesPassword()">Cancelar</button>
+                <button class="ui primary button" type="button" onclick="changesPassword()">Guardar</button>
             </div>
         </form>
     </div>
@@ -179,13 +186,158 @@ $(function () {
     });
 });
 
-function openPasswordModal() {
-    document.getElementById('change-password-form').reset();
-    document.getElementById('password-modal').classList.add('active');
+const USER_ID = '{{ current_user.id }}';
+const currentPass = document.getElementById('f-password');
+const password = document.getElementById('f-new-password');
+const confirmPassword = document.getElementById('f-confirm-password');
+const error_current_pass = document.getElementById('error-current-password');
+const error_pass = document.getElementById('error-password');
+const error_confirm_pass = document.getElementById('error-confirm-password');
+
+function debounce(fn, delay = 300) {
+    let timer;
+
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
 }
 
-function closePasswordModal() {
-    document.getElementById('password-modal').classList.remove('active');
+async function validateCurrentPassword() {
+    const value = currentPass.value.trim();
+
+    if (value === '') {
+        error_current_pass.textContent = 'El campo Contraseña Actual es requerido';
+        currentPass.required = true;
+        error_current_pass.classList.remove('hidden');
+        return false;
+    }
+
+    const result = await compareCurrentPassword(value);
+
+    if (!result.valid) {
+        error_current_pass.textContent = 'La contraseña ingresada no es correcta';
+        currentPass.required = true;
+        error_current_pass.classList.remove('hidden');
+        return false;
+    }
+
+    currentPass.required = false;
+    error_current_pass.classList.add('hidden');
+    return true;
+}
+
+function validatePassword() {
+    const value = password.value.trim();
+
+    if (value === '') {
+        error_pass.textContent = 'El campo Nueva Contraseña es requerido';
+        password.required = true;
+        error_pass.classList.remove('hidden');
+        return false;
+    }
+
+    if (value.length < 6) {
+        error_pass.textContent = 'La Contraseña debe tener mínimo 6 caracteres';
+        error_pass.classList.remove('hidden');
+        password.required = true;
+        return false;
+    }
+
+    error_pass.classList.add('hidden');
+    password.required = false;
+
+    if (confirmPassword.value.trim() !== '') {
+        validateConfirmPassword();
+    }
+
+    return true;
+}
+
+function validateConfirmPassword() {
+    const pass = password.value.trim();
+    const confirm = confirmPassword.value.trim();
+
+    if (confirm === '') {
+        error_confirm_pass.textContent = 'El campo Verificar Contraseña es requerido';
+        confirmPassword.required = true;
+        error_confirm_pass.classList.remove('hidden');
+        return false;
+    }
+
+    if (pass !== confirm) {
+        confirmPassword.required = true;
+        error_confirm_pass.textContent = 'Las contraseñas no coinciden';
+        error_confirm_pass.classList.remove('hidden');
+        return false;
+    }
+
+    error_confirm_pass.classList.add('hidden');
+    confirmPassword.required = false;
+
+    return true;
+}
+
+currentPass.addEventListener('input', debounce(validateCurrentPassword));
+currentPass.addEventListener('blur', validateCurrentPassword);
+password.addEventListener('input', debounce(validatePassword));
+password.addEventListener('blur', validatePassword);
+confirmPassword.addEventListener('input', debounce(validateConfirmPassword));
+confirmPassword.addEventListener('blur', validateConfirmPassword);
+
+function openModalChangesPassword() {
+    document.getElementById('change-password-form').reset();
+    document.getElementById('modal-changes-password').classList.add('active');
+}
+
+function closeModalChangesPassword() {
+    currentPass.required = false;
+    password.required = false;
+    confirmPassword.required = false;
+    error_current_pass.classList.add('hidden');
+    error_pass.classList.add('hidden');
+    error_confirm_pass.classList.add('hidden');
+    document.getElementById('modal-changes-password').classList.remove('active');
+}
+
+async function compareCurrentPassword(value) {
+    const response = await fetch('/api/user/validate-password', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            password: value
+        })
+    });
+
+    return response.json();
+}
+
+async function changesPassword () {
+    const currentValid = await validateCurrentPassword();
+    const passValid = validatePassword();
+    const confirmValid = validateConfirmPassword();
+
+    if (!currentValid || !passValid || !confirmValid) {
+        return;
+    }
+
+    const data = {
+        password: document.getElementById('f-new-password').value.trim(),
+    }
+
+    const response = await fetch('/api/user/update-password/' + USER_ID, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+        closeModalChangesPassword();
+    }
 }
 
 // ── Hamburger menu ────────────────────────────────────────────────
@@ -198,6 +350,7 @@ function toggleMobileNav() {
     btn.classList.toggle('open', isOpen);
     if (overlay) overlay.classList.toggle('open', isOpen);
 }
+
 function closeMobileNav() {
     const nav = document.getElementById('pixo-mobile-nav');
     const btn = document.getElementById('pixo-hamburger');
@@ -207,5 +360,6 @@ function closeMobileNav() {
     if (btn) btn.classList.remove('open');
     if (overlay) overlay.classList.remove('open');
 }
+
 </script>
 </html>

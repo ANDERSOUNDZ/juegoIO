@@ -303,3 +303,31 @@ def api_delete_user(uid):
     db.session.delete(user)
     db.session.commit()
     return jsonify(ok=True)
+
+@auth_bp.route('/api/user/validate-password', methods=['POST'])
+@login_required
+def api_validate_password():
+    data = request.get_json()
+    if not data:
+        return jsonify(error='JSON requerido'), 400
+    if not current_user.check_password(data['password']):
+        return jsonify(valid=False)
+
+    return jsonify(valid=True)
+
+@auth_bp.route('/api/user/update-password/<int:uid>', methods=['PUT'])
+@login_required
+def api_update_password(uid):
+    data = request.get_json()
+    if not data:
+        return jsonify(error='JSON requerido'), 400
+    if current_user.id != uid:
+        return jsonify(error='No autorizado'), 403
+    user = UserModel.query.get(uid)
+    if not user:
+        return jsonify(error='Usuario no encontrado'), 404
+    if 'password' in data and data['password']:
+        user.set_password(data['password'])
+    db.session.commit()
+    return jsonify(success=True)
+
