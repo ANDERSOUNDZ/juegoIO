@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from src.infrastructure.web.middleware import role_required
 from src.application.game_service import GameService
 from src.infrastructure.persistence.repositories import GameRepository, PlayerGameConfigRepository
-from games.registry import get_game_info
+from src.config.game_registry import get_game_info
 
 main_bp = Blueprint('pages', __name__)
 _game_service = GameService(GameRepository(), PlayerGameConfigRepository())

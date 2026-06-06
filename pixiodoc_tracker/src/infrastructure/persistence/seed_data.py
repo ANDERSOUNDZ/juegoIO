@@ -228,14 +228,14 @@ WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 3');
 -- Juego de UN solo botón: aletear = A. Ideal para terapia de un dedo.
 INSERT INTO games (name, description, game_type, config)
 SELECT 'Flappy Bird',
-       'Flappy Bird de NES corriendo con Nostalgist.js y controlado por gestos. Un solo botón: cierra el índice para aletear (A); meñique = START.',
+       'Flappy Bird de NES corriendo con Nostalgist.js y controlado por gestos. Solo el índice tiene asignación (START); el resto de dedos sin asignar.',
        'emulator',
        '{
          "version": "1.0",
          "metadata": {
            "name": "Flappy Bird",
            "type": "emulator",
-           "targetFingers": [1, 4],
+           "targetFingers": [1],
            "difficulty": "easy",
            "description": "Flappy Bird (NES) en emulador, control por gestos.",
            "estimatedDuration": 600
@@ -247,10 +247,46 @@ SELECT 'Flappy Bird',
            "tapButtons": ["start", "select"]
          },
          "controls": {
-           "fingerMap": { "0": "a", "1": "a", "2": "a", "3": "a", "4": "start" },
+           "fingerMap": { "0": "none", "1": "start", "2": "none", "3": "none", "4": "none" },
            "keyboardFallback": true
          }
        }'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Flappy Bird');
+
+-- ─── JUEGO: D-Pad Hero 2 (NES, emulador genérico) ──────────────
+-- Requiere la ROM en static/roms/dpadhero2.nes (servida en /static/roms/dpadhero2.nes).
+-- Juego de ritmo (tipo Guitar Hero): las notas caen en 4 carriles = cruceta.
+-- Mapea a una mano: 4 dedos = 4 direcciones, pulgar = A (menús/seleccionar).
+INSERT INTO games (name, description, game_type, config)
+SELECT 'D-Pad Hero 2',
+       'D-Pad Hero 2 de NES corriendo con Nostalgist.js y controlado por gestos. Configurado a 2 manos: Mano 1 = cruceta (índice=arriba, medio=abajo, anular=izquierda, meñique=derecha) + pulgar=A; Mano 2 = START/SELECT.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "D-Pad Hero 2",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "D-Pad Hero 2 (NES) en emulador, juego de ritmo por gestos.",
+           "estimatedDuration": 1200
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/dpadhero2.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "hands": 2,
+           "fingerMap": { "0": "a", "1": "up", "2": "down", "3": "left", "4": "right" },
+           "fingerMaps": [
+             { "0": "a", "1": "up", "2": "down", "3": "left", "4": "right" },
+             { "0": "start", "1": "select", "2": "a", "3": "none", "4": "none" }
+           ],
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'D-Pad Hero 2');
 
 """

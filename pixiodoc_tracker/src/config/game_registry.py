@@ -8,8 +8,9 @@
         'label': 'Emulador Retro',
         'type': 'emulator',
     },
+    # Juegos Phaser: se renderizan con templates/play.html directamente
+    # (no usan una carpeta propia aquí), por eso no llevan 'dir'.
     'platformer': {
-        'dir': 'therapeutic',
         'label': 'Juegos Terapeuticos',
         'type': 'phaser',
     },
