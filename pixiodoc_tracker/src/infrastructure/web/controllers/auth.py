@@ -68,25 +68,8 @@ def login():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('pages.dashboard'))
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip()
-        name = request.form.get('name', '').strip()
-        lastname = request.form.get('lastname', '').strip()
-        password = request.form.get('password', '')
-        role = request.form.get('role', 'therapist')
-        if UserModel.query.filter_by(email=email).first():
-            flash('El email ya está registrado', 'error')
-            return render_template('register.html')
-        user = UserModel(email=email, name=name, lastname=lastname)
-        _set_role_id(user, role)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
-        login_user(user)
-        return redirect(url_for('pages.dashboard'))
-    return render_template('register.html')
+    flash('El registro público está deshabilitado. Contacta al administrador.', 'error')
+    return redirect(url_for('auth.login'))
 
 
 @auth_bp.route('/logout')

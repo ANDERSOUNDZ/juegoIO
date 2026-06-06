@@ -544,7 +544,8 @@
                     body: JSON.stringify({ score: score }),
                 });
             }
-            window.location.href = SESSION_ID ? ('/sessions/' + SESSION_ID + '/report') : '/games';
+            var isPatient = document.body.dataset.role === '3';
+            window.location.href = isPatient ? '/dashboard' : (SESSION_ID ? ('/sessions/' + SESSION_ID + '/report') : '/games');
         })();
     }
 

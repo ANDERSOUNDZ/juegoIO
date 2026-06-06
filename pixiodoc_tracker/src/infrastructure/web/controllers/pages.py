@@ -68,6 +68,8 @@ def play_game(game_id):
 @main_bp.route('/sessions/<int:sid>/report')
 @login_required
 def session_report(sid):
+    if current_user.role_id == 3:
+        return redirect(url_for('pages.games_page'))
     return render_template('report.html', session_id=sid)
 
 

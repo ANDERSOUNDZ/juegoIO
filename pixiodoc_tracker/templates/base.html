@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/pixo.css') }}">
     {% block head %}{% endblock %}
 </head>
-<body data-theme="light">
+<body data-theme="light" data-role="{{ current_user.role_id if current_user.is_authenticated else '' }}">
 
     {% if current_user.is_authenticated %}
     <!-- NAV (estado activo segun request.endpoint) -->
