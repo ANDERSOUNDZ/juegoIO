@@ -101,6 +101,101 @@ class SessionService:
             'game_name': game.name if game else None,
         }
 
+    def get_analytics(self, session_id: int) -> dict:
+        s = self.get_by_id(session_id)
+        events = self._event_repo.find_by_session_id(session_id)
+
+        finger_names = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique']
+
+        by_finger = {}
+        for e in events:
+            by_finger.setdefault(e.finger_index, []).append(e)
+
+        ts_list = [e.timestamp for e in events if e.timestamp]
+        if ts_list:
+            t_start = min(ts_list).timestamp()
+            t_end = max(ts_list).timestamp()
+            duration = t_end - t_start
+        else:
+            t_start = t_end = duration = 0.0
+
+        metrics = {}
+        total_functional = 0.0
+        active_count = 0
+        issues = []
+
+        for i in range(5):
+            fevents = by_finger.get(i, [])
+            has_data = len(fevents) > 0
+
+            if has_data:
+                ys = [e.landmark_y for e in fevents if e.landmark_y is not None]
+                rom = round(max(ys) - min(ys), 4) if ys else 0.0
+
+                if duration > 0:
+                    mid_t = t_start + duration / 2
+                    first_half = sum(1 for e in fevents if e.state == 1 and e.timestamp and e.timestamp.timestamp() <= mid_t)
+                    second_half = sum(1 for e in fevents if e.state == 1 and e.timestamp and e.timestamp.timestamp() > mid_t)
+                    fatigue_pct = max(0, round((first_half - second_half) / max(first_half, 1) * 100)) if first_half > 0 else 0
+                else:
+                    fatigue_pct = 0
+
+                pressed_xs = [e.landmark_x for e in fevents if e.state == 1 and e.landmark_x is not None]
+                if len(pressed_xs) > 1:
+                    mean_x = sum(pressed_xs) / len(pressed_xs)
+                    tremor = round((sum((x - mean_x) ** 2 for x in pressed_xs) / len(pressed_xs)) ** 0.5, 4)
+                else:
+                    tremor = 0.0
+
+                active_count += 1
+                total_functional += rom * 1000
+                if rom < 0.05:
+                    issues.append(f'{finger_names[i]}: ROM reducido')
+                if fatigue_pct > 25:
+                    issues.append(f'{finger_names[i]}: señal de fatiga')
+            else:
+                rom = fatigue_pct = tremor = 0.0
+
+            metrics[str(i)] = {
+                'name': finger_names[i],
+                'rom': rom,
+                'reaction_time': None,
+                'fatigue': fatigue_pct,
+                'tremor': tremor,
+                'has_data': has_data,
+            }
+
+        avg_rom_score = min((total_functional / max(active_count, 1)) / 10, 60)
+        total_activations = sum(sum(1 for e in evs if e.state == 1) for evs in by_finger.values())
+        act_score = min(total_activations / 2, 40)
+        functional_score = round(avg_rom_score + act_score)
+
+        indep_score = round(active_count / 5 * 100)
+        if indep_score >= 80:
+            status = 'Alta independencia digital'
+        elif indep_score >= 40:
+            status = 'Independencia parcial'
+        else:
+            status = 'Baja independencia digital'
+
+        metrics['independence'] = {'score': indep_score, 'issues': issues, 'status': status}
+
+        if functional_score >= 70:
+            interp = 'El paciente mostró buena funcionalidad general. Los rangos de movimiento son consistentes con progreso en rehabilitación.'
+        elif functional_score >= 40:
+            interp = 'Funcionalidad moderada registrada. Se recomienda continuar con los ejercicios y revisar sensibilidad si hay dedos inactivos.'
+        else:
+            interp = 'Actividad limitada detectada. Puede indicar inicio del programa o necesidad de ajustar la sensibilidad del dispositivo.'
+        if issues:
+            interp += ' Áreas de atención: ' + '; '.join(issues[:3]) + '.'
+
+        return {
+            'functional_score': functional_score,
+            'previous_session': None,
+            'metrics': metrics,
+            'interpretation': interp,
+        }
+
     def get_report(self, session_id):
         s = self.get_by_id(session_id)
         events = self._event_repo.find_by_session_id(session_id)

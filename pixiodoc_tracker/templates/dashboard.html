@@ -82,6 +82,7 @@ async function loadDashboard() {
         if (USER_ROLE !== '3') {
             patients = await fetch('/api/patients').then(r => r.json());
             sessions = await fetch('/api/sessions').then(r => r.json());
+            console.log('[dashboard] sessions (non-patient):', sessions);
             document.getElementById('stat-patients').textContent = patients.patients.length;
 
             const rp = document.getElementById('recent-patients');
@@ -100,6 +101,7 @@ async function loadDashboard() {
             }
         } else {
             sessions = await fetch(`/api/sessions?patient_id=${PATIENT_ID}`).then(r => r.json());
+            console.log('[dashboard] patient sessions for PATIENT_ID=' + PATIENT_ID + ':', sessions);
         }
 
         document.getElementById('stat-sessions').textContent = sessions.length;
@@ -116,7 +118,7 @@ async function loadDashboard() {
                         <div class="t">${s.game_name || 'Juego'}</div>
                         <div class="d">Score: ${s.score || 0} · ${date}</div>
                     </div>
-                    <span class="ui label score">${s.score || 0}</span>
+                    <a href="/sessions/${s.id}/report" class="ui mini basic button">Ver reporte</a>
                 </div>`;
             }).join('');
         }

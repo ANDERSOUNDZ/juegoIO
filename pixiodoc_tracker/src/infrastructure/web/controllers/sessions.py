@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
 
 from src.application.session_service import SessionService
@@ -130,3 +130,62 @@ def get_report(sid):
         return jsonify(**report)
     except NotFoundError:
         return jsonify(error='Sesión no encontrada'), 404
+
+
+@sessions_bp.route('/<int:sid>/analytics', methods=['GET'])
+@login_required
+def get_analytics(sid):
+    try:
+        analytics = _service.get_analytics(sid)
+        return jsonify(**analytics)
+    except NotFoundError:
+        return jsonify(error='Sesión no encontrada'), 404
+
+
+@sessions_bp.route('/<int:sid>/report/pdf', methods=['GET'])
+@login_required
+def get_report_pdf(sid):
+    try:
+        report = _service.get_report(sid)
+        analytics = _service.get_analytics(sid)
+    except NotFoundError:
+        return jsonify(error='Sesión no encontrada'), 404
+
+    session = report['session']
+    patient = PatientRepository().find_by_id(session.get('patient_id')) if session.get('patient_id') else None
+
+    finger_names = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique']
+    act_map = {f['finger_index']: f['active_count'] for f in report['finger_stats']}
+    finger_rows = []
+    for i in range(5):
+        m = analytics['metrics'].get(str(i), {})
+        has = m.get('has_data', False)
+        rom_val = m.get('rom', 0.0)
+        fat_val = m.get('fatigue', 0)
+        trem_val = m.get('tremor', 0.0)
+        alert = (rom_val < 0.05 and has) or fat_val > 25 or trem_val > 0.015
+        finger_rows.append({
+            'name': finger_names[i],
+            'alert': alert,
+            'rom': round(rom_val, 4) if has else '-',
+            'reaction': '-',
+            'fatigue': f'{fat_val}%' if has else '-',
+            'tremor': round(trem_val, 4) if has else '-',
+            'activations': act_map.get(i, 0),
+        })
+
+    indep = analytics['metrics'].get('independence', {'score': 0, 'issues': [], 'status': '-'})
+
+    return render_template('report_pdf.html',
+        patient_name=patient.name if patient else 'Paciente',
+        patient_age=patient.age if patient and patient.age else '-',
+        patient_diagnosis=patient.diagnosis if patient and patient.diagnosis else '-',
+        game_name=session.get('game_name') or '-',
+        date=session.get('started_at') or '',
+        duration=report.get('duration_seconds'),
+        functional_score=analytics.get('functional_score', 0),
+        previous_session=analytics.get('previous_session'),
+        finger_rows=finger_rows,
+        independence=indep,
+        interpretation=analytics.get('interpretation', ''),
+    )
