@@ -53,9 +53,9 @@ class PatientService:
                 setattr(p, field, data[field])
         return self._patient_repo.save(p)
 
-    def transfer(self, patient_id: int, new_user_id: int) -> Patient:
+    def transfer(self, patient_id: int, new_therapist_id: int) -> Patient:
         p = self.get_by_id(patient_id)
-        p.user_id = new_user_id
+        p.therapist_id = new_therapist_id
         return self._patient_repo.save(p)
 
     def delete(self, patient_id: int) -> None:
