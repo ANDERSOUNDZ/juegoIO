@@ -82,6 +82,10 @@ def register():
         _set_role_id(user, 'patient')
         user.set_password(password)
         db.session.add(user)
+        db.session.flush()
+        patient = PatientModel(user_id=user.id, therapist_id=None,
+                               name=name, lastname=lastname, document='')
+        db.session.add(patient)
         db.session.commit()
         login_user(user)
         return redirect(url_for('pages.dashboard'))
@@ -114,15 +118,22 @@ def api_register():
         return jsonify(error='JSON requerido'), 400
     email = data.get('email', '').strip()
     name = data.get('name', '').strip()
+    lastname = data.get('lastname', '').strip()
     password = data.get('password', '')
     if not all([email, name, password]):
         return jsonify(error='email, name y password son requeridos'), 400
     if UserModel.query.filter_by(email=email).first():
         return jsonify(error='El email ya está registrado'), 409
-    user = UserModel(email=email, name=name)
-    _set_role_id(user, data.get('role', 'therapist'))
+    role_name = data.get('role', 'therapist')
+    user = UserModel(email=email, name=name, lastname=lastname or name)
+    _set_role_id(user, role_name)
     user.set_password(password)
     db.session.add(user)
+    db.session.flush()
+    if role_name == 'patient':
+        patient = PatientModel(user_id=user.id, therapist_id=None,
+                               name=name, lastname=lastname or name, document='')
+        db.session.add(patient)
     db.session.commit()
     login_user(user)
     return jsonify(id=user.id, name=user.name, email=user.email, role=user.role), 201
