@@ -155,4 +155,102 @@ UPDATE games SET config = (config::jsonb || jsonb_build_object('sprites', jsonb_
 )))::json
 WHERE name = 'Pumpkin Panic - Granja Embrujada' AND config->>'sprites' IS NULL;
 
+-- ─── JUEGO: Prince of Persia (NES, emulador genérico) ──────────
+-- Requiere la ROM en static/roms/prince.nes (servida en /static/roms/prince.nes).
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Prince of Persia',
+       'El clásico Prince of Persia de NES corriendo con Nostalgist.js y controlado por gestos. Configurado a 2 manos: Mano 1 = dpad + start, Mano 2 = A(salto)/B(espada).',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Prince of Persia",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Prince of Persia (NES) en emulador, control por gestos.",
+           "estimatedDuration": 3600
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/prince.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "hands": 2,
+           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
+           "fingerMaps": [
+             { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
+             { "0": "a", "1": "b", "2": "none", "3": "none", "4": "none" }
+           ],
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Prince of Persia');
+
+-- ─── JUEGO: Super Mario Bros. 3 (NES, emulador genérico) ───────
+-- Requiere la ROM en static/roms/smb3.nes (servida en /static/roms/smb3.nes).
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Super Mario Bros. 3',
+       'El clásico Super Mario Bros. 3 de NES corriendo con Nostalgist.js y controlado por gestos. Pulgar=izquierda, índice=A(salto), medio=derecha, anular=B(correr), meñique=START.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Super Mario Bros. 3",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Super Mario Bros. 3 (NES) en emulador, control por gestos.",
+           "estimatedDuration": 3600
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/smb3.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "hands": 2,
+           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
+           "fingerMaps": [
+             { "0": "left", "1": "right", "2": "up", "3": "down", "4": "select" },
+             { "0": "a", "1": "b", "2": "start", "3": "none", "4": "none" }
+           ],
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 3');
+
+-- ─── JUEGO: Flappy Bird (NES, emulador genérico) ───────────────
+-- Requiere la ROM en static/roms/flappy.nes (servida en /static/roms/flappy.nes).
+-- Juego de UN solo botón: aletear = A. Ideal para terapia de un dedo.
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Flappy Bird',
+       'Flappy Bird de NES corriendo con Nostalgist.js y controlado por gestos. Un solo botón: cierra el índice para aletear (A); meñique = START.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Flappy Bird",
+           "type": "emulator",
+           "targetFingers": [1, 4],
+           "difficulty": "easy",
+           "description": "Flappy Bird (NES) en emulador, control por gestos.",
+           "estimatedDuration": 600
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/flappy.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "fingerMap": { "0": "a", "1": "a", "2": "a", "3": "a", "4": "start" },
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Flappy Bird');
+
 """

@@ -1,14 +1,4 @@
 ﻿GAMES = {
-    'prince': {
-        'dir': 'prince',
-        'label': 'Prince of Persia',
-        'type': 'wasm',
-    },
-    'smb3': {
-        'dir': 'smb3',
-        'label': 'Super Mario Bros. 3',
-        'type': 'emulator',
-    },
     # Tipo genérico y reutilizable para CUALQUIER ROM de emulador (NES, SNES,
     # GB, GBA, Genesis, …) vía Nostalgist.js. Para agregar un juego nuevo basta
     # una fila en `games` con metadata.type == 'emulator' y el bloque config
