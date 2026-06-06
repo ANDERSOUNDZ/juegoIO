@@ -19,11 +19,33 @@ def _run_migrations(app):
                 for name, desc in [
                     ('admin',      'Acceso total al sistema'),
                     ('therapist',  'Gestión de pacientes y sesiones'),
-                    ('viewer',     'Solo lectura de dashboards y reportes'),
                     ('patient',    'Acceso como paciente'),
+                    ('viewer',     'Solo lectura de dashboards y reportes'),
                 ]:
                     db.session.add(RoleModel(name=name, description=desc))
                 db.session.commit()
+
+            # Fix role ordering if patient/viewer were seeded in wrong order (patient=4, viewer=3)
+            db.session.execute(sa_text("""
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM roles WHERE name = 'patient' AND id = 4) THEN
+    INSERT INTO roles (id, name, description) VALUES
+      (30, '__viewer_tmp', 'temp'),
+      (40, '__patient_tmp', 'temp');
+    UPDATE users SET role_id = 30 WHERE role_id = 3;
+    UPDATE users SET role_id = 40 WHERE role_id = 4;
+    DELETE FROM roles WHERE id IN (3, 4);
+    INSERT INTO roles (id, name, description) VALUES
+      (3, 'patient', 'Acceso como paciente'),
+      (4, 'viewer', 'Solo lectura de dashboards y reportes');
+    UPDATE users SET role_id = 3 WHERE role_id = 40;
+    UPDATE users SET role_id = 4 WHERE role_id = 30;
+    DELETE FROM roles WHERE id IN (30, 40);
+  END IF;
+END $$;
+"""))
+            db.session.commit()
 
             db.session.execute(sa_text(SEED_SQL))
             db.session.commit()
