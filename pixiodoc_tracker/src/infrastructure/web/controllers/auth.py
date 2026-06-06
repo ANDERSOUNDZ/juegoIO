@@ -190,14 +190,16 @@ def get_user(pid):
 @login_required
 @role_required(1)
 def api_list_users():
-    users = (
-        UserModel.query
-        .filter(UserModel.role_id.in_([1, 2]))
-        .order_by(UserModel.name)
-        .all()
-    )
+    users = UserModel.query.order_by(UserModel.role_id, UserModel.name).all()
+    def _patient_id(u):
+        p = PatientModel.query.filter_by(user_id=u.id).first()
+        return p.id if p else None
     return jsonify([
-        dict(id=u.id, name=u.name, lastname=u.lastname, email=u.email, role=u.role_rel.name, created_at=u.created_at.isoformat() if u.created_at else None)
+        dict(id=u.id, name=u.name, lastname=u.lastname, email=u.email,
+             role=u.role_rel.name if u.role_rel else 'unknown',
+             role_id=u.role_id,
+             patient_id=_patient_id(u) if u.role_id == 3 else None,
+             created_at=u.created_at.isoformat() if u.created_at else None)
         for u in users
     ])
 
@@ -285,6 +287,8 @@ def api_delete_user(uid):
         return jsonify(error='Usuario no encontrado'), 404
     if user.id == current_user.id:
         return jsonify(error='No puedes eliminarte a ti mismo'), 400
+    if user.role_id == 1:
+        return jsonify(error='Los administradores no pueden ser eliminados'), 403
     db.session.delete(user)
     db.session.commit()
     return jsonify(ok=True)

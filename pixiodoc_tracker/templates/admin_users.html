@@ -80,20 +80,37 @@ async function loadUsers() {
         return;
     }
 
-    const roleLabels = { admin: 'Administrador', therapist: 'Terapeuta' };
+    const roleLabels = {
+        admin:     { label: 'Administrador', cls: 'green' },
+        therapist: { label: 'Terapeuta',     cls: 'blue'  },
+        patient:   { label: 'Paciente',      cls: ''      },
+        viewer:    { label: 'Viewer',        cls: ''      },
+    };
 
     tbody.innerHTML = users.map(u => {
         const date = u.created_at ? new Date(u.created_at).toLocaleDateString('es') : '-';
+        const rl = roleLabels[u.role] || { label: u.role, cls: '' };
+        const isAdmin   = u.role_id === 1;
+        const isPatient = u.role_id === 3;
+        const nameEsc   = u.name.replace(/'/g, "\\'");
+        const lastEsc   = u.lastname.replace(/'/g, "\\'");
+        const emailEsc  = u.email.replace(/'/g, "\\'");
+
+        const editBtn = !isPatient
+            ? `<button class="ui mini basic button" onclick="editUser(${u.id},'${nameEsc}','${lastEsc}','${emailEsc}','${u.role}')"><svg class="ic"><use href="#i-edit"/></svg>Editar</button>`
+            : (u.patient_id ? `<a href="/patients/${u.patient_id}" class="ui mini basic button">Ver perfil</a>` : '');
+
+        const deleteBtn = (!isAdmin && !isPatient)
+            ? `<button class="ui mini basic red button" onclick="deleteUser(${u.id})"><svg class="ic"><use href="#i-trash"/></svg>Eliminar</button>`
+            : '';
+
         return `<tr>
             <td style="font-weight:700;">${u.name}</td>
             <td style="font-weight:700;">${u.lastname}</td>
             <td>${u.email}</td>
-            <td><span class="ui basic label ${u.role === 'admin' ? 'green' : 'blue'}">${roleLabels[u.role] || u.role}</span></td>
+            <td><span class="ui basic label ${rl.cls}">${rl.label}</span></td>
             <td>${date}</td>
-            <td class="right aligned">
-                <button class="ui mini basic button" onclick="editUser(${u.id}, '${u.name.replace(/'/g, "\\'")}', '${u.lastname.replace(/'/g, "\\'")}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')"><svg class="ic"><use href="#i-edit"/></svg>Editar</button>
-                <button class="ui mini basic red button" onclick="deleteUser(${u.id})"><svg class="ic"><use href="#i-trash"/></svg>Eliminar</button>
-            </td>
+            <td class="right aligned">${editBtn}${deleteBtn}</td>
         </tr>`;
     }).join('');
 }
