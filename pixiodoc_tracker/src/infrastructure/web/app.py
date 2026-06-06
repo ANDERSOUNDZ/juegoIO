@@ -12,6 +12,7 @@ def _run_migrations(app):
     """Run idempotent DB migrations on startup."""
     with app.app_context():
         try:
+            db.create_all()
             db.session.execute(sa_text("""
                 DO $$ BEGIN
                     IF NOT EXISTS (
