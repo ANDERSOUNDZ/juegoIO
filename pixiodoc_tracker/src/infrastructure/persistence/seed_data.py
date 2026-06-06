@@ -155,4 +155,138 @@ UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_ob
 ))
 WHERE name = 'Pumpkin Panic - Granja Embrujada' AND NOT (config ? 'sprites');
 
+-- ─── JUEGO: Prince of Persia (NES, emulador genérico) ──────────
+-- Requiere la ROM en static/roms/prince.nes (servida en /static/roms/prince.nes).
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Prince of Persia',
+       'El clásico Prince of Persia de NES corriendo con Nostalgist.js y controlado por gestos. Configurado a 2 manos: Mano 1 = dpad + start, Mano 2 = A(salto)/B(espada).',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Prince of Persia",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Prince of Persia (NES) en emulador, control por gestos.",
+           "estimatedDuration": 3600
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/prince.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "hands": 2,
+           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
+           "fingerMaps": [
+             { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
+             { "0": "a", "1": "b", "2": "none", "3": "none", "4": "none" }
+           ],
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Prince of Persia');
+
+-- ─── JUEGO: Super Mario Bros. 3 (NES, emulador genérico) ───────
+-- Requiere la ROM en static/roms/smb3.nes (servida en /static/roms/smb3.nes).
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Super Mario Bros. 3',
+       'El clásico Super Mario Bros. 3 de NES corriendo con Nostalgist.js y controlado por gestos. Pulgar=izquierda, índice=A(salto), medio=derecha, anular=B(correr), meñique=START.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Super Mario Bros. 3",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Super Mario Bros. 3 (NES) en emulador, control por gestos.",
+           "estimatedDuration": 3600
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/smb3.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "hands": 2,
+           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
+           "fingerMaps": [
+             { "0": "left", "1": "right", "2": "up", "3": "down", "4": "select" },
+             { "0": "a", "1": "b", "2": "start", "3": "none", "4": "none" }
+           ],
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 3');
+
+-- ─── JUEGO: Flappy Bird (NES, emulador genérico) ───────────────
+-- Requiere la ROM en static/roms/flappy.nes (servida en /static/roms/flappy.nes).
+-- Juego de UN solo botón: aletear = A. Ideal para terapia de un dedo.
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Flappy Bird',
+       'Flappy Bird de NES corriendo con Nostalgist.js y controlado por gestos. Solo el índice tiene asignación (START); el resto de dedos sin asignar.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Flappy Bird",
+           "type": "emulator",
+           "targetFingers": [1],
+           "difficulty": "easy",
+           "description": "Flappy Bird (NES) en emulador, control por gestos.",
+           "estimatedDuration": 600
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/flappy.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "fingerMap": { "0": "none", "1": "start", "2": "none", "3": "none", "4": "none" },
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Flappy Bird');
+
+-- ─── JUEGO: D-Pad Hero 2 (NES, emulador genérico) ──────────────
+-- Requiere la ROM en static/roms/dpadhero2.nes (servida en /static/roms/dpadhero2.nes).
+-- Juego de ritmo (tipo Guitar Hero): las notas caen en 4 carriles = cruceta.
+-- Mapea a una mano: 4 dedos = 4 direcciones, pulgar = A (menús/seleccionar).
+INSERT INTO games (name, description, game_type, config)
+SELECT 'D-Pad Hero 2',
+       'D-Pad Hero 2 de NES corriendo con Nostalgist.js y controlado por gestos. Configurado a 2 manos: Mano 1 = cruceta (índice=arriba, medio=abajo, anular=izquierda, meñique=derecha) + pulgar=A; Mano 2 = START/SELECT.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "D-Pad Hero 2",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "D-Pad Hero 2 (NES) en emulador, juego de ritmo por gestos.",
+           "estimatedDuration": 1200
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/dpadhero2.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "hands": 2,
+           "fingerMap": { "0": "a", "1": "up", "2": "down", "3": "left", "4": "right" },
+           "fingerMaps": [
+             { "0": "a", "1": "up", "2": "down", "3": "left", "4": "right" },
+             { "0": "start", "1": "select", "2": "a", "3": "none", "4": "none" }
+           ],
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'D-Pad Hero 2');
+
 """
