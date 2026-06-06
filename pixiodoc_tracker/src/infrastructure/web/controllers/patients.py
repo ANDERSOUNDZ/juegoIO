@@ -56,7 +56,8 @@ def list_patients():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     per_page = min(per_page, 50)
-    result = _service.list_by_user_paginated(current_user.id, page, per_page, user_role=current_user.role_rel.name)
+    user_role = current_user.role_rel.name if current_user.role_rel else 'therapist'
+    result = _service.list_by_user_paginated(current_user.id, page, per_page, user_role=user_role)
     return jsonify(
         patients=[_patient_to_dict(p) for p in result['items']],
         total=result['total'],

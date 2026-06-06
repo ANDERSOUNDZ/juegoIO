@@ -33,7 +33,8 @@ def _session_to_dict(s):
 def list_sessions():
     patient_id = request.args.get('patient_id', type=int)
     game_id = request.args.get('game_id', type=int)
-    sessions = _service.list_by_user(current_user.id, patient_id, game_id, user_role=current_user.role_rel.name)
+    user_role = current_user.role_rel.name if current_user.role_rel else 'therapist'
+    sessions = _service.list_by_user(current_user.id, patient_id, game_id, user_role=user_role)
     return jsonify([_session_to_dict(s) for s in sessions])
 
 
