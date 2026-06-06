@@ -52,7 +52,7 @@ def play_game(game_id):
             gtype = game.config.get('metadata', {}).get('type', 'platformer')
             info = get_game_info(gtype)
             # Los juegos Phaser usan play.html (ref-hand, calibración, acciones
-            # filtradas); prince/smb3 mantienen su propio template.
+            # filtradas); los de emulador usan emulator/template.html (Nostalgist).
             if info.get('type') == 'phaser':
                 return render_template('play.html', game_id=game_id)
             return render_template(info['dir'] + '/template.html', game_id=game_id)
