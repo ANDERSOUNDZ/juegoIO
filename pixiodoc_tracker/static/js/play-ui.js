@@ -409,8 +409,8 @@
             var missed = 0;
             var end = Date.now() + 1800;
             while (Date.now() < end) {
-                if (handInput.handPresent) {
-                    var d = handInput.getRawDiffs();
+                if (handInput.isHandPresent(refHighlightHand)) {
+                    var d = handInput.getRawDiffs(refHighlightHand);
                     for (var i = 0; i < 5; i++) samples[i].push(d[i]);
                 } else { missed++; }
                 await wait(30);
