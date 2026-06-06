@@ -290,19 +290,56 @@ async function selectPatient(patientId, patientName) {
     const optsDiv = document.getElementById('sens-options');
     choiceDiv.style.display = 'block';
 
+    const isPatient = document.body.dataset.role === '3';
+    const hasPersonalSens = sens && sens.sensitivities && sens.sensitivities.length > 0;
+    const hasPresets = Array.isArray(presets) && presets.length > 0;
+
     let html = '';
-    if (sens.sensitivities) {
+
+    if (!hasPersonalSens) {
+        if (isPatient) {
+            html += `<div class="ui warning message" style="margin-bottom:12px;">
+                <p><strong>Sin sensibilidad configurada.</strong> Tu terapeuta aún no ha configurado tu perfil.
+                ${hasPresets ? 'Puedes jugar usando un perfil predefinido de abajo.' : 'Contacta a tu terapeuta para que configure tu perfil antes de jugar.'}</p>
+            </div>`;
+        } else {
+            html += `<div class="ui warning message" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <p style="margin:0;"><strong>${patientName}</strong> no tiene sensibilidad configurada.</p>
+                <a href="/patients/${patientId}" class="ui mini primary button" style="white-space:nowrap;">
+                    <svg class="ic"><use href="#i-settings"/></svg> Configurar
+                </a>
+            </div>`;
+        }
+    }
+
+    if (hasPersonalSens) {
         html += '<div class="choice-card current" onclick="startGame(' + patientId + ', ' + JSON.stringify(sens.sensitivities) + ')">'
             + '<span class="text-accent" style="font-weight:700;">Config actual de ' + patientName + '</span>'
             + '<span class="ui basic label">' + sens.sensitivities.join(', ') + '</span>'
             + '</div>';
     }
-    html += presets.map(p =>
-        '<div class="choice-card" onclick="startGame(' + patientId + ', ' + JSON.stringify(p.sensitivities) + ')">'
-        + '<span style="font-weight:700;">' + p.name + '</span>'
-        + '<span class="ui basic label">' + p.sensitivities.join(', ') + '</span>'
-        + '</div>'
-    ).join('');
+
+    if (hasPresets) {
+        if (hasPersonalSens) {
+            html += '<p style="margin:10px 0 6px;font-size:.85rem;color:var(--muted);">O elige un perfil predefinido:</p>';
+        }
+        html += presets.map(p =>
+            '<div class="choice-card" onclick="startGame(' + patientId + ', ' + JSON.stringify(p.sensitivities) + ')">'
+            + '<span style="font-weight:700;">' + p.name + '</span>'
+            + '<span class="ui basic label">' + p.sensitivities.join(', ') + '</span>'
+            + '</div>'
+        ).join('');
+    }
+
+    if (!hasPersonalSens && !hasPresets) {
+        html += `<div class="empty-state" style="padding:18px;text-align:center;">
+            <p class="muted" style="margin:0;">${isPatient
+                ? 'No hay perfiles disponibles. Contacta a tu terapeuta.'
+                : '<a href="/patients/' + patientId + '" style="font-weight:700;">Configura la sensibilidad del paciente</a> para poder jugar.'
+            }</p>
+        </div>`;
+    }
+
     optsDiv.innerHTML = html;
 }
 
