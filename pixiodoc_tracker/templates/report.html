@@ -14,7 +14,7 @@
     </div>
     <div class="acts">
         <a href="/api/sessions/{{ session_id }}/report/pdf" target="_blank" class="ui primary button"><svg class="ic"><use href="#i-download"/></svg>Descargar PDF</a>
-        <a href="javascript:history.back()" class="ui basic button"><svg class="ic"><use href="#i-arrow-left"/></svg>Volver</a>
+        <a href="{{ url_for('pages.dashboard') }}" class="ui basic button"><svg class="ic"><use href="#i-arrow-left"/></svg>Volver al inicio</a>
     </div>
 </div>
 

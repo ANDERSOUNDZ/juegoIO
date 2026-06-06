@@ -1958,8 +1958,8 @@ function createGameOverScene(config, handInput, onGameOver) {
             const W = this.scale.width;
             const H = this.scale.height;
             const cfg = this.won
-                ? { title: gameOverCfg.winTitle || 'GANASTE!', titleColor: gameOverCfg.winTitleColor || '#3ddc97', prompt: gameOverCfg.winPrompt || 'SPACE / Click para salir' }
-                : { title: gameOverCfg.loseTitle || 'GAME OVER', titleColor: gameOverCfg.loseTitleColor || '#ff5c8a', prompt: gameOverCfg.losePrompt || 'SPACE / Cierra un dedo para reiniciar' };
+                ? { title: gameOverCfg.winTitle || 'GANASTE!', titleColor: gameOverCfg.winTitleColor || '#3ddc97', prompt: gameOverCfg.winPrompt || 'SPACE / Click para ver reporte' }
+                : { title: gameOverCfg.loseTitle || 'GAME OVER', titleColor: gameOverCfg.loseTitleColor || '#ff5c8a', prompt: gameOverCfg.losePrompt || 'SPACE / Click para ver reporte' };
 
             createOverlayScreen(this, {
                 title: cfg.title,
@@ -1976,10 +1976,8 @@ function createGameOverScene(config, handInput, onGameOver) {
                 delay: gameOverCfg.delay ?? 800,
                 handInput,
                 onTrigger: () => {
-                    if (this.won && onGameOver) {
+                    if (onGameOver) {
                         onGameOver(this.finalScore, this.won);
-                    } else {
-                        this.scene.start('PlayScene');
                     }
                 },
             });
