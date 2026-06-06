@@ -1711,6 +1711,43 @@ function createPlayScene(config, handInput) {
 
         // ── Platforms ──
 
+        /** Max height (px) the player can clear with one jump: v²/(2g). */
+        _maxJumpHeight() {
+            const g = Math.abs((config.physics?.gravity?.y) ?? 400) || 400;
+            const jf = Math.abs((entities.player?.jumpForce) ?? -350);
+            return (jf * jf) / (2 * g);
+        }
+
+        /** Horizontal distance the player can travel while rising one jump. */
+        _horizontalReach() {
+            const g = Math.abs((config.physics?.gravity?.y) ?? 400) || 400;
+            const jf = Math.abs((entities.player?.jumpForce) ?? -350);
+            const spd = (entities.player?.speed) ?? 160;
+            return Math.max(70, spd * (jf / g) * 1.1);
+        }
+
+        /** A vertical gap in [minGap, maxGap], clamped so it stays jumpable. */
+        _platGap(minGap, maxGap) {
+            const safeMax = Math.min(maxGap, this._maxJumpHeight() * 0.82);
+            const lo = Math.min(minGap, safeMax);
+            return lo + Math.random() * Math.max(0, safeMax - lo);
+        }
+
+        /**
+         * Pick the next platform x so it stays within horizontal jump reach of the
+         * previous one — guaranteeing the climb is always completable. Tracks
+         * `this._lastPlatX` across create() and _generateMore().
+         */
+        _nextPlatX(W, w) {
+            const reach = this._horizontalReach();
+            const prev = (this._lastPlatX != null) ? this._lastPlatX : W / 2;
+            const half = w / 2;
+            let x = prev + (Math.random() * 2 - 1) * reach;
+            x = Phaser.Math.Clamp(x, half, W - half);
+            this._lastPlatX = x;
+            return x;
+        }
+
         _createPlatforms() {
             const platCfg = entities.platforms;
             if (!platCfg) return;
@@ -1743,7 +1780,7 @@ function createPlayScene(config, handInput) {
                     for (let i = 0; i < count; i++) {
                         this._lastPlatY += minGap + Math.random() * (maxGap - minGap);
                         const w = (proc.minWidth || 60) + Math.random() * ((proc.maxWidth || 140) - (proc.minWidth || 60));
-                        const x = Math.random() * (W - w) + w / 2;
+                        const x = this._nextPlatX(W, w);
                         const p = this._createPlatformObj(x, this._lastPlatY, w, platH, color, platTex);
                         this.platforms.add(p);
                         p.body.updateFromGameObject();
@@ -1763,7 +1800,7 @@ function createPlayScene(config, handInput) {
                     for (let i = 0; i < count; i++) {
                         this._lastPlatY -= minGap + Math.random() * (maxGap - minGap);
                         const w = (proc.minWidth || 60) + Math.random() * ((proc.maxWidth || 140) - (proc.minWidth || 60));
-                        const x = Math.random() * (W - w) + w / 2;
+                        const x = this._nextPlatX(W, w);
                         const p = this._createPlatformObj(x, this._lastPlatY, w, platH, color, platTex);
                         this.platforms.add(p);
                         p.body.updateFromGameObject();
@@ -1831,7 +1868,7 @@ function createPlayScene(config, handInput) {
                 while (this._lastPlatY < targetY) {
                     this._lastPlatY += minGap + Math.random() * (maxGap - minGap);
                     const w = (proc.minWidth || 60) + Math.random() * ((proc.maxWidth || 140) - (proc.minWidth || 60));
-                    const x = Math.random() * (W - w) + w / 2;
+                    const x = this._nextPlatX(W, w);
                     const p = this._createPlatformObj(x, this._lastPlatY, w, platH, color, platTex);
                     this.platforms.add(p);
                     p.body.updateFromGameObject();
@@ -1847,7 +1884,7 @@ function createPlayScene(config, handInput) {
                 while (this._lastPlatY > this.cameras.main.scrollY - 200) {
                     this._lastPlatY -= minGap + Math.random() * (maxGap - minGap);
                     const w = (proc.minWidth || 60) + Math.random() * ((proc.maxWidth || 140) - (proc.minWidth || 60));
-                    const x = Math.random() * (W - w) + w / 2;
+                    const x = this._nextPlatX(W, w);
                     const p = this._createPlatformObj(x, this._lastPlatY, w, platH, color, platTex);
                     this.platforms.add(p);
                     p.body.updateFromGameObject();
@@ -2062,8 +2099,11 @@ function createPlayScene(config, handInput) {
                 enemy.body.setAllowGravity(gameType === 'topdown' ? false : true);
                 enemy.setData('ai', enemyCfg.ai || 'patrol');
                 enemy.setData('speed', speed);
-                enemy.setData('minX', 20);
-                enemy.setData('maxX', W - 20);
+                // Per-enemy patrol bounds (keeps a fixed enemy on its platform).
+                // Use pos.minX/maxX, or pos.range around x; default = full width.
+                const range = pos.range;
+                enemy.setData('minX', pos.minX ?? (range ? pos.x - range : 20));
+                enemy.setData('maxX', pos.maxX ?? (range ? pos.x + range : W - 20));
                 if (enemy.setPipeline) enemy.setPipeline('Light2D');
                 this.enemies.add(enemy);
                 }
