@@ -31,16 +31,7 @@ class HandInput {
         this.hands = [this._makeHand()];
         this.sensitivities = [[50, 50, 50, 50, 50]];        // una fila por mano
 
-        // ── Alias legacy (mano primaria = mano 0) ──
-        // Mantienen funcionando todo el código de una sola mano (prince/smb3/etc).
-        this.fingers = this.hands[0].fingers;
-        this.landmarks = null;
-        this.handPresent = false;
-        this.sensitivity = this.sensitivities[0];
-        this._lastDiffs = this.hands[0].diffs;
-
         this._onFrame = null;
-        this._onFingers = null;     // callback legacy: recibe los dedos de la mano 0
         this._onHands = null;       // callback multi-mano: recibe el arreglo de manos
         this._onConnect = null;
         this._video = null;
@@ -77,18 +68,10 @@ class HandInput {
         this.hands.length = n;
         while (this.sensitivities.length < n) this.sensitivities.push([50, 50, 50, 50, 50]);
         this.sensitivities.length = n;
-        // Re-anclar alias legacy a la mano 0
-        this.sensitivity = this.sensitivities[0];
-        this.fingers = this.hands[0].fingers;
         // Reconfigurar el modelo en caliente si ya existe
         if (this._handLandmarker && this._handLandmarker.setOptions) {
             try { this._handLandmarker.setOptions({ numHands: n }); } catch (e) {}
         }
-    }
-
-    /** Sensibilidad de la mano 0 (legacy). */
-    setSensitivity(arr) {
-        this.setSensitivityForHand(0, arr);
     }
 
     /** Sensibilidad de una mano concreta. */
@@ -96,7 +79,6 @@ class HandInput {
         if (!arr) return;
         if (!this.sensitivities[h]) this.sensitivities[h] = [50, 50, 50, 50, 50];
         this.sensitivities[h] = arr.map(s => Math.max(0, Math.min(100, s)));
-        if (h === 0) this.sensitivity = this.sensitivities[0];
     }
 
     /** Sensibilidad de todas las manos a la vez (arreglo de arreglos). */
@@ -147,10 +129,6 @@ class HandInput {
         this._onFrame = callback;
     }
 
-    onFingers(callback) {
-        this._onFingers = callback;
-    }
-
     /** Callback multi-mano: se invoca con el arreglo `this.hands` cada frame. */
     onHands(callback) {
         this._onHands = callback;
@@ -171,11 +149,16 @@ class HandInput {
         return this.hands.some(h => h.present && h.fingers.some(f => f === 1));
     }
 
+    /** ¿La mano h está presente en el frame actual? */
+    isHandPresent(h = 0) {
+        return !!(this.hands[h] && this.hands[h].present);
+    }
+
     /**
      * Resuelve las acciones del juego a partir de los dedos cerrados.
      *  - Si recibe un arreglo de fingerMaps → multi-mano: aplica fingerMaps[h] a la
      *    mano h y combina (OR) los resultados de todas las manos.
-     *  - Si recibe un solo objeto fingerMap → legacy: lo aplica a la mano 0.
+     *  - Si recibe un solo objeto fingerMap → lo aplica a la mano 0.
      */
     getMappedActions(fingerMaps) {
         const actions = { jump: false, right: false, left: false, up: false, down: false, interact: false };
@@ -193,7 +176,7 @@ class HandInput {
                 apply(this.hands[h].fingers, fingerMaps[h] || fingerMaps[0]);
             }
         } else {
-            apply(this.fingers, fingerMaps);  // legacy: solo mano 0
+            apply(this.hands[0].fingers, fingerMaps);  // objeto único → mano 0
         }
         return actions;
     }
@@ -223,7 +206,7 @@ class HandInput {
      *
      * IMPORTANTE: tasks-vision es un modulo Emscripten que lee el `window.Module`
      * global al instanciar su WASM. En paginas que tambien corren otro modulo
-     * Emscripten (p.ej. el juego Prince via prince.js, que define window.Module),
+     * Emscripten (p.ej. los juegos de emulador via Nostalgist, que define window.Module),
      * hay que invocar preload() ANTES de que ese otro modulo defina window.Module,
      * y mantener el landmarker vivo para no re-instanciarlo. Por eso esta separado
      * de connect() y disconnect() no lo destruye.
@@ -313,13 +296,6 @@ class HandInput {
             }
         }
 
-        // Sincronizar alias legacy con la mano primaria (mano 0)
-        this.fingers = this.hands[0].fingers;
-        this.landmarks = this.hands[0].landmarks;
-        this.handPresent = this.hands[0].present;
-        this._lastDiffs = this.hands[0].diffs;
-
-        if (this._onFingers) this._onFingers(this.hands[0].fingers);
         if (this._onHands) this._onHands(this.hands);
 
         this._recordStateChanges();  // registro de eventos: solo mano primaria

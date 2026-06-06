@@ -9,7 +9,7 @@
  *   "metadata": { "type": "emulator", ... },
  *   "emulator": {
  *     "core": "fceumm",            // core libretro (ver tabla en create-game.md)
- *     "rom": "emulator/roms/x.nes",// ruta bajo /static/games/ o URL http(s)
+ *     "rom": "static/roms/x.nes",  // ruta bajo /static/ o URL http(s)
  *     "aspectRatio": "256/240",    // "w/h" | [w,h] | número (default 4/3)
  *     "tapButtons": ["start","select"], // botones de pulsación (no sostenidos)
  *     "options": { }               // opciones extra pasadas a Nostalgist.launch
@@ -59,14 +59,14 @@
         this._resizeHandler = function () { self._resizeCanvas(); };
     }
 
-    // Resuelve la ruta de la ROM: URL absoluta tal cual; ruta relativa contra
-    // /static/games/ (donde el blueprint games_static expone games/).
+    // Resuelve la ruta de la ROM: URL absoluta tal cual; ruta que empieza por
+    // "static/" se sirve directa; cualquier otra se resuelve contra /static/roms/.
     EmulatorGame.resolveRom = function (rom) {
         if (!rom) return null;
         if (/^(https?:|blob:|data:)/i.test(rom)) return rom;
         var clean = String(rom).replace(/^\/+/, '');
         if (clean.indexOf('static/') === 0) return window.location.origin + '/' + clean;
-        return window.location.origin + '/static/games/' + clean;
+        return window.location.origin + '/static/roms/' + clean;
     };
 
     // Acepta "256/240", [256,240] o un número; default 4/3.
