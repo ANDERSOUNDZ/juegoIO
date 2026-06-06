@@ -22,7 +22,7 @@
         {% if current_user.role_id != 3 %}
         <a class="item {% if 'patient' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('pages.patients_page') }}"><svg class="ic"><use href="#i-users"/></svg>Pacientes</a>
         <a class="item {% if 'game' in (request.endpoint or '') or 'play' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('pages.games_page') }}"><svg class="ic"><use href="#i-gamepad"/></svg>Juegos</a>
-        {% elif current_user.patient_profile %}
+        {% elif current_user.patient_profile and current_user.patient_profile.therapist_id %}
         <a class="item {% if 'game' in (request.endpoint or '') or 'play' in (request.endpoint or '') %}active{% endif %}" href="/games?patient_id={{ current_user.patient_profile.id }}"><svg class="ic"><use href="#i-gamepad"/></svg>Juegos</a>
         {% endif %}
         {% if current_user.role_id == 1 %}
@@ -85,7 +85,7 @@
            href="{{ url_for('pages.games_page') }}" onclick="closeMobileNav()">
             <svg class="ic"><use href="#i-gamepad"/></svg>Juegos
         </a>
-        {% elif current_user.patient_profile %}
+        {% elif current_user.patient_profile and current_user.patient_profile.therapist_id %}
         <a class="pixo-mn-item {% if 'game' in (request.endpoint or '') or 'play' in (request.endpoint or '') %}active{% endif %}"
            href="/games?patient_id={{ current_user.patient_profile.id }}" onclick="closeMobileNav()">
             <svg class="ic"><use href="#i-gamepad"/></svg>Juegos
