@@ -275,15 +275,26 @@ function goBack() {
 }
 
 // ── Review ────────────────────────────────────────────────────────
+// Derive recommended sensitivity from captured ROM:
+//   small range (limited mobility) → high sensitivity (easy to trigger)
+//   full range                     → 50 (standard threshold)
+function sensFromCal(closeCaps, extDefaults) {
+    const FULL_ROM = 0.8;
+    return closeCaps.map((close, i) => {
+        if (close === null) return 50;
+        const range = Math.abs(close - extDefaults[i]);
+        const ratio = Math.min(range / FULL_ROM, 1.0);
+        return Math.round(100 - ratio * 50);
+    });
+}
+
 async function setupReview() {
     // Build calibration from default ext + captured close
     const cal = DEFAULT_EXT.map((ext, i) => ({ ext, close: closeCaps[i] }));
     handInput.applyCalibration(cal);
 
-    try {
-        const data = await fetch('/api/patients/' + PATIENT_ID + '/sensitivity').then(r => r.json());
-        if (data.sensitivities) currentSens = data.sensitivities.slice();
-    } catch(e) {}
+    // Compute new sensitivities from calibration data (ignore old stored values)
+    currentSens = sensFromCal(closeCaps, DEFAULT_EXT);
 
     handInput.setSensitivityForHand(0, currentSens);
     buildReview();
