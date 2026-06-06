@@ -2,18 +2,19 @@
 {% block title %}Dashboard - PIXO Therapy{% endblock %}
 
 {% block content %}
-{% if current_user.role_id == 3 and not current_user.patient_profile %}
-<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:16px;">
-    <svg style="width:56px;height:56px;color:var(--brand);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-    <h2 style="margin:0;font-size:1.6rem;font-weight:800;color:var(--ink);">En espera de asignación</h2>
-    <p style="color:var(--muted);max-width:400px;margin:0;">Tu cuenta fue creada correctamente. Un terapeuta revisará tu solicitud y te asignará pronto. Una vez asignado podrás acceder a los juegos.</p>
-    <div class="ui segment" style="margin-top:8px;padding:16px 24px;max-width:340px;">
-        <p style="margin:0;font-size:.9rem;color:var(--muted);">Cuenta registrada como:</p>
-        <p style="margin:6px 0 0;font-weight:700;color:var(--ink);">{{ current_user.name }} {{ current_user.lastname }}</p>
-        <p style="margin:2px 0 0;font-size:.88rem;color:var(--faint);">{{ current_user.email }}</p>
+{% if current_user.role_id == 3 %}
+    {% if current_user.patient_profile and current_user.patient_profile.therapist %}
+    <div class="ui message" style="margin-bottom:16px;background:var(--teal-soft);border-color:var(--teal);display:flex;align-items:center;gap:12px;">
+        <svg style="width:20px;height:20px;color:var(--teal-deep);flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <p style="margin:0;font-size:.92rem;">Tu terapeuta asignado es <strong>{{ current_user.patient_profile.therapist.name }} {{ current_user.patient_profile.therapist.lastname }}</strong>.</p>
     </div>
-</div>
-{% else %}
+    {% elif current_user.patient_profile and not current_user.patient_profile.therapist_id %}
+    <div class="ui message" style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <svg style="width:20px;height:20px;color:var(--warn);flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        <p style="margin:0;font-size:.92rem;color:var(--muted);">Aún no tienes un terapeuta asignado. Puedes explorar los juegos mientras tanto.</p>
+    </div>
+    {% endif %}
+{% endif %}
 <div class="toolbar">
     <div>
         <h1 class="ui header page-title">Hola, {{ current_user.name }}</h1>
@@ -60,11 +61,9 @@
         <div id="recent-sessions"><p class="muted">Cargando…</p></div>
     </div>
 </div>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if not (current_user.role_id == 3 and not current_user.patient_profile) %}
 <script>
 const USER_ROLE = '{{ current_user.role_id }}';
 const PATIENT_ID = '{{ current_user.patient_profile.id if current_user.patient_profile else "" }}';
@@ -129,5 +128,4 @@ async function loadDashboard() {
 }
 loadDashboard();
 </script>
-{% endif %}
 {% endblock %}
