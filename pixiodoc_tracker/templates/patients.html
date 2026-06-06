@@ -34,6 +34,50 @@
     <div id="pagination" class="pixo-pagination"></div>
 </div>
 
+<!-- Pacientes sin asignar -->
+{% if current_user.role_id != 3 %}
+<div class="ui segment" style="padding:6px 18px 14px;margin-bottom:16px;" id="pending-section" style="display:none;">
+    <div class="seg-head" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 8px;">
+        <h3 class="section-title" style="margin:0;"><svg class="ic"><use href="#i-users"/></svg>Pacientes en espera de asignación</h3>
+    </div>
+    <div class="ui divider" style="margin:0 0 10px;"></div>
+    <div id="pending-table-wrap">
+        <p class="muted">Cargando…</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal: asignar paciente existente -->
+<div class="modal-overlay" id="modal-assign">
+    <div class="modal-card">
+        <div class="modal-head">
+            <div>
+                <h2>Asignar paciente</h2>
+                <p class="page-sub" style="margin-top:4px;">Completa la ficha médica del paciente.</p>
+            </div>
+            <button class="close-x" type="button" onclick="closeAssignModal()"><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
+        <form id="assign-form" class="ui form" style="margin-top:14px;">
+            <input type="hidden" id="a-user-id">
+            <div class="field"><label>Nombre completo</label><input type="text" id="a-fullname" disabled style="opacity:.6;"></div>
+            <div class="required field"><label>Documento</label><input type="text" id="a-document" placeholder="Cédula o documento" required></div>
+            <div class="field"><label>Fecha de nacimiento</label><input type="date" id="a-birth-date"></div>
+            <div class="field"><label>Diagnóstico</label><textarea id="a-diagnosis" rows="2"></textarea></div>
+            <div class="field"><label>Notas</label><textarea id="a-notes" rows="2"></textarea></div>
+            {% if current_user.role_id == 1 %}
+            <div class="field">
+                <label>Asignar a terapeuta</label>
+                <select id="a-therapist" class="ui dropdown" style="width:100%;padding:8px 10px;border:1px solid var(--bor);border-radius:6px;background:var(--bg);color:var(--fg);"></select>
+            </div>
+            {% endif %}
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+                <button type="button" class="ui basic button" onclick="closeAssignModal()">Cancelar</button>
+                <button type="submit" class="ui primary button"><svg class="ic"><use href="#i-check"/></svg>Asignar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal: nuevo paciente -->
 <div class="modal-overlay" id="modal">
     <div class="modal-card">
@@ -195,5 +239,74 @@ async function deletePatient(id) {
 }
 
 loadPatients();
+
+async function loadPendingPatients() {
+    const section = document.getElementById('pending-section');
+    if (!section) return;
+    const users = await fetch('/api/users/unassigned-patients').then(r => r.json());
+    if (!users.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    document.getElementById('pending-table-wrap').innerHTML = `
+        <table class="ui very basic table" style="margin:0;">
+            <thead><tr><th>Nombre</th><th>Email</th><th>Registrado</th><th class="right aligned">Acción</th></tr></thead>
+            <tbody>${users.map(u => `<tr>
+                <td style="font-weight:700;">${u.name} ${u.lastname}</td>
+                <td>${u.email}</td>
+                <td>${u.created_at ? new Date(u.created_at).toLocaleDateString('es') : '-'}</td>
+                <td class="right aligned">
+                    <button class="ui mini primary button" onclick="openAssignModal(${u.id},'${(u.name+' '+u.lastname).replace(/'/g,"\\'")}')">Asignar</button>
+                </td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+}
+
+async function openAssignModal(userId, fullname) {
+    document.getElementById('a-user-id').value = userId;
+    document.getElementById('a-fullname').value = fullname;
+    document.getElementById('assign-form').reset();
+    document.getElementById('a-user-id').value = userId;
+    document.getElementById('a-fullname').value = fullname;
+    if (USER_ROLE === '1') {
+        const therapists = await fetch('/api/users/therapists').then(r => r.json());
+        const sel = document.getElementById('a-therapist');
+        if (sel) sel.innerHTML = '<option value="">Seleccionar terapeuta…</option>'
+            + therapists.map(t => `<option value="${t.id}">${t.name} ${t.lastname}</option>`).join('');
+    }
+    document.getElementById('modal-assign').classList.add('active');
+}
+
+function closeAssignModal() {
+    document.getElementById('modal-assign').classList.remove('active');
+}
+
+document.getElementById('assign-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+        user_id: parseInt(document.getElementById('a-user-id').value),
+        document: document.getElementById('a-document').value,
+        birth_date: document.getElementById('a-birth-date').value || null,
+        diagnosis: document.getElementById('a-diagnosis').value || null,
+        notes: document.getElementById('a-notes').value || null,
+    };
+    if (USER_ROLE === '1') {
+        const tid = document.getElementById('a-therapist')?.value;
+        if (tid) data.therapist_id = parseInt(tid);
+    }
+    const res = await fetch('/api/patients/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Error al asignar paciente');
+        return;
+    }
+    closeAssignModal();
+    loadPatients();
+    loadPendingPatients();
+});
+
+loadPendingPatients();
 </script>
 {% endblock %}

@@ -18,7 +18,7 @@
         <div class="auth-brand">
             <span class="mark"><svg class="ic"><use href="#i-hand"/></svg></span>
             <h1>Crear cuenta</h1>
-            <p>Registro de terapeuta</p>
+            <p>Registro de paciente</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -50,7 +50,7 @@
                 <label>Contraseña</label>
                 <input type="password" name="password" placeholder="••••••••" required>
             </div>
-            <input type="hidden" name="role" value="therapist">
+            <input type="hidden" name="role" value="patient">
             <button type="submit" class="ui fluid primary button" style="margin-top:8px;">Crear cuenta</button>
         </form>
 

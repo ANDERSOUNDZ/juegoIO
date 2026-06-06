@@ -106,6 +106,40 @@ def create_patient():
     return jsonify(_patient_to_dict(p)), 201
 
 
+@patients_bp.route('/assign', methods=['POST'])
+@login_required
+@role_required(1, 2)
+def assign_patient():
+    from src.infrastructure.persistence.models import UserModel as UM, PatientModel as PM, db as _db
+    data = request.get_json()
+    if not data or not data.get('user_id'):
+        return jsonify(error='user_id es requerido'), 400
+    if not data.get('document'):
+        return jsonify(error='Documento es requerido'), 400
+    user = UM.query.get(data['user_id'])
+    if not user or user.role_id != 3:
+        return jsonify(error='Usuario no encontrado o no es paciente'), 404
+    if PM.query.filter_by(user_id=user.id).first():
+        return jsonify(error='Este usuario ya tiene ficha asignada'), 409
+    birth_date_str = data.get('birth_date')
+    birth_date = None
+    if birth_date_str:
+        from datetime import datetime as _dt
+        birth_date = _dt.strptime(birth_date_str, '%Y-%m-%d').date()
+    owner_id = data.get('therapist_id') if current_user.role_id == 1 else current_user.id
+    from src.domain.entities import Patient
+    patient = Patient(
+        therapist_id=owner_id, user_id=user.id,
+        name=user.name, lastname=user.lastname,
+        document=data['document'],
+        birth_date=birth_date,
+        age=_calc_age(birth_date) if birth_date else data.get('age'),
+        diagnosis=data.get('diagnosis'), notes=data.get('notes'),
+    )
+    saved = _service._patient_repo.save(patient)
+    return jsonify(_patient_to_dict(saved)), 201
+
+
 @patients_bp.route('/<int:pid>', methods=['GET'])
 @login_required
 def get_patient(pid):

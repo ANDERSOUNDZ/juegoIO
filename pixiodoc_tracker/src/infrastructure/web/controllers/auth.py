@@ -68,8 +68,24 @@ def login():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    flash('El registro público está deshabilitado. Contacta al administrador.', 'error')
-    return redirect(url_for('auth.login'))
+    if current_user.is_authenticated:
+        return redirect(url_for('pages.dashboard'))
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        name = request.form.get('name', '').strip()
+        lastname = request.form.get('lastname', '').strip()
+        password = request.form.get('password', '')
+        if UserModel.query.filter_by(email=email).first():
+            flash('El email ya está registrado', 'error')
+            return render_template('register.html')
+        user = UserModel(email=email, name=name, lastname=lastname)
+        _set_role_id(user, 'patient')
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        login_user(user)
+        return redirect(url_for('pages.dashboard'))
+    return render_template('register.html')
 
 
 @auth_bp.route('/logout')
@@ -130,6 +146,26 @@ def api_list_therapists():
     return jsonify([
         dict(id=u.id, name=u.name, lastname=u.lastname, email=u.email, role=u.role_rel.name)
         for u in therapists
+    ])
+
+
+# ─── Pacientes sin ficha médica asignada ──────────────────────────
+@auth_bp.route('/api/users/unassigned-patients', methods=['GET'])
+@login_required
+@role_required(1, 2)
+def api_unassigned_patients():
+    assigned_user_ids = db.session.query(PatientModel.user_id).filter(PatientModel.user_id.isnot(None))
+    users = (
+        UserModel.query
+        .filter(UserModel.role_id == 3)
+        .filter(~UserModel.id.in_(assigned_user_ids))
+        .order_by(UserModel.created_at.desc())
+        .all()
+    )
+    return jsonify([
+        dict(id=u.id, name=u.name, lastname=u.lastname, email=u.email,
+             created_at=u.created_at.isoformat() if u.created_at else None)
+        for u in users
     ])
 
 

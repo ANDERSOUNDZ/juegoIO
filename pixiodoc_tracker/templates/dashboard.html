@@ -2,6 +2,18 @@
 {% block title %}Dashboard - PIXO Therapy{% endblock %}
 
 {% block content %}
+{% if current_user.role_id == 3 and not current_user.patient_profile %}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:16px;">
+    <svg style="width:56px;height:56px;color:var(--brand);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    <h2 style="margin:0;font-size:1.6rem;font-weight:800;color:var(--ink);">En espera de asignación</h2>
+    <p style="color:var(--muted);max-width:400px;margin:0;">Tu cuenta fue creada correctamente. Un terapeuta revisará tu solicitud y te asignará pronto. Una vez asignado podrás acceder a los juegos.</p>
+    <div class="ui segment" style="margin-top:8px;padding:16px 24px;max-width:340px;">
+        <p style="margin:0;font-size:.9rem;color:var(--muted);">Cuenta registrada como:</p>
+        <p style="margin:6px 0 0;font-weight:700;color:var(--ink);">{{ current_user.name }} {{ current_user.lastname }}</p>
+        <p style="margin:2px 0 0;font-size:.88rem;color:var(--faint);">{{ current_user.email }}</p>
+    </div>
+</div>
+{% else %}
 <div class="toolbar">
     <div>
         <h1 class="ui header page-title">Hola, {{ current_user.name }}</h1>
@@ -114,4 +126,5 @@ async function loadDashboard() {
 }
 loadDashboard();
 </script>
+{% endif %}
 {% endblock %}

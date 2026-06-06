@@ -43,6 +43,8 @@ def patient_detail(pid):
 @login_required
 @role_required(1, 2, 3)
 def games_page():
+    if current_user.role_id == 3 and not current_user.patient_profile:
+        return redirect(url_for('pages.dashboard'))
     return render_template('games.html')
 
 
