@@ -202,12 +202,25 @@ class SessionRepository(ISessionRepository):
                 q = q.filter_by(patient_id=eff_pid)
             else:
                 return []
-        elif user_role != 'admin':
-            q = q.filter_by(user_id=user_id)
+        elif user_role in ('admin', 'viewer'):
+            # Admin y viewer ven todas las sesiones, opcionalmente por paciente
             if patient_id:
                 q = q.filter_by(patient_id=patient_id)
+        else:
+            # Terapeuta: si se pide un paciente específico, ve TODAS sus sesiones
+            # siempre que ese paciente le pertenezca; de lo contrario solo las suyas
+            if patient_id:
+                owns = PatientModel.query.filter_by(id=patient_id, user_id=user_id).first()
+                if owns:
+                    q = q.filter_by(patient_id=patient_id)
+                else:
+                    return []
+            else:
+                q = q.filter_by(user_id=user_id)
         if game_id:
             q = q.filter_by(game_id=game_id)
+        # Ocultar sesiones con score=0 (sin valor real); mantener NULL (en curso / sin score)
+        q = q.filter(db.or_(GameSessionModel.score.is_(None), GameSessionModel.score > 0))
         models = q.order_by(GameSessionModel.started_at.desc()).limit(limit).all()
         return [self._to_entity(m) for m in models]
 
