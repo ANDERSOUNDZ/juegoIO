@@ -59,9 +59,11 @@
         <div id="recent-sessions"><p class="muted">Cargando…</p></div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if not (current_user.role_id == 3 and not current_user.patient_profile) %}
 <script>
 const USER_ROLE = '{{ current_user.role_id }}';
 const PATIENT_ID = '{{ current_user.patient_profile.id if current_user.patient_profile else "" }}';
@@ -72,7 +74,6 @@ async function loadDashboard() {
         let sessions = [];
         const games = await fetch('/api/games').then(r => r.json());
 
-        // Admin: fetch therapist count
         if (USER_ROLE === '1') {
             const therapists = await fetch('/api/users/therapists').then(r => r.json());
             document.getElementById('stat-therapists').textContent = therapists.length;
@@ -84,7 +85,6 @@ async function loadDashboard() {
             document.getElementById('stat-patients').textContent = patients.patients.length;
 
             const rp = document.getElementById('recent-patients');
-
             if (!patients.isArray && patients.patients.length === 0) {
                 rp.innerHTML = '<div class="empty-state">Sin pacientes aún</div>';
             } else {
