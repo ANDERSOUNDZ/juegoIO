@@ -122,7 +122,16 @@
         <!-- Panel: review + adjust + save -->
         <div id="panel-review" class="ui segment" style="display:none;">
             <h2 style="margin:0 0 6px;font-size:1.2rem;font-weight:800;">Ajustar y guardar</h2>
-            <p style="color:var(--muted);margin:0 0 16px;font-size:.9rem;line-height:1.5;">Mueve los dedos para probar la detección. Ajusta el umbral si hace falta.</p>
+            <p style="color:var(--muted);margin:0 0 12px;font-size:.9rem;line-height:1.5;">Mueve los dedos para probar la detección. Ajusta el umbral si hace falta.</p>
+
+            <!-- Captured calibration summary -->
+            <div id="cal-summary" style="margin-bottom:14px;border:1px solid var(--bor);border-radius:8px;overflow:hidden;font-size:.8rem;">
+                <div style="background:var(--surface-2);padding:6px 12px;font-weight:700;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);">
+                    Valores capturados por dedo
+                </div>
+                <div id="cal-summary-rows" style="padding:6px 12px;display:grid;grid-template-columns:60px 1fr 1fr;gap:4px 12px;align-items:center;"></div>
+            </div>
+
             <div id="sens-sliders" style="margin-bottom:14px;"></div>
             <div class="ui message" style="padding:10px 14px;margin-bottom:14px;font-size:.84rem;">
                 <svg class="ic" style="vertical-align:middle;width:14px;height:14px;margin-right:4px;"><use href="#i-bolt"/></svg>
@@ -170,8 +179,8 @@ const SAVE_URL   = IS_SELF
 const FINGER_NAMES = ['Pulgar', 'Índice', 'Medio', 'Anular', 'Meñique'];
 const FINGER_SHORT = ['PUL', 'IND', 'MED', 'ANU', 'MEN'];
 const FINGER_TIPS  = [4, 8, 12, 16, 20];   // landmark index per finger
-const STABLE_SECS  = 2;
-const BUF_FRAMES   = 40;
+const STABLE_SECS  = 4;
+const BUF_FRAMES   = 60;
 const CONNECTIONS  = [
     [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
     [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
@@ -322,6 +331,19 @@ function buildSliders() {
             <span class="sv" id="sv-${i}">${currentSens[i]}</span>
         </div>
     `).join('');
+
+    // Show captured calibration values
+    const hdr = `<span style="color:var(--muted);font-weight:700;">Dedo</span>
+                 <span style="color:var(--muted);font-weight:700;">Extendido</span>
+                 <span style="color:var(--muted);font-weight:700;">Cerrado</span>`;
+    const rows = FINGER_NAMES.map((name, i) => {
+        const e = extCaps[i] !== null ? extCaps[i].toFixed(3) : '–';
+        const c = closeCaps[i] !== null ? closeCaps[i].toFixed(3) : '–';
+        return `<span style="font-weight:600;">${name}</span>
+                <span style="font-variant-numeric:tabular-nums;color:var(--brand);">${e}</span>
+                <span style="font-variant-numeric:tabular-nums;color:#10b981;">${c}</span>`;
+    }).join('');
+    document.getElementById('cal-summary-rows').innerHTML = hdr + rows;
 }
 
 function onSensChange(finger, value) {
@@ -353,15 +375,20 @@ async function saveCalibration() {
         ? extCaps.map((e, i) => ({ ext: e, close: closeCaps[i] }))
         : null;
 
+    console.log('[calibrate] saving to', SAVE_URL);
+    console.log('[calibrate] sensitivities:', currentSens);
+    console.log('[calibrate] calibration_data:', calibration_data);
+
     try {
         const res = await fetch(SAVE_URL, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sensitivities: currentSens, calibration_data }),
         });
+        const responseData = await res.json().catch(() => ({}));
+        console.log('[calibrate] response', res.status, responseData);
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || ('HTTP ' + res.status));
+            throw new Error(responseData.error || ('HTTP ' + res.status));
         }
 
         if (calibration_data) {

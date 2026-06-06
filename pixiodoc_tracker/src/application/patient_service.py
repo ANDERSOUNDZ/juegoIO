@@ -59,8 +59,11 @@ class PatientService:
         return self._patient_repo.save(p)
 
     def delete(self, patient_id: int) -> None:
-        self.get_by_id(patient_id)
+        patient = self.get_by_id(patient_id)
+        user_id = patient.user_id
         self._patient_repo.delete(patient_id)
+        if user_id:
+            self.user_repo.delete(user_id)
 
     def get_sensitivity(self, patient_id: int):
         self.get_by_id(patient_id)

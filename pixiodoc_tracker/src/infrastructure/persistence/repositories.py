@@ -57,6 +57,10 @@ class UserRepository(IUserRepository):
         db.session.commit()
         return self._to_entity(m)
 
+    def delete(self, user_id: int) -> None:
+        UserModel.query.filter_by(id=user_id).delete()
+        db.session.commit()
+
     @staticmethod
     def _to_entity(m: UserModel) -> User:
         return User(

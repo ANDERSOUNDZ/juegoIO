@@ -17,6 +17,9 @@ class IUserRepository(ABC):
     @abstractmethod
     def save(self, user: User) -> User: ...
 
+    @abstractmethod
+    def delete(self, user_id: int) -> None: ...
+
 
 class IPatientRepository(ABC):
     @abstractmethod
