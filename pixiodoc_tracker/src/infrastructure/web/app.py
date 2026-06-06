@@ -1,6 +1,4 @@
-import os
 from flask import Flask
-from jinja2 import FileSystemLoader, ChoiceLoader
 from sqlalchemy import text as sa_text
 
 from src.infrastructure.web.config import FlaskConfig
@@ -63,15 +61,6 @@ def create_app(settings=None, db_worker=None):
     )
     app.config.from_object(FlaskConfig)
 
-    # ─── Add games/ as additional template folder ───
-    games_dir = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'games')
-    if os.path.isdir(games_dir):
-        app.jinja_loader = ChoiceLoader([
-            FileSystemLoader(games_dir),
-            app.jinja_loader,
-        ])
-
     db.init_app(app)
     _run_migrations(app)
 
@@ -99,16 +88,6 @@ def create_app(settings=None, db_worker=None):
 
     from .controllers.pages import main_bp
     app.register_blueprint(main_bp)
-
-    # ─── Serve game assets from /games/ as /static/games/ ───
-    games_dir = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'games')
-    if os.path.isdir(games_dir):
-        from flask import Blueprint
-        games_static = Blueprint('games_static', __name__,
-                                 static_url_path='/static/games',
-                                 static_folder=games_dir)
-        app.register_blueprint(games_static)
 
     if db_worker:
         from .controllers.auth import init_login_manager
