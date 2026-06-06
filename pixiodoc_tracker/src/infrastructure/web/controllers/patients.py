@@ -11,7 +11,7 @@ from src.infrastructure.persistence.repositories import (
 )
 from src.domain.exceptions import NotFoundError, ValidationError
 from src.infrastructure.web.middleware import role_required
-from src.infrastructure.persistence.models import UserModel
+from src.infrastructure.persistence.models import UserModel, PatientModel, db
 
 patients_bp = Blueprint('patients_api', __name__, url_prefix='/api/patients')
 _service = PatientService(
@@ -42,6 +42,7 @@ def _patient_to_dict(p):
         user_id=p.user_id,
         created_at=p.created_at.isoformat() if p.created_at else None,
         sensitivity=ps.sensitivities if ps else None,
+        therapist_id=p.therapist_id,
         user=dict(
             id=p.patient_user.id,
             email=p.patient_user.email,
@@ -176,6 +177,62 @@ def delete_patient(pid):
         return jsonify(ok=True)
     except NotFoundError:
         return jsonify(error='Paciente no encontrado'), 404
+
+
+@patients_bp.route('/pool', methods=['GET'])
+@login_required
+@role_required(1, 2)
+def list_pool():
+    """Pacientes con PatientModel pero sin terapeuta asignado (therapist_id=NULL)."""
+    models = (PatientModel.query
+              .filter(PatientModel.therapist_id.is_(None))
+              .order_by(PatientModel.name).all())
+    result = []
+    for m in models:
+        ps = PatientSensitivityRepository().find_by_patient_id(m.id)
+        age = _calc_age(m.birth_date) if m.birth_date else m.age
+        result.append(dict(
+            id=m.id, name=m.name, lastname=m.lastname,
+            document=m.document, age=age, diagnosis=m.diagnosis,
+            therapist_id=None,
+            created_at=m.created_at.isoformat() if m.created_at else None,
+            sensitivity=ps.sensitivities if ps else None,
+            user=dict(id=m.patient_user.id, email=m.patient_user.email,
+                      name=m.patient_user.name, lastname=m.patient_user.lastname)
+            if m.patient_user else None,
+        ))
+    return jsonify(result)
+
+
+@patients_bp.route('/<int:pid>/release', methods=['PUT'])
+@login_required
+@role_required(1, 2)
+def release_patient(pid):
+    """Libera al paciente: quita el terapeuta asignado (vuelve al pool)."""
+    m = PatientModel.query.get_or_404(pid)
+    if current_user.role_id == 2 and m.therapist_id != current_user.id:
+        return jsonify(error='Solo puedes liberar tus propios pacientes'), 403
+    m.therapist_id = None
+    db.session.commit()
+    return jsonify(ok=True)
+
+
+@patients_bp.route('/<int:pid>/claim', methods=['PUT'])
+@login_required
+@role_required(1, 2)
+def claim_patient(pid):
+    """Terapeuta o admin toma un paciente del pool (therapist_id=NULL)."""
+    m = PatientModel.query.get_or_404(pid)
+    if m.therapist_id is not None:
+        return jsonify(error='Este paciente ya tiene terapeuta asignado'), 409
+    data = request.get_json() or {}
+    new_therapist_id = (data.get('therapist_id') if current_user.role_id == 1
+                        else current_user.id)
+    if not new_therapist_id:
+        new_therapist_id = current_user.id
+    m.therapist_id = new_therapist_id
+    db.session.commit()
+    return jsonify(ok=True)
 
 
 @patients_bp.route('/<int:pid>/transfer', methods=['PUT'])

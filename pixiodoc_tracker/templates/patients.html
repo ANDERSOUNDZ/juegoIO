@@ -34,15 +34,57 @@
     <div id="pagination" class="pixo-pagination"></div>
 </div>
 
-<!-- Pacientes sin asignar -->
 {% if current_user.role_id != 3 %}
-<div class="ui segment" style="padding:6px 18px 14px;margin-bottom:16px;" id="pending-section" style="display:none;">
-    <div class="seg-head" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 8px;">
-        <h3 class="section-title" style="margin:0;"><svg class="ic"><use href="#i-users"/></svg>Pacientes en espera de asignación</h3>
+<!-- Pool Tipo B: PatientModel con therapist_id=NULL (pacientes liberados) -->
+<div class="ui segment" style="padding:6px 18px 14px;margin-bottom:16px;display:none;" id="pool-section">
+    <div class="seg-head" style="padding:10px 0 8px;">
+        <h3 class="section-title" style="margin:0;">
+            <svg class="ic"><use href="#i-users"/></svg>Pacientes sin terapeuta
+            <span id="pool-badge" class="ui label" style="margin-left:8px;background:var(--warn);color:#fff;font-size:.72rem;padding:3px 8px;border-radius:999px;"></span>
+        </h3>
+        <p class="page-sub" style="margin:4px 0 0;">Estos pacientes tienen historial clínico y están disponibles para ser tomados.</p>
     </div>
     <div class="ui divider" style="margin:0 0 10px;"></div>
-    <div id="pending-table-wrap">
-        <p class="muted">Cargando…</p>
+    <div id="pool-table-wrap"></div>
+</div>
+
+<!-- Pool Tipo A: usuarios role=3 sin PatientModel (nuevos registros) -->
+<div class="ui segment" style="padding:6px 18px 14px;margin-bottom:16px;display:none;" id="pending-section">
+    <div class="seg-head" style="padding:10px 0 8px;">
+        <h3 class="section-title" style="margin:0;">
+            <svg class="ic"><use href="#i-users"/></svg>Pacientes en espera de asignación
+            <span id="pending-badge" class="ui label" style="margin-left:8px;background:var(--brand);color:#fff;font-size:.72rem;padding:3px 8px;border-radius:999px;"></span>
+        </h3>
+        <p class="page-sub" style="margin:4px 0 0;">Usuarios que se registraron y esperan ser vinculados a un terapeuta.</p>
+    </div>
+    <div class="ui divider" style="margin:0 0 10px;"></div>
+    <div id="pending-table-wrap"></div>
+</div>
+{% endif %}
+
+<!-- Modal: claim admin (asignar paciente del pool a terapeuta específico) -->
+{% if current_user.role_id == 1 %}
+<div class="modal-overlay" id="modal-claim">
+    <div class="modal-card" style="max-width:420px;">
+        <div class="modal-head">
+            <div>
+                <h2>Asignar terapeuta</h2>
+                <p class="page-sub" style="margin-top:4px;" id="claim-patient-name"></p>
+            </div>
+            <button class="close-x" type="button" onclick="closeClaimModal()"><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="ui divider"></div>
+        <form id="claim-form" style="margin-top:14px;">
+            <input type="hidden" id="claim-pid">
+            <div class="field" style="margin-bottom:14px;">
+                <label style="font-weight:700;font-size:.9rem;">Terapeuta</label>
+                <select id="claim-therapist" style="width:100%;margin-top:6px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);font-size:.93rem;"></select>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;">
+                <button type="button" class="ui basic button" onclick="closeClaimModal()">Cancelar</button>
+                <button type="submit" class="ui primary button"><svg class="ic"><use href="#i-check"/></svg>Asignar</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endif %}
@@ -183,6 +225,7 @@ async function loadPatients(page = 1) {
             <td><span class="ui basic label">${sens}</span></td>
             <td class="right aligned">
                 <a href="/patients/${p.id}" class="ui mini basic button">Ver</a>
+                ${canEdit ? `<button class="ui mini basic button" style="color:var(--warn);" onclick="releasePatient(${p.id},'${(p.name+' '+p.lastname).replace(/'/g,"\\'")}')">Liberar</button>` : ''}
                 ${canEdit ? `<button class="ui mini basic red button" onclick="deletePatient(${p.id})"><svg class="ic"><use href="#i-trash"/></svg>Eliminar</button>` : ''}
             </td>
         </tr>`;
@@ -239,13 +282,87 @@ async function deletePatient(id) {
 }
 
 loadPatients();
+loadPoolPatients();
+loadPendingPatients();
 
+// ── Pool Tipo B: PatientModel con therapist_id = NULL ────────────────
+async function loadPoolPatients() {
+    const section = document.getElementById('pool-section');
+    if (!section) return;
+    const patients = await fetch('/api/patients/pool').then(r => r.json());
+    if (!patients.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    document.getElementById('pool-badge').textContent = patients.length;
+    document.getElementById('pool-table-wrap').innerHTML = `
+        <table class="ui very basic table wide" style="margin:0;">
+            <thead><tr><th>Nombre</th><th>Diagnóstico</th><th>Edad</th><th class="right aligned">Acción</th></tr></thead>
+            <tbody>${patients.map(p => `<tr>
+                <td style="font-weight:700;">${p.name} ${p.lastname}</td>
+                <td>${p.diagnosis || '-'}</td>
+                <td>${p.age || '-'}</td>
+                <td class="right aligned">
+                    <a href="/patients/${p.id}" class="ui mini basic button">Ver historial</a>
+                    <button class="ui mini primary button" onclick="claimPatient(${p.id},'${(p.name+' '+p.lastname).replace(/'/g,"\\'")}')">Tomar paciente</button>
+                </td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+}
+
+async function releasePatient(pid, name) {
+    if (!confirm(`¿Liberar a ${name}? Pasará al pool sin terapeuta asignado.`)) return;
+    const res = await fetch(`/api/patients/${pid}/release`, { method: 'PUT' });
+    if (!res.ok) { const e = await res.json(); alert(e.error || 'Error'); return; }
+    loadPatients();
+    loadPoolPatients();
+}
+
+async function claimPatient(pid, name) {
+    if (USER_ROLE === '1') {
+        document.getElementById('claim-pid').value = pid;
+        document.getElementById('claim-patient-name').textContent = name;
+        const therapists = await fetch('/api/users/therapists').then(r => r.json());
+        document.getElementById('claim-therapist').innerHTML =
+            '<option value="">Seleccionar terapeuta…</option>'
+            + therapists.map(t => `<option value="${t.id}">${t.name} ${t.lastname}</option>`).join('');
+        document.getElementById('modal-claim').classList.add('active');
+    } else {
+        if (!confirm(`¿Tomar a ${name} como tu paciente?`)) return;
+        const res = await fetch(`/api/patients/${pid}/claim`, { method: 'PUT',
+            headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!res.ok) { const e = await res.json(); alert(e.error || 'Error'); return; }
+        loadPatients();
+        loadPoolPatients();
+    }
+}
+
+function closeClaimModal() {
+    document.getElementById('modal-claim')?.classList.remove('active');
+}
+
+document.getElementById('claim-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pid = document.getElementById('claim-pid').value;
+    const tid = document.getElementById('claim-therapist').value;
+    if (!tid) { alert('Selecciona un terapeuta'); return; }
+    const res = await fetch(`/api/patients/${pid}/claim`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ therapist_id: parseInt(tid) }),
+    });
+    if (!res.ok) { const e = await res.json(); alert(e.error || 'Error'); return; }
+    closeClaimModal();
+    loadPatients();
+    loadPoolPatients();
+});
+
+// ── Pool Tipo A: usuarios role=3 sin PatientModel (nuevos registros) ─
 async function loadPendingPatients() {
     const section = document.getElementById('pending-section');
     if (!section) return;
     const users = await fetch('/api/users/unassigned-patients').then(r => r.json());
     if (!users.length) { section.style.display = 'none'; return; }
     section.style.display = '';
+    document.getElementById('pending-badge').textContent = users.length;
     document.getElementById('pending-table-wrap').innerHTML = `
         <table class="ui very basic table" style="margin:0;">
             <thead><tr><th>Nombre</th><th>Email</th><th>Registrado</th><th class="right aligned">Acción</th></tr></thead>
@@ -297,16 +414,10 @@ document.getElementById('assign-form').addEventListener('submit', async (e) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
-    if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || 'Error al asignar paciente');
-        return;
-    }
+    if (!res.ok) { const err = await res.json(); alert(err.error || 'Error al asignar paciente'); return; }
     closeAssignModal();
     loadPatients();
     loadPendingPatients();
 });
-
-loadPendingPatients();
 </script>
 {% endblock %}
