@@ -45,6 +45,9 @@ const GameLoader = {
             };
         }
 
+        // Build renderable textures for zone icons (no-op if no icons).
+        config.__iconSprites = normalizeIcons(config);
+
         const phaserConfig = {
             type: Phaser.WEBGL,
             parent: containerId,
@@ -131,6 +134,58 @@ function applyLevel(config, index) {
     config.events = lvl.events ? deepClone(lvl.events) : deepClone(base.events);
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  Zone-icon helpers (config-driven, backward compatible)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * A level-select grid is just a normal level whose `zones` act as the icons:
+ * each icon-zone carries an `icon` and an `onInteract: { type: "goto_level", … }`.
+ * This scans every zone (in the base config AND in each level) and turns its
+ * `icon` into a renderable "sprite-like" so the shared SpriteRenderer can
+ * preload/generate the texture once in BootScene. Supported icon shapes:
+ *   { sprite_id: N }     → resolved (by play.html) into icon.sprite = {full sprite}
+ *   { image_url: "..." } → a photo loaded directly
+ *   { color, emoji, label } → no texture; drawn as a colored box (fallback)
+ * Sets `icon._texKey` on each icon that resolves to a texture and returns a
+ * role→spriteLike map to feed SpriteRenderer.{preloadImages,createTextures}.
+ */
+function normalizeIcons(config) {
+    const iconSprites = {};
+    let n = 0;
+
+    const handleIcon = (icon) => {
+        if (!icon) return;
+        if (icon.sprite && icon.sprite.id != null) {
+            iconSprites['__icon_' + n] = icon.sprite;
+            icon._texKey = 'sprite-' + icon.sprite.id;
+        } else if (icon.image_url) {
+            const sp = {
+                id: 'icon' + n, type: 'image', image_url: icon.image_url,
+                width: icon.width || 96, height: icon.height || 96, frame_count: 1,
+            };
+            iconSprites['__icon_' + n] = sp;
+            icon._texKey = 'sprite-icon' + n;
+        }
+        n++;
+    };
+
+    const scanZones = (entities) => {
+        const zones = entities && entities.zones;
+        if (!Array.isArray(zones)) return;
+        for (const z of zones) {
+            handleIcon(z.icon);                                  // zone-level icon
+            for (const st of Object.values(z.states || {})) handleIcon(st.icon); // per-state icon
+        }
+    };
+
+    scanZones(config.entities);
+    const levels = Array.isArray(config.levels) ? config.levels : [];
+    for (const lvl of levels) scanZones(lvl && lvl.entities);
+
+    return iconSprites;
+}
+
 /**
  * Big animated "3 · 2 · 1 · ¡YA!" countdown overlay. Calls onDone() when finished.
  * Reusable at the start of every round/level ("timer al inicio de cada partida").
@@ -183,16 +238,18 @@ function createBootScene(config, handInput) {
         }
 
         preload() {
-            // Preload image-type sprites
+            // Preload image-type sprites (gameplay + level-select icons)
             if (typeof SpriteRenderer !== 'undefined') {
                 SpriteRenderer.preloadImages(this, sprites);
+                SpriteRenderer.preloadImages(this, config.__iconSprites || {});
             }
         }
 
         create() {
-            // Generate pixelmap textures
+            // Generate pixelmap textures (gameplay + level-select icons)
             if (typeof SpriteRenderer !== 'undefined') {
                 SpriteRenderer.createTextures(this, sprites);
+                SpriteRenderer.createTextures(this, config.__iconSprites || {});
             }
             // Generate particle textures
             if (!this.textures.exists('particle-glow')) {
@@ -1100,19 +1157,34 @@ function createPlayScene(config, handInput) {
                     padding: { x: 3, y: 2 },
                 }).setOrigin(0.5).setDepth(50).setVisible(false);
 
+                // Icon (sprite / photo / emoji / number) drawn on top of the rect.
+                // Lets a zone double as a configurable level-select tile.
+                const iconObj = this._makeZoneIcon(zCfg, stateData);
+
                 const zone = {
                     id: zCfg.id,
                     cfg: zCfg,
                     rect,
                     label,
+                    iconObj,
                     currentState: initialState,
                     states,
                     autoTimer: null,
                     nearby: false,
                 };
 
-                // Set initial label
+                // Set initial label (always visible if the zone opts in, e.g. a menu tile)
                 label.setText(stateData.label || zCfg.id);
+                if (zCfg.alwaysLabel) label.setVisible(true);
+
+                // Clickable zones (e.g. level-select tiles): tap/click interacts
+                // directly, no proximity needed — a convenience alongside finger control.
+                if (zCfg.clickable) {
+                    rect.setInteractive({ useHandCursor: true });
+                    rect.on('pointerover', () => rect.setStrokeStyle(2, 0xffd23f, 0.9));
+                    rect.on('pointerout', () => rect.setStrokeStyle(2, 0x000000, 0.4));
+                    rect.on('pointerdown', () => this._interactWithZone(zone));
+                }
 
                 // Start autoNext timer if initial state has one
                 if (stateData.autoNext) {
@@ -1123,6 +1195,38 @@ function createPlayScene(config, handInput) {
 
                 this._zones.push(zone);
             }
+        }
+
+        /**
+         * Build the display object for a zone icon, or null if none configured.
+         * Looks at stateData.icon first (per-state), then the zone-level icon.
+         * Priority: texture (sprite/photo) → emoji → label/number text.
+         */
+        _makeZoneIcon(zCfg, stateData) {
+            const icon = (stateData && stateData.icon) || zCfg.icon;
+            if (!icon) return null;
+            const w = zCfg.w || 40;
+            const h = zCfg.h || 40;
+            const pad = icon.pad ?? 8;
+
+            if (icon._texKey && this.textures.exists(icon._texKey)) {
+                const img = this.add.image(zCfg.x, zCfg.y, icon._texKey).setDepth(6);
+                const scale = Math.min((w - pad) / img.width, (h - pad) / img.height);
+                img.setScale(icon.scale || scale);
+                return img;
+            }
+
+            const glyph = icon.emoji || icon.label;
+            if (glyph) {
+                return this.add.text(zCfg.x, zCfg.y, glyph, {
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: icon.size || Math.floor(Math.min(w, h) * 0.5) + 'px',
+                    fontWeight: 'bold',
+                    color: icon.color || '#ffffff',
+                    align: 'center',
+                }).setOrigin(0.5).setDepth(6);
+            }
+            return null;
         }
 
         _updateZones(interact) {
@@ -1235,6 +1339,12 @@ function createPlayScene(config, handInput) {
                     });
                     break;
                 }
+
+                // Any other action type (goto_level, spawn, flash_text, …) is
+                // dispatched through the shared engine action vocabulary, so a
+                // zone can trigger ANYTHING an event can — including changing level.
+                default:
+                    this._executeAction(action);
             }
         }
 
@@ -1493,6 +1603,28 @@ function createPlayScene(config, handInput) {
                     if (a.color) {
                         this.cameras.main.setBackgroundColor(a.color);
                     }
+                    break;
+                }
+
+                // ── Jump to another level (the building block of level select) ──
+                // Reusable from events, zones (onInteract) or anywhere. Forms:
+                //   { type: 'goto_level', index: N }   → go to level N
+                //   { type: 'goto_level', next: true } → go to the next level
+                //   { type: 'goto_level', index: N, intro: true } → via "NIVEL X" screen
+                //   { type: 'goto_level', index: N, keepScore: true } → don't reset score
+                case 'goto_level': {
+                    const levels = Array.isArray(config.levels) ? config.levels : [];
+                    const cur = this.registry.get('currentLevel') || 0;
+                    let target = a.next ? cur + 1 : (a.index || 0);
+                    if (levels.length) target = Phaser.Math.Clamp(target, 0, levels.length - 1);
+                    const go = () => {
+                        this.registry.set('currentLevel', target);
+                        if (!a.keepScore) this.registry.set('totalScore', 0);
+                        this.scene.start(a.intro ? 'LevelIntroScene' : 'PlayScene');
+                    };
+                    // Optional delay lets a preceding flash_text be seen before the switch.
+                    if (a.delay) { this._levelDone = true; this.time.delayedCall(a.delay, go); }
+                    else go();
                     break;
                 }
             }

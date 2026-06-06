@@ -279,16 +279,121 @@ SELECT 'Plataformas Terapéuticas',
            "keyboardFallback": true
          },
          "rules": {
-           "winCondition": {
-             "type": "score",
-             "target": 500
-           },
-           "loseCondition": {
-             "type": "fall_off"
-           },
+           "loseCondition": { "type": "fall_off" },
            "lives": 3,
            "timer": null
-         }
+         },
+         "screens": {
+           "start": { "title": "PLATAFORMAS TERAPÉUTICAS", "subtitle": "Elige un nivel en el menú" }
+         },
+         "levelDefaults": { "countdown": 3 },
+         "levels": [
+           {
+             "name": "Menú de niveles",
+             "countdown": 0,
+             "intro": { "title": "NIVELES", "subtitle": "Toca un nivel para jugar", "prompt": "Toca / cierra un dedo sobre un nivel" },
+             "physics": { "gravity": { "x": 0, "y": 0 } },
+             "world": { "backgroundColor": "#14122a", "camera": { "follow": "none", "scrollY": false } },
+             "rules": { "loseCondition": { "type": "none" } },
+             "entities": {
+               "player": { "spawn": { "x": 200, "y": 560 } },
+               "platforms": { "layout": "fixed", "positions": [] },
+               "collectibles": { "spawnRate": 0 },
+               "enemies": { "count": 0 },
+               "zones": [
+                 {
+                   "id": "n1", "x": 120, "y": 220, "w": 130, "h": 130,
+                   "clickable": true, "alwaysLabel": true, "icon": { "label": "1" },
+                   "states": { "idle": { "color": "#1c3a2a", "label": "Calentamiento", "onInteract": { "type": "goto_level", "index": 1, "intro": true } } },
+                   "initialState": "idle"
+                 },
+                 {
+                   "id": "n2", "x": 280, "y": 220, "w": 130, "h": 130,
+                   "clickable": true, "alwaysLabel": true, "icon": { "label": "2" },
+                   "states": { "idle": { "color": "#23314a", "label": "Más alto", "onInteract": { "type": "goto_level", "index": 2, "intro": true } } },
+                   "initialState": "idle"
+                 },
+                 {
+                   "id": "n3", "x": 120, "y": 400, "w": 130, "h": 130,
+                   "clickable": true, "alwaysLabel": true, "icon": { "label": "3" },
+                   "states": { "idle": { "color": "#3a1a2e", "label": "Cuidado", "onInteract": { "type": "goto_level", "index": 3, "intro": true } } },
+                   "initialState": "idle"
+                 },
+                 {
+                   "id": "n4", "x": 280, "y": 400, "w": 130, "h": 130,
+                   "clickable": true, "alwaysLabel": true, "icon": { "label": "4" },
+                   "states": { "idle": { "color": "#3a2e10", "label": "Maestría", "onInteract": { "type": "goto_level", "index": 4, "intro": true } } },
+                   "initialState": "idle"
+                 }
+               ]
+             }
+           },
+           {
+             "name": "Calentamiento",
+             "intro": { "subtitle": "Gana 200 puntos. Sin enemigos." },
+             "world": { "backgroundColor": "#12203a" },
+             "entities": {
+               "platforms": { "procedural": { "count": 12, "minGap": 35, "maxGap": 70, "minWidth": 80, "maxWidth": 160 } },
+               "enemies": { "count": 0 }
+             },
+             "events": [
+               { "trigger": { "type": "score", "value": 200 },
+                 "actions": [
+                   { "type": "flash_text", "text": "¡NIVEL COMPLETADO!", "color": "#3ddc97", "size": "12px", "duration": 1400 },
+                   { "type": "goto_level", "index": 0, "delay": 1200 }
+                 ] }
+             ]
+           },
+           {
+             "name": "Más alto",
+             "intro": { "subtitle": "Gana 350 puntos. Plataformas más separadas." },
+             "world": { "backgroundColor": "#1a1a3e" },
+             "entities": {
+               "platforms": { "procedural": { "count": 16, "minGap": 45, "maxGap": 85, "minWidth": 60, "maxWidth": 130 } },
+               "enemies": { "count": 0 }
+             },
+             "events": [
+               { "trigger": { "type": "score", "value": 350 },
+                 "actions": [
+                   { "type": "flash_text", "text": "¡NIVEL COMPLETADO!", "color": "#3ddc97", "size": "12px", "duration": 1400 },
+                   { "type": "goto_level", "index": 0, "delay": 1200 }
+                 ] }
+             ]
+           },
+           {
+             "name": "Cuidado",
+             "intro": { "subtitle": "Gana 450 puntos. ¡Aparecen enemigos!", "titleColor": "#ff9c5c" },
+             "world": { "backgroundColor": "#2a1030" },
+             "entities": {
+               "platforms": { "procedural": { "count": 18, "minGap": 45, "maxGap": 90, "minWidth": 55, "maxWidth": 120 } },
+               "enemies": { "count": 2, "speed": 50, "ai": "patrol" }
+             },
+             "events": [
+               { "trigger": { "type": "score", "value": 450 },
+                 "actions": [
+                   { "type": "flash_text", "text": "¡NIVEL COMPLETADO!", "color": "#3ddc97", "size": "12px", "duration": 1400 },
+                   { "type": "goto_level", "index": 0, "delay": 1200 }
+                 ] }
+             ]
+           },
+           {
+             "name": "Maestría",
+             "countdown": 5,
+             "intro": { "subtitle": "¡Último reto! 600 puntos.", "titleColor": "#ff5c8a" },
+             "world": { "backgroundColor": "#2e0a14" },
+             "entities": {
+               "platforms": { "procedural": { "count": 22, "minGap": 50, "maxGap": 100, "minWidth": 45, "maxWidth": 100 } },
+               "enemies": { "count": 3, "speed": 70, "ai": "patrol" }
+             },
+             "events": [
+               { "trigger": { "type": "score", "value": 600 },
+                 "actions": [
+                   { "type": "flash_text", "text": "¡JUEGO COMPLETADO!", "color": "#ffd23f", "size": "13px", "duration": 1800 },
+                   { "type": "goto_level", "index": 0, "delay": 1200 }
+                 ] }
+             ]
+           }
+         ]
        }'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Plataformas Terapéuticas');
 

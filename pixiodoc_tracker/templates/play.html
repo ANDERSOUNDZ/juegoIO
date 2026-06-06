@@ -167,25 +167,48 @@ window.PLAY_CTX = {
 };
 
 // Resuelve los sprites (sprite_id → datos completos) antes de cargar la escena.
+// Cubre los sprites de juego (config.sprites) y los iconos de las zonas
+// (entities.zones[].icon y sus states[].icon), en el config base y en cada nivel.
 async function resolveSprites(config) {
-    if (!config.sprites) return;
-    const ids = [], roles = [];
-    for (const [role, ref] of Object.entries(config.sprites)) {
-        if (ref && ref.sprite_id) { ids.push(ref.sprite_id); roles.push(role); }
+    const ids = new Set();
+
+    // Recorre todos los iconos de zonas de un bloque entities.
+    function eachZoneIcon(entities, fn) {
+        const zones = entities && entities.zones;
+        if (!Array.isArray(zones)) return;
+        for (const z of zones) {
+            if (z.icon) fn(z.icon);
+            for (const st of Object.values(z.states || {})) if (st.icon) fn(st.icon);
+        }
     }
-    if (!ids.length) return;
+    function eachEntities(fn) {
+        fn(config.entities);
+        if (Array.isArray(config.levels)) for (const lvl of config.levels) fn(lvl && lvl.entities);
+    }
+
+    if (config.sprites) {
+        for (const ref of Object.values(config.sprites)) if (ref && ref.sprite_id) ids.add(ref.sprite_id);
+    }
+    eachEntities((e) => eachZoneIcon(e, (icon) => { if (icon.sprite_id) ids.add(icon.sprite_id); }));
+    if (!ids.size) return;
+
     const res = await fetch('/api/sprites/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
+        body: JSON.stringify({ ids: [...ids] }),
     });
     const spritesData = await res.json();
     const byId = {};
     for (const s of spritesData) byId[s.id] = s;
-    for (const role of roles) {
-        const sid = config.sprites[role].sprite_id;
-        if (byId[sid]) config.sprites[role] = byId[sid];
+
+    if (config.sprites) {
+        for (const [role, ref] of Object.entries(config.sprites)) {
+            if (ref && ref.sprite_id && byId[ref.sprite_id]) config.sprites[role] = byId[ref.sprite_id];
+        }
     }
+    eachEntities((e) => eachZoneIcon(e, (icon) => {
+        if (icon.sprite_id && byId[icon.sprite_id]) icon.sprite = byId[icon.sprite_id];
+    }));
 }
 
 PlayUI.init({
