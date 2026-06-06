@@ -11,6 +11,7 @@ from src.infrastructure.persistence.repositories import (
 )
 from src.domain.exceptions import NotFoundError, ValidationError
 from src.infrastructure.web.middleware import role_required
+from src.infrastructure.persistence.models import UserModel
 
 patients_bp = Blueprint('patients_api', __name__, url_prefix='/api/patients')
 _service = PatientService(
@@ -82,6 +83,8 @@ def create_patient():
         return jsonify(error='Email es requerido'), 400
     if not data or not data.get('password'):
         return jsonify(error='Contraseña es requerido'), 400
+    if UserModel.query.filter_by(email=data['email']).first():
+        return jsonify(error='El email ya está registrado por otro usuario'), 409
     birth_date_str = data.get('birth_date')
     birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
     age = _calc_age(birth_date) if birth_date else data.get('age')

@@ -173,11 +173,16 @@ document.getElementById('patient-form').addEventListener('submit', async (e) => 
         const therapistId = document.getElementById('f-therapist').value;
         if (therapistId) data.therapist_id = parseInt(therapistId);
     }
-    await fetch('/api/patients', {
+    const res = await fetch('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
+    if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Error al crear paciente');
+        return;
+    }
     closeModal();
     loadPatients();
     document.getElementById('patient-form').reset();
