@@ -24,7 +24,7 @@
     <div class="stat-card"><span class="stat-value" id="stat-events">-</span><span class="stat-label">Eventos</span></div>
 </div>
 
-{% if current_user.role_id != 3 %}
+{# Gráficas visibles para todos los roles #}
 <div class="report-chart-grid">
     <div class="ui segment">
         <h3 class="section-title"><svg class="ic"><use href="#i-chart"/></svg>Activaciones por dedo</h3>
@@ -38,6 +38,37 @@
     </div>
 </div>
 
+{% if current_user.role_id == 3 %}
+{# Explicación médica de las gráficas — solo para el paciente #}
+<div class="ui segment" style="margin-top:16px;">
+    <h3 class="section-title"><svg class="ic"><use href="#i-list"/></svg>Interpretación de los datos</h3>
+    <div class="ui divider"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:4px;">
+        <div>
+            <p style="font-weight:700;font-size:.93rem;margin-bottom:6px;color:var(--ink);">Activaciones por dedo</p>
+            <p style="font-size:.88rem;color:var(--muted);line-height:1.7;">
+                Indica cuántas veces cada dedo realizó una flexión activa completa durante la sesión,
+                es decir, cuántas veces superó el umbral de cierre establecido en la calibración.
+                Un mayor número refleja mayor participación motora voluntaria de ese dígito.
+                Diferencias notables entre dedos pueden indicar compensaciones motoras o
+                limitaciones específicas de movilidad articular.
+            </p>
+        </div>
+        <div>
+            <p style="font-weight:700;font-size:.93rem;margin-bottom:6px;color:var(--ink);">Rango de movimiento (ROM)</p>
+            <p style="font-size:.88rem;color:var(--muted);line-height:1.7;">
+                Representa la amplitud del arco de movimiento registrado por cada dedo en dos ejes:
+                <strong>Rango X</strong> (desplazamiento lateral del dígito) y
+                <strong>Rango Y</strong> (eje de flexión-extensión, indicador principal de movilidad articular).
+                Valores altos en Rango Y indican mayor amplitud de flexo-extensión activa.
+                Valores reducidos pueden orientar hacia rigidez articular, dolor o debilidad muscular relativa.
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if current_user.role_id != 3 %}
 <div class="hand-grid">
     <div class="ui segment">
         <h3 class="section-title text-accent"><svg class="ic"><use href="#i-hand"/></svg>Mano diagnóstica</h3>
@@ -73,36 +104,6 @@
         <tbody id="detail-table"></tbody>
     </table>
 </div>
-{% else %}
-{# Vista simplificada para el paciente #}
-<div class="ui segment" style="margin-top:16px;">
-    <h3 class="section-title text-accent"><svg class="ic"><use href="#i-bolt"/></svg>Tu progreso en esta sesión</h3>
-    <div class="ui divider"></div>
-    <div class="stats-row" style="margin-bottom:16px;">
-        <div class="stat-card accent">
-            <span class="stat-value accent" id="pat-score">-</span>
-            <span class="stat-label">Puntuación de sesión (0-100)</span>
-        </div>
-        <div class="stat-card" id="pat-change-card" style="display:none;">
-            <span class="stat-value" id="pat-change">-</span>
-            <span class="stat-label">Cambio respecto a sesión anterior</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-value text-primary" id="pat-active">-</span>
-            <span class="stat-label">Dedos activos</span>
-        </div>
-    </div>
-    <div class="report-interp" id="pat-interpretation" style="display:none;font-size:.95rem;line-height:1.75;"></div>
-</div>
-
-<div class="ui segment" style="margin-top:16px;">
-    <h3 class="section-title"><svg class="ic"><use href="#i-list"/></svg>Actividad por dedo</h3>
-    <div class="ui divider"></div>
-    <table class="ui very basic table" style="margin:0;">
-        <thead><tr><th>Dedo</th><th>Activaciones</th><th>Estado</th></tr></thead>
-        <tbody id="pat-finger-table"><tr><td colspan="3" class="muted">Cargando…</td></tr></tbody>
-    </table>
-</div>
 {% endif %}
 {% endblock %}
 
@@ -136,40 +137,40 @@ async function loadReport() {
     const totalEvents = report.finger_stats.reduce((sum, f) => sum + f.total_events, 0);
     document.getElementById('stat-events').textContent = totalEvents;
 
+    new Chart(document.getElementById('chart-activations').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: report.finger_stats.map(f => f.name),
+            datasets: [{ label: 'Activaciones', data: report.finger_stats.map(f => f.active_count), backgroundColor: colors, borderRadius: 6 }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: tickColor, font: chartFont }, grid: { color: 'rgba(136,150,171,.15)' } },
+                x: { ticks: { color: tickColor, font: chartFont }, grid: { display: false } },
+            },
+        }
+    });
+
+    new Chart(document.getElementById('chart-movement').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: report.movement_stats.map(m => fingerNames[m.finger_index] || `D${m.finger_index}`),
+            datasets: [
+                { label: 'Rango X', data: report.movement_stats.map(m => m.range_x), backgroundColor: '#2563ebcc', borderRadius: 5 },
+                { label: 'Rango Y', data: report.movement_stats.map(m => m.range_y), backgroundColor: '#0e9f8ecc', borderRadius: 5 },
+            ]
+        },
+        options: {
+            plugins: { legend: { labels: { color: tickColor, font: chartFont } } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: tickColor, font: chartFont }, grid: { color: 'rgba(136,150,171,.15)' } },
+                x: { ticks: { color: tickColor, font: chartFont }, grid: { display: false } },
+            },
+        }
+    });
+
     if (!IS_PATIENT) {
-        new Chart(document.getElementById('chart-activations').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: report.finger_stats.map(f => f.name),
-                datasets: [{ label: 'Activaciones', data: report.finger_stats.map(f => f.active_count), backgroundColor: colors, borderRadius: 6 }]
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, ticks: { color: tickColor, font: chartFont }, grid: { color: 'rgba(136,150,171,.15)' } },
-                    x: { ticks: { color: tickColor, font: chartFont }, grid: { display: false } },
-                },
-            }
-        });
-
-        new Chart(document.getElementById('chart-movement').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: report.movement_stats.map(m => fingerNames[m.finger_index] || `D${m.finger_index}`),
-                datasets: [
-                    { label: 'Rango X', data: report.movement_stats.map(m => m.range_x), backgroundColor: '#2563ebcc', borderRadius: 5 },
-                    { label: 'Rango Y', data: report.movement_stats.map(m => m.range_y), backgroundColor: '#0e9f8ecc', borderRadius: 5 },
-                ]
-            },
-            options: {
-                plugins: { legend: { labels: { color: tickColor, font: chartFont } } },
-                scales: {
-                    y: { beginAtZero: true, ticks: { color: tickColor, font: chartFont }, grid: { color: 'rgba(136,150,171,.15)' } },
-                    x: { ticks: { color: tickColor, font: chartFont }, grid: { display: false } },
-                },
-            }
-        });
-
         if (handViz) { try { handViz.setData(analytics); handViz.start(); } catch (e) { console.warn('Hand viz error:', e); } }
 
         const movMap = {};
@@ -190,83 +191,42 @@ async function loadReport() {
 }
 
 function renderAnalytics(a, report) {
-    if (!IS_PATIENT) {
-        // ── Vista profesional ────────────────────────────────────────
-        animateValue(document.getElementById('analytics-score'), 0, a.functional_score ?? 0, 800);
+    if (IS_PATIENT) return;
 
-        if (a.previous_session) {
-            const el = document.getElementById('analytics-change');
-            el.style.display = 'flex';
-            const val = document.getElementById('analytics-change-value');
-            const pct = a.previous_session.change_pct;
-            val.textContent = (pct > 0 ? '+' : '') + pct + '%';
-            val.style.color = a.previous_session.improving ? 'var(--pos)' : 'var(--danger)';
-        }
+    animateValue(document.getElementById('analytics-score'), 0, a.functional_score ?? 0, 800);
 
-        const indep = a.metrics?.independence || {};
-        document.getElementById('analytics-independence').textContent = indep.score != null ? indep.score + '/100' : '-';
+    if (a.previous_session) {
+        const el = document.getElementById('analytics-change');
+        el.style.display = 'flex';
+        const val = document.getElementById('analytics-change-value');
+        const pct = a.previous_session.change_pct;
+        val.textContent = (pct > 0 ? '+' : '') + pct + '%';
+        val.style.color = a.previous_session.improving ? 'var(--pos)' : 'var(--danger)';
+    }
 
-        const rows = [];
-        for (let i = 0; i < 5; i++) {
-            const m = a.metrics?.[String(i)];
-            if (!m) continue;
-            const hasAlert = (m.rom < 0.05 && m.has_data) || m.fatigue > 25 || m.tremor > 0.015;
-            rows.push(`<tr>
-                <td style="color:${colors[i]};font-weight:700;">${m.name}</td>
-                <td class="${m.rom < 0.05 && m.has_data ? 'alert' : ''}">${m.rom.toFixed(4)}</td>
-                <td>${m.reaction_time != null ? m.reaction_time + 's' : '-'}</td>
-                <td class="${m.fatigue > 25 ? 'alert' : ''}">${m.has_data ? m.fatigue + '%' : '-'}</td>
-                <td class="${m.tremor > 0.015 ? 'alert' : ''}">${m.tremor.toFixed(4)}</td>
-                <td class="${hasAlert ? 'alert' : 'ok'}"><span class="cell-dot" style="background:${hasAlert ? 'var(--danger)' : 'var(--pos)'};"></span>${hasAlert ? 'Atención' : 'Normal'}</td>
-            </tr>`);
-        }
-        document.getElementById('analytics-table').innerHTML = rows.join('');
+    const indep = a.metrics?.independence || {};
+    document.getElementById('analytics-independence').textContent = indep.score != null ? indep.score + '/100' : '-';
 
-        if (a.interpretation) {
-            const el = document.getElementById('analytics-interpretation');
-            el.style.display = 'block';
-            el.textContent = a.interpretation;
-        }
-    } else {
-        // ── Vista paciente ───────────────────────────────────────────
-        animateValue(document.getElementById('pat-score'), 0, a.functional_score ?? 0, 800);
+    const rows = [];
+    for (let i = 0; i < 5; i++) {
+        const m = a.metrics?.[String(i)];
+        if (!m) continue;
+        const hasAlert = (m.rom < 0.05 && m.has_data) || m.fatigue > 25 || m.tremor > 0.015;
+        rows.push(`<tr>
+            <td style="color:${colors[i]};font-weight:700;">${m.name}</td>
+            <td class="${m.rom < 0.05 && m.has_data ? 'alert' : ''}">${m.rom.toFixed(4)}</td>
+            <td>${m.reaction_time != null ? m.reaction_time + 's' : '-'}</td>
+            <td class="${m.fatigue > 25 ? 'alert' : ''}">${m.has_data ? m.fatigue + '%' : '-'}</td>
+            <td class="${m.tremor > 0.015 ? 'alert' : ''}">${m.tremor.toFixed(4)}</td>
+            <td class="${hasAlert ? 'alert' : 'ok'}"><span class="cell-dot" style="background:${hasAlert ? 'var(--danger)' : 'var(--pos)'};"></span>${hasAlert ? 'Atención' : 'Normal'}</td>
+        </tr>`);
+    }
+    document.getElementById('analytics-table').innerHTML = rows.join('');
 
-        if (a.previous_session) {
-            document.getElementById('pat-change-card').style.display = 'flex';
-            const pct = a.previous_session.change_pct;
-            const patChange = document.getElementById('pat-change');
-            patChange.textContent = (pct > 0 ? '+' : '') + pct + '%';
-            patChange.style.color = a.previous_session.improving ? 'var(--pos)' : 'var(--danger)';
-        }
-
-        const activeCount = Object.values(a.metrics || {})
-            .filter(m => m && typeof m === 'object' && m.has_data).length;
-        document.getElementById('pat-active').textContent = activeCount + '/5';
-
-        if (a.patient_interpretation) {
-            const el = document.getElementById('pat-interpretation');
-            el.style.display = 'block';
-            el.textContent = a.patient_interpretation;
-        }
-
-        // Tabla simplificada de dedos para paciente
-        const rows = [];
-        for (let i = 0; i < 5; i++) {
-            const m = a.metrics?.[String(i)];
-            if (!m) continue;
-            const hasAlert = (m.rom < 0.05 && m.has_data) || m.fatigue > 25;
-            const activations = (report?.finger_stats || []).find(f => f.finger_index === i)?.active_count ?? 0;
-            rows.push(`<tr>
-                <td style="color:${colors[i]};font-weight:700;">${m.name}</td>
-                <td>${activations}</td>
-                <td class="${hasAlert ? 'alert' : 'ok'}">
-                    <span class="cell-dot" style="background:${hasAlert ? 'var(--danger)' : 'var(--pos)'}"></span>
-                    ${hasAlert ? 'Necesita práctica' : 'Bien'}
-                </td>
-            </tr>`);
-        }
-        const ptbl = document.getElementById('pat-finger-table');
-        if (ptbl) ptbl.innerHTML = rows.join('') || '<tr><td colspan="3" class="muted">Sin datos</td></tr>';
+    if (a.interpretation) {
+        const el = document.getElementById('analytics-interpretation');
+        el.style.display = 'block';
+        el.textContent = a.interpretation;
     }
 }
 
