@@ -202,94 +202,7 @@ INSERT INTO games (name, description, game_type, config)
 SELECT 'Plataformas Terapéuticas',
        'Platformer básico para ejercitar pulgar, índice y medio. Salta entre plataformas y recoge monedas.',
        'platformer',
-       '{
-         "version": "1.0",
-         "metadata": {
-           "name": "Plataformas Terapéuticas",
-           "type": "platformer",
-           "targetFingers": [0, 1, 2],
-           "difficulty": "easy",
-           "description": "Platformer básico para rehabilitación de motricidad fina",
-           "estimatedDuration": 300
-         },
-         "physics": {
-           "type": "arcade",
-           "gravity": { "x": 0, "y": 400 },
-           "debug": false
-         },
-         "world": {
-           "width": 400,
-           "height": 600,
-           "backgroundColor": "#1a1a2e",
-           "camera": {
-             "follow": "player",
-             "scrollY": true,
-             "scrollX": false
-           }
-         },
-         "entities": {
-           "player": {
-             "spawn": { "x": 200, "y": 500 },
-             "width": 20,
-             "height": 26,
-             "color": "#3ddc97",
-             "speed": 160,
-             "jumpForce": -350,
-             "physics": {
-               "bounce": 0.2,
-               "collideWorldBounds": true
-             }
-           },
-           "platforms": {
-             "static": true,
-             "color": "#4a90d9",
-             "width": 80,
-             "height": 14,
-             "layout": "procedural",
-             "procedural": {
-               "count": 15,
-               "minGap": 40,
-               "maxGap": 80,
-               "minWidth": 60,
-               "maxWidth": 150
-             }
-           },
-           "collectibles": {
-             "color": "#ffd23f",
-             "spawnRate": 0.5,
-             "scoreValue": 50
-           },
-           "enemies": {
-             "count": 0,
-             "color": "#ff6b6b",
-             "width": 16,
-             "height": 16,
-             "ai": "patrol",
-             "speed": 40
-           }
-         },
-         "controls": {
-           "fingerMap": {
-             "0": "jump",
-             "1": "right",
-             "2": "left",
-             "3": "none",
-             "4": "none"
-           },
-           "keyboardFallback": true
-         },
-         "rules": {
-           "winCondition": {
-             "type": "score",
-             "target": 500
-           },
-           "loseCondition": {
-             "type": "fall_off"
-           },
-           "lives": 3,
-           "timer": null
-         }
-       }'::jsonb
+       '{"version": "1.0", "metadata": {"name": "Plataformas Terap\u00e9uticas", "type": "platformer", "targetFingers": [0, 1, 2], "difficulty": "easy", "description": "Platformer b\u00e1sico para rehabilitaci\u00f3n de motricidad fina", "estimatedDuration": 300}, "physics": {"type": "arcade", "gravity": {"x": 0, "y": 400}, "debug": false}, "world": {"width": 400, "height": 600, "backgroundColor": "#1a1a2e", "camera": {"follow": "none", "scrollY": false, "scrollX": false}}, "entities": {"player": {"spawn": {"x": 200, "y": 500}, "width": 20, "height": 26, "color": "#3ddc97", "speed": 160, "jumpForce": -350, "physics": {"bounce": 0.2, "collideWorldBounds": true}}, "platforms": {"static": true, "color": "#4a90d9", "width": 80, "height": 14, "layout": "fixed", "positions": []}, "collectibles": {"color": "#ffd23f", "spawnRate": 0, "scoreValue": 50}, "enemies": {"count": 0, "color": "#ff6b6b", "width": 16, "height": 16, "ai": "patrol", "speed": 55}}, "controls": {"fingerMap": {"0": "jump", "1": "right", "2": "left", "3": "none", "4": "none"}, "keyboardFallback": true}, "rules": {"loseCondition": {"type": "fall_off"}, "lives": 3, "timer": null}, "screens": {"start": {"title": "PLATAFORMAS TERAP\u00c9UTICAS", "subtitle": "Elige un nivel en el men\u00fa"}}, "levelDefaults": {"countdown": 3}, "levels": [{"name": "Men\u00fa de niveles", "countdown": 0, "intro": {"title": "NIVELES", "subtitle": "Toca un nivel para jugar", "prompt": "Toca / cierra un dedo sobre un nivel"}, "physics": {"gravity": {"x": 0, "y": 0}}, "world": {"backgroundColor": "#14122a"}, "rules": {"loseCondition": {"type": "none"}}, "entities": {"player": {"spawn": {"x": 200, "y": 560}}, "platforms": {"layout": "fixed", "positions": []}, "collectibles": {"spawnRate": 0}, "enemies": {"count": 0}, "zones": [{"id": "n1", "x": 120, "y": 220, "w": 130, "h": 130, "clickable": true, "alwaysLabel": true, "icon": {"label": "1"}, "states": {"idle": {"color": "#1c3a2a", "label": "Calentamiento", "onInteract": {"type": "goto_level", "index": 1, "intro": true}}}, "initialState": "idle"}, {"id": "n2", "x": 280, "y": 220, "w": 130, "h": 130, "clickable": true, "alwaysLabel": true, "icon": {"label": "2"}, "states": {"idle": {"color": "#23314a", "label": "M\u00e1s alto", "onInteract": {"type": "goto_level", "index": 2, "intro": true}}}, "initialState": "idle"}, {"id": "n3", "x": 120, "y": 400, "w": 130, "h": 130, "clickable": true, "alwaysLabel": true, "icon": {"label": "3"}, "states": {"idle": {"color": "#3a1a2e", "label": "Cuidado", "onInteract": {"type": "goto_level", "index": 3, "intro": true}}}, "initialState": "idle"}, {"id": "n4", "x": 280, "y": 400, "w": 130, "h": 130, "clickable": true, "alwaysLabel": true, "icon": {"label": "4"}, "states": {"idle": {"color": "#3a2e10", "label": "Maestr\u00eda", "onInteract": {"type": "goto_level", "index": 4, "intro": true}}}, "initialState": "idle"}]}}, {"name": "Calentamiento", "intro": {"subtitle": "Recoge las 4 monedas para terminar."}, "world": {"backgroundColor": "#12203a"}, "entities": {"platforms": {"layout": "fixed", "positions": [{"x": 200, "y": 585, "w": 400, "h": 20}, {"x": 110, "y": 485, "w": 150, "h": 14}, {"x": 290, "y": 390, "w": 150, "h": 14}, {"x": 130, "y": 295, "w": 150, "h": 14}, {"x": 250, "y": 195, "w": 160, "h": 14}]}, "collectibles": {"scoreValue": 50, "positions": [{"x": 110, "y": 461}, {"x": 290, "y": 366}, {"x": 130, "y": 271}, {"x": 250, "y": 171}]}, "enemies": {"count": 0}}, "events": [{"trigger": {"type": "collect_count", "value": 4}, "actions": [{"type": "flash_text", "text": "\u00a1NIVEL COMPLETADO!", "color": "#3ddc97", "size": "13px", "duration": 1600}, {"type": "goto_level", "index": 0, "delay": 1200}]}]}, {"name": "M\u00e1s alto", "intro": {"subtitle": "5 monedas. \u00a1Cuidado con el enemigo!"}, "world": {"backgroundColor": "#1a1a3e"}, "entities": {"platforms": {"layout": "fixed", "positions": [{"x": 200, "y": 585, "w": 400, "h": 20}, {"x": 90, "y": 490, "w": 120, "h": 14}, {"x": 280, "y": 400, "w": 120, "h": 14}, {"x": 110, "y": 310, "w": 120, "h": 14}, {"x": 300, "y": 220, "w": 120, "h": 14}, {"x": 170, "y": 130, "w": 140, "h": 14}]}, "collectibles": {"scoreValue": 50, "positions": [{"x": 90, "y": 466}, {"x": 280, "y": 376}, {"x": 110, "y": 286}, {"x": 300, "y": 196}, {"x": 170, "y": 106}]}, "enemies": {"speed": 55, "ai": "patrol", "positions": [{"x": 200, "y": 558, "range": 160}]}}, "events": [{"trigger": {"type": "collect_count", "value": 5}, "actions": [{"type": "flash_text", "text": "\u00a1NIVEL COMPLETADO!", "color": "#3ddc97", "size": "13px", "duration": 1600}, {"type": "goto_level", "index": 0, "delay": 1200}]}]}, {"name": "Cuidado", "intro": {"subtitle": "6 monedas y 2 enemigos.", "titleColor": "#ff9c5c"}, "world": {"backgroundColor": "#2a1030"}, "entities": {"platforms": {"layout": "fixed", "positions": [{"x": 200, "y": 585, "w": 400, "h": 20}, {"x": 100, "y": 495, "w": 110, "h": 14}, {"x": 290, "y": 410, "w": 110, "h": 14}, {"x": 120, "y": 320, "w": 110, "h": 14}, {"x": 300, "y": 235, "w": 110, "h": 14}, {"x": 140, "y": 150, "w": 120, "h": 14}, {"x": 260, "y": 80, "w": 140, "h": 14}]}, "collectibles": {"scoreValue": 50, "positions": [{"x": 100, "y": 471}, {"x": 290, "y": 386}, {"x": 120, "y": 296}, {"x": 300, "y": 211}, {"x": 140, "y": 126}, {"x": 260, "y": 56}]}, "enemies": {"speed": 55, "ai": "patrol", "positions": [{"x": 200, "y": 558, "range": 170}, {"x": 300, "y": 213, "range": 42}]}}, "events": [{"trigger": {"type": "collect_count", "value": 6}, "actions": [{"type": "flash_text", "text": "\u00a1NIVEL COMPLETADO!", "color": "#3ddc97", "size": "13px", "duration": 1600}, {"type": "goto_level", "index": 0, "delay": 1200}]}]}, {"name": "Maestr\u00eda", "intro": {"subtitle": "\u00a1Reto final! 7 monedas, 3 enemigos.", "titleColor": "#ff5c8a"}, "world": {"backgroundColor": "#2e0a14"}, "entities": {"platforms": {"layout": "fixed", "positions": [{"x": 200, "y": 585, "w": 400, "h": 20}, {"x": 80, "y": 500, "w": 100, "h": 14}, {"x": 280, "y": 420, "w": 100, "h": 14}, {"x": 110, "y": 340, "w": 100, "h": 14}, {"x": 300, "y": 260, "w": 100, "h": 14}, {"x": 120, "y": 180, "w": 100, "h": 14}, {"x": 280, "y": 110, "w": 120, "h": 14}, {"x": 180, "y": 50, "w": 140, "h": 14}]}, "collectibles": {"scoreValue": 50, "positions": [{"x": 80, "y": 476}, {"x": 280, "y": 396}, {"x": 110, "y": 316}, {"x": 300, "y": 236}, {"x": 120, "y": 156}, {"x": 280, "y": 86}, {"x": 180, "y": 26}]}, "enemies": {"speed": 55, "ai": "patrol", "positions": [{"x": 200, "y": 558, "range": 170}, {"x": 280, "y": 398, "range": 40}, {"x": 120, "y": 158, "range": 40}]}}, "events": [{"trigger": {"type": "collect_count", "value": 7}, "actions": [{"type": "flash_text", "text": "\u00a1JUEGO COMPLETADO!", "color": "#ffd23f", "size": "13px", "duration": 1600}, {"type": "goto_level", "index": 0, "delay": 1200}]}], "countdown": 5}]}'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Plataformas Terapéuticas');
 
 -- Link sprites to game config
@@ -452,124 +365,65 @@ UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_ob
 ))
 WHERE name = 'Pumpkin Panic - Granja Embrujada' AND NOT (config ? 'sprites');
 
--- ─── JUEGO: Prince of Persia (WASM) ────────────────────────────
+-- ─── JUEGO: Prince of Persia (NES, emulador genérico) ──────────
+-- Requiere la ROM en static/roms/prince.nes (servida en /static/roms/prince.nes).
 INSERT INTO games (name, description, game_type, config)
 SELECT 'Prince of Persia',
-       'El cl\u00e1sico Prince of Persia de 1990 convertido a WebAssembly. Controla al pr\u00edncipe con gestos de los dedos para escapar del calabozo.',
-       'prince',
+       'El clásico Prince of Persia de NES corriendo con Nostalgist.js y controlado por gestos. Configurado a 2 manos: Mano 1 = dpad + start, Mano 2 = A(salto)/B(espada).',
+       'emulator',
        '{
          "version": "1.0",
          "metadata": {
            "name": "Prince of Persia",
-           "type": "prince",
-           "targetFingers": [0, 1, 2, 3, 4],
-           "difficulty": "medium",
-           "description": "Prince of Persia original corriendo en WebAssembly con control por gestos.",
-           "estimatedDuration": 3600
-         },
-         "controls": {
-           "fingerMap": {
-             "0": "left",
-             "1": "jump",
-             "2": "right",
-             "3": "down",
-             "4": "action"
-           }
-         }
-       }'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Prince of Persia');
-
--- ─── JUEGO: Super Mario Bros. 3 (NES via JSNES) ────────────────
-INSERT INTO games (name, description, game_type, config)
-SELECT 'Super Mario Bros. 3',
-       'El cl\u00e1sico Super Mario Bros. 3 de NES. Controla a Mario con gestos de los dedos: \u00edndice para saltar, medio para derecha, pulgar para izquierda, anular para correr.',
-       'smb3',
-       '{
-         "version": "1.0",
-         "metadata": {
-           "name": "Super Mario Bros. 3",
-           "type": "smb3",
-           "targetFingers": [0, 1, 2, 3, 4],
-           "difficulty": "medium",
-           "description": "Super Mario Bros. 3 corriendo en emulador NES con control por gestos.",
-           "estimatedDuration": 3600
-         },
-         "controls": {
-           "fingerMap": {
-             "0": "left",
-             "1": "jump",
-             "2": "right",
-             "3": "run",
-             "4": "start"
-           }
-         }
-       }'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 3');
-
--- ─── JUEGO: Emulador Retro genérico (config-driven, reutilizable) ──
--- Demuestra el tipo 'emulator': el mismo template/loader corre CUALQUIER ROM.
--- Para agregar otro juego de emulador, copia este INSERT y cambia metadata.name,
--- emulator.core / emulator.rom y controls.fingerMap. No se toca código.
--- (Esta demo reutiliza la ROM de smb3 ya servida en /static/games/smb3/smb3.nes.)
-INSERT INTO games (name, description, game_type, config)
-SELECT 'Emulador NES (Demo)',
-       'Demo del sistema genérico de emulador: corre una ROM de NES con Nostalgist.js y controles mapeados desde la base de datos. Pulgar=izquierda, índice=A(salto), medio=derecha, anular=B(correr), meñique=START.',
-       'emulator',
-       '{
-         "version": "1.0",
-         "metadata": {
-           "name": "Emulador NES (Demo)",
            "type": "emulator",
            "targetFingers": [0, 1, 2, 3, 4],
            "difficulty": "medium",
-           "description": "Juego de emulador NES genérico, controlado por gestos.",
-           "estimatedDuration": 1800
+           "description": "Prince of Persia (NES) en emulador, control por gestos.",
+           "estimatedDuration": 3600
          },
          "emulator": {
            "core": "fceumm",
-           "rom": "smb3/smb3.nes",
-           "aspectRatio": "256/240",
-           "tapButtons": ["start", "select"]
-         },
-         "controls": {
-           "fingerMap": {
-             "0": "left",
-             "1": "a",
-             "2": "right",
-             "3": "b",
-             "4": "start"
-           },
-           "keyboardFallback": true
-         }
-       }'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Emulador NES (Demo)');
-
--- ─── JUEGO: Super Mario Bros. 2 (NES, emulador genérico) ──────────
--- Ejemplo real de agregar un juego de emulador: solo este INSERT.
--- Requiere la ROM en static/roms/smb2.nes (servida en /static/roms/smb2.nes).
-INSERT INTO games (name, description, game_type, config)
-SELECT 'Super Mario Bros. 2 (NES)',
-       'El clásico Super Mario Bros. 2 de NES corriendo con Nostalgist.js y controlado por gestos. Pulgar=A(salto), índice=derecha, medio=izquierda, anular=B(correr/levantar), meñique=abajo.',
-       'emulator',
-       '{
-         "version": "1.0",
-         "metadata": {
-           "name": "Super Mario Bros. 2 (NES)",
-           "type": "emulator",
-           "targetFingers": [0, 1, 2, 3, 4],
-           "difficulty": "medium",
-           "description": "Super Mario Bros. 2 (NES) en emulador, control por gestos.",
-           "estimatedDuration": 1800
-         },
-         "emulator": {
-           "core": "fceumm",
-           "rom": "static/roms/smb2.nes",
+           "rom": "static/roms/prince.nes",
            "aspectRatio": "256/240",
            "tapButtons": ["start", "select"]
          },
          "controls": {
            "hands": 2,
-           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "select" },
+           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
+           "fingerMaps": [
+             { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
+             { "0": "a", "1": "b", "2": "none", "3": "none", "4": "none" }
+           ],
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Prince of Persia');
+
+-- ─── JUEGO: Super Mario Bros. 3 (NES, emulador genérico) ───────
+-- Requiere la ROM en static/roms/smb3.nes (servida en /static/roms/smb3.nes).
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Super Mario Bros. 3',
+       'El clásico Super Mario Bros. 3 de NES corriendo con Nostalgist.js y controlado por gestos. Pulgar=izquierda, índice=A(salto), medio=derecha, anular=B(correr), meñique=START.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Super Mario Bros. 3",
+           "type": "emulator",
+           "targetFingers": [0, 1, 2, 3, 4],
+           "difficulty": "medium",
+           "description": "Super Mario Bros. 3 (NES) en emulador, control por gestos.",
+           "estimatedDuration": 3600
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/smb3.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "hands": 2,
+           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "start" },
            "fingerMaps": [
              { "0": "left", "1": "right", "2": "up", "3": "down", "4": "select" },
              { "0": "a", "1": "b", "2": "start", "3": "none", "4": "none" }
@@ -577,10 +431,40 @@ SELECT 'Super Mario Bros. 2 (NES)',
            "keyboardFallback": true
          }
        }'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 2 (NES)');
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 3');
+
+-- ─── JUEGO: Flappy Bird (NES, emulador genérico) ───────────────
+-- Requiere la ROM en static/roms/flappy.nes (servida en /static/roms/flappy.nes).
+-- Juego de UN solo botón: aletear = A. Ideal para terapia de un dedo.
+INSERT INTO games (name, description, game_type, config)
+SELECT 'Flappy Bird',
+       'Flappy Bird de NES corriendo con Nostalgist.js y controlado por gestos. Un solo botón: cierra el índice para aletear (A); meñique = START.',
+       'emulator',
+       '{
+         "version": "1.0",
+         "metadata": {
+           "name": "Flappy Bird",
+           "type": "emulator",
+           "targetFingers": [1, 4],
+           "difficulty": "easy",
+           "description": "Flappy Bird (NES) en emulador, control por gestos.",
+           "estimatedDuration": 600
+         },
+         "emulator": {
+           "core": "fceumm",
+           "rom": "static/roms/flappy.nes",
+           "aspectRatio": "256/240",
+           "tapButtons": ["start", "select"]
+         },
+         "controls": {
+           "fingerMap": { "0": "a", "1": "a", "2": "a", "3": "a", "4": "start" },
+           "keyboardFallback": true
+         }
+       }'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Flappy Bird');
 
 -- ─── CONFIG DE CONTROLES POR PACIENTE+JUEGO ───────────────────
--- sensitivities / finger_map soportan dos formas (multi-mano sólo en juegos Phaser):
+-- sensitivities / finger_map soportan dos formas (multi-mano disponible en todo juego):
 --   1 mano  → sensitivities: [50,50,50,50,50]        finger_map: {"0":"jump",...}
 --   N manos → sensitivities: [[..5..],[..5..]]        finger_map: [{"0":..},{"0":..}]
 -- JSONB acepta ambas; el frontend normaliza según controls.hands del juego.

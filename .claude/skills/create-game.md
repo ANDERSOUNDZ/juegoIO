@@ -276,6 +276,9 @@ Events add dynamic behaviors to games. Each event has a **trigger** and one or m
 | `add_lives` | `value` | Add lives (can be negative) |
 | `set_timer` | `value` | Add seconds to game timer |
 | `change_background` | `color` (#hex) | Change background color |
+| `goto_level` | `index` (level #) **or** `next: true`; `intro` (bool, show "NIVEL X" screen); `keepScore` (bool); `delay` (ms) | Jump to another level. The reusable building block of level navigation — usable from events **and** zones (`onInteract`). |
+
+> **`goto_level` is how level selection works.** Reaching a score (event) → `goto_level` back to a menu level; tapping a level tile (a zone `onInteract`) → `goto_level` into that level. No bespoke scene needed — it's just trigger → action. Use `delay` so a preceding `flash_text` is visible before the switch.
 
 ### Example events for a Pumpkin Panic style game:
 ```json
@@ -321,8 +324,36 @@ Zones are areas the player can interact with by pressing E (keyboard) or the `in
 ### State properties
 - `color` — hex color for the zone rectangle
 - `label` — text shown when player is nearby
-- `onInteract` — what happens when player presses interact
+- `onInteract` — what happens when player presses interact. Besides the zone-specific types below, it accepts **any engine action** (`goto_level`, `spawn`, `flash_text`, …) — so a zone can trigger anything an event can.
 - `autoNext` — seconds to automatically advance to next state (for growing plants, charging, etc.)
+- `icon` — optional per-state icon (same shape as the zone-level `icon`, see below)
+
+### Zone-level fields (besides `id, x, y, w, h, states, initialState`)
+- `icon` — a renderable tile drawn over the zone. Forms (priority order):
+  - `{ "sprite_id": N }` — a sprite from the library
+  - `{ "image_url": "https://…/foto.png" }` — a photo
+  - `{ "emoji": "🌱" }` or `{ "label": "1" }` — text/emoji
+  - extra: `scale`, `pad`, `size`, `color` (for the text forms)
+- `clickable` — `true` lets the player select the zone by tap/click directly (no proximity needed). Ideal for menu tiles.
+- `alwaysLabel` — `true` keeps the `label` visible (not only when nearby).
+
+### Level-select grid (a menu IS a level)
+The "grilla de niveles con íconos configurables" is **not a special screen** — it's a normal
+level whose `zones` are the tiles. Each tile has an `icon` (sprite / photo / emoji / number)
+and `onInteract: { type: "goto_level", index: N, intro: true }`. Make level 0 the menu, give
+it `physics.gravity.y: 0` and no platforms/enemies, and have each gameplay level return to it
+with an event `score → [flash_text, goto_level index:0 delay]`. Example menu tile:
+```json
+{
+  "id": "n1", "x": 120, "y": 220, "w": 130, "h": 130,
+  "clickable": true, "alwaysLabel": true,
+  "icon": { "sprite_id": 7 },
+  "states": { "idle": { "color": "#1c3a2a", "label": "1 · Calentamiento",
+    "onInteract": { "type": "goto_level", "index": 1, "intro": true } } },
+  "initialState": "idle"
+}
+```
+See the seeded **Plataformas Terapéuticas** game for a full 4-tile menu + 4 gameplay levels.
 
 ### Example: farming game zone
 ```json
