@@ -286,18 +286,51 @@ async function selectPatient(patientId, patientName) {
         fetch('/api/sensitivity/presets').then(r => r.json()),
     ]);
     window._lastCalibration = sens.calibration_data || null;
-    console.log('[games] sensitivity response:', sens);
-    console.log('[games] calibration_data:', window._lastCalibration);
 
     const choiceDiv = document.getElementById('sensitivity-choice');
     const optsDiv = document.getElementById('sens-options');
     choiceDiv.style.display = 'block';
 
     const isPatient = document.body.dataset.role === '3';
+    const isMobile = window.matchMedia('(max-width:720px)').matches;
     const hasPersonalSens = sens && sens.sensitivities && sens.sensitivities.length > 0;
     const hasCalibration = !!(window._lastCalibration && window._lastCalibration.length);
     const hasPresets = Array.isArray(presets) && presets.length > 0;
 
+    // ── Vista simplificada para paciente en móvil ───────────────────
+    if (isPatient && isMobile) {
+        document.querySelector('#modal-play .modal-head h2').textContent = 'Tu configuración';
+        document.querySelector('#modal-play .modal-head .page-sub').textContent = 'Elige tu sensibilidad para jugar.';
+
+        document.querySelector('#modal-play .ui.form .field').style.display = 'none';
+        document.getElementById('patient-selected').style.display = 'none';
+        const sensH = document.querySelector('#sensitivity-choice h3');
+        if (sensH) sensH.style.display = 'none';
+        const sensD = document.querySelector('#sensitivity-choice .ui.divider');
+        if (sensD) sensD.style.display = 'none';
+        const cancelBtn = document.querySelector('#modal-play .modal-card > div:last-child');
+        if (cancelBtn) cancelBtn.style.display = 'none';
+
+        let html = '';
+        if (!hasPersonalSens) {
+            html = `<div style="text-align:center;padding:18px 0;">
+                <p style="color:var(--muted);margin:0 0 12px;">Aún no tienes una configuración guardada.</p>
+                <a href="/calibrate?patient_id=${patientId}" class="ui primary button" style="justify-content:center;">
+                    <svg class="ic"><use href="#i-camera"/></svg> Calibrar ahora
+                </a>
+            </div>`;
+        } else {
+            html = `<button class="ui fluid primary button" style="padding:15px;font-size:1rem;justify-content:center;"
+                onclick="startGame(${patientId}, ${JSON.stringify(sens.sensitivities)})">
+                <svg class="ic"><use href="#i-play"/></svg>
+                Mi configuración${hasCalibration ? ' &nbsp;✓' : ''}
+            </button>`;
+        }
+        optsDiv.innerHTML = html;
+        return;
+    }
+
+    // ── Vista completa (desktop o terapeuta/admin) ──────────────────
     let html = '';
 
     if (!hasPersonalSens) {
@@ -379,15 +412,24 @@ async function startGame(patientId, sensitivities) {
 }
 
 function closePlayModal() {
+    document.getElementById('modal-play').classList.remove('active');
+    document.getElementById('sensitivity-choice').style.display = 'none';
+    $('#patient-dropdown').removeClass('disabled');
 
-    document.getElementById('modal-play')
-        .classList.remove('active');
+    // Restaurar heading original
+    document.querySelector('#modal-play .modal-head h2').textContent = 'Seleccionar paciente';
+    document.querySelector('#modal-play .modal-head .page-sub').textContent = 'Elige el paciente que va a jugar.';
 
-    document.getElementById('sensitivity-choice')
-        .style.display = 'none';
-
-    $('#patient-dropdown')
-        .removeClass('disabled');
+    // Restaurar elementos ocultos en vista móvil
+    const field = document.querySelector('#modal-play .ui.form .field');
+    if (field) field.style.display = '';
+    document.getElementById('patient-selected').style.display = 'none';
+    const sensH = document.querySelector('#sensitivity-choice h3');
+    if (sensH) sensH.style.display = '';
+    const sensD = document.querySelector('#sensitivity-choice .ui.divider');
+    if (sensD) sensD.style.display = '';
+    const cancelBtn = document.querySelector('#modal-play .modal-card > div:last-child');
+    if (cancelBtn) cancelBtn.style.display = '';
 }
 
 console.log("patient_id url:", preselectedPatientId);
