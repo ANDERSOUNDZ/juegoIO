@@ -73,14 +73,18 @@ class PatientRepository(IPatientRepository):
 
     def find_by_user_id(self, user_id: int, user_role: str = 'therapist') -> List[Patient]:
         q = PatientModel.query
-        if user_role != 'admin':
+        if user_role == 'patient':
+            q = q.filter(PatientModel.user_id == user_id)
+        elif user_role != 'admin':
             q = q.filter_by(therapist_id=user_id)
         models = q.order_by(PatientModel.name).all()
         return [self._to_entity(m) for m in models]
 
     def find_by_user_id_paginated(self, therapist_id: int, page: int, per_page: int, user_role: str = 'therapist') -> dict:
         q = PatientModel.query
-        if user_role != 'admin':
+        if user_role == 'patient':
+            q = q.filter(PatientModel.user_id == therapist_id)
+        elif user_role != 'admin':
             q = q.filter_by(therapist_id=therapist_id)
         pagination = (q
                       .order_by(PatientModel.name)
@@ -185,10 +189,19 @@ class SessionRepository(ISessionRepository):
                         game_id: Optional[int] = None, limit: int = 100,
                         user_role: str = 'therapist') -> List[GameSession]:
         q = GameSessionModel.query
-        if user_role != 'admin':
+        if user_role == 'patient':
+            eff_pid = patient_id
+            if not eff_pid:
+                rec = PatientModel.query.filter_by(user_id=user_id).first()
+                eff_pid = rec.id if rec else None
+            if eff_pid:
+                q = q.filter_by(patient_id=eff_pid)
+            else:
+                return []
+        elif user_role != 'admin':
             q = q.filter_by(user_id=user_id)
-        if patient_id:
-            q = q.filter_by(patient_id=patient_id)
+            if patient_id:
+                q = q.filter_by(patient_id=patient_id)
         if game_id:
             q = q.filter_by(game_id=game_id)
         models = q.order_by(GameSessionModel.started_at.desc()).limit(limit).all()

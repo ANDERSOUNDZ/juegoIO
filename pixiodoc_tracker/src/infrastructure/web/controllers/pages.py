@@ -26,6 +26,10 @@ def dashboard():
 @main_bp.route('/patients')
 @login_required
 def patients_page():
+    if current_user.role_id == 3:
+        pid = current_user.patient_profile.id if current_user.patient_profile else ''
+        suffix = f'?patient_id={pid}' if pid else ''
+        return redirect(url_for('pages.games_page') + suffix)
     return render_template('patients.html')
 
 

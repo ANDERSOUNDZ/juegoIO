@@ -12,7 +12,7 @@
         <a href="{{ url_for('pages.patients_page') }}" class="ui primary button"><svg class="ic"><use href="#i-plus"/></svg>Nuevo paciente</a>
         <a href="{{ url_for('pages.games_page') }}" class="ui basic button"><svg class="ic"><use href="#i-play"/></svg>Ver juegos</a>
         {% else %}
-        <a href="/games?patient_id={{ current_user.patient_profile.id }}" class="ui basic button"><svg class="ic"><use href="#i-play"/></svg>Ver juegos</a>
+        <a href="/games{% if current_user.patient_profile %}?patient_id={{ current_user.patient_profile.id }}{% endif %}" class="ui basic button"><svg class="ic"><use href="#i-play"/></svg>Ver juegos</a>
         {% endif %}
     </div>
 </div>
@@ -52,7 +52,7 @@
 {% block scripts %}
 <script>
 const USER_ROLE = '{{ current_user.role_id }}';
-const PATIENT_ID = '{{ current_user.patient_profile.id }}';
+const PATIENT_ID = '{{ current_user.patient_profile.id if current_user.patient_profile else "" }}';
 
 async function loadDashboard() {
     try {

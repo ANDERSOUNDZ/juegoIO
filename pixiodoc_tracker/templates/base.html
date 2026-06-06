@@ -23,7 +23,7 @@
         <a class="item {% if 'patient' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('pages.patients_page') }}"><svg class="ic"><use href="#i-users"/></svg>Pacientes</a>
         <a class="item {% if 'game' in (request.endpoint or '') or 'play' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('pages.games_page') }}"><svg class="ic"><use href="#i-gamepad"/></svg>Juegos</a>
         {% else %}
-        <a class="item {% if 'game' in (request.endpoint or '') or 'play' in (request.endpoint or '') %}active{% endif %}" href="/games?patient_id={{ current_user.patient_profile.id }}"><svg class="ic"><use href="#i-gamepad"/></svg>Juegos</a>
+        <a class="item {% if 'game' in (request.endpoint or '') or 'play' in (request.endpoint or '') %}active{% endif %}" href="/games{% if current_user.patient_profile %}?patient_id={{ current_user.patient_profile.id }}{% endif %}"><svg class="ic"><use href="#i-gamepad"/></svg>Juegos</a>
         {% endif %}
         {% if current_user.role_id == 1 %}
         <a class="item {% if 'admin' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('pages.admin_users') }}"><svg class="ic"><use href="#i-cog"/></svg>Admin</a>
