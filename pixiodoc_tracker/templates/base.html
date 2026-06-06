@@ -48,7 +48,7 @@
                         <i class="user outline icon"></i>
                         Cuenta
                     </a>
-                    <a class="item" href="#" onclick="openModal()" style="margin-top: 10px">
+                    <a class="item" href="#" onclick="openPasswordModal()" style="margin-top: 10px">
                         <i class="lock icon"></i>
                         Cambiar Contraseña
                     </a>
@@ -65,28 +65,28 @@
     {% endif %}
 
     <!-- Modal: cambiar contraseña -->
-    <div class="modal-overlay" id="modal">
+    <div class="modal-overlay" id="password-modal">
     <div class="modal-card">
         <div class="modal-head">
             <div>
-                <h2 id="modal-title">Cambiar Contraseña</h2>
+                <h2>Cambiar Contraseña</h2>
                 <p class="page-sub" style="margin-top:4px;">Complete la información requerida</p>
             </div>
-            <button class="close-x" type="button" onclick="closeModal()"><svg class="ic"><use href="#i-x"/></svg></button>
+            <button class="close-x" type="button" onclick="closePasswordModal()"><svg class="ic"><use href="#i-x"/></svg></button>
         </div>
         <div class="ui divider"></div>
         <form id="change-password-form" class="ui form" style="margin-top:14px;">
             <div class="required field">
                 <label>Contraseña Actual</label>
-                <input type="password" id="f-password" required>
+                <input type="password" id="f-current-password" required autocomplete="current-password">
             </div>
             <div class="required field">
                 <label>Nueva Contraseña</label>
-                <input type="password" id="f-new-password" required>
+                <input type="password" id="f-new-password" required autocomplete="new-password">
             </div>
             <div class="required field">
                 <label>Confirmar Contraseña</label>
-                <input type="password" id="f-repit-new-password" required>
+                <input type="password" id="f-repit-new-password" required autocomplete="new-password">
             </div>
         </form>
     </div>
@@ -126,13 +126,13 @@ $(function () {
     });
 });
 
-function openModal() {
+function openPasswordModal() {
     document.getElementById('change-password-form').reset();
-    document.getElementById('modal').classList.add('active');
+    document.getElementById('password-modal').classList.add('active');
 }
 
-function closeModal() {
-    document.getElementById('modal').classList.remove('active');
+function closePasswordModal() {
+    document.getElementById('password-modal').classList.remove('active');
 }
 </script>
 </html>
