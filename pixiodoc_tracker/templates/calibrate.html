@@ -279,12 +279,15 @@ function goBack() {
 //   small range (limited mobility) → high sensitivity (easy to trigger)
 //   full range                     → 50 (standard threshold)
 function sensFromCal(closeCaps, extDefaults) {
-    const FULL_ROM = 0.8;
+    const FULL_ROM = 0.8;   // unidades de diff para ROM completo típico
+    const S_FULL   = 50;    // sensibilidad para ROM completo (umbral al 50%)
+    const S_LIMITED = 80;   // máximo para ROM muy pequeño (umbral al 20%, evita ruido)
     return closeCaps.map((close, i) => {
-        if (close === null) return 50;
+        if (close === null) return S_FULL;
         const range = Math.abs(close - extDefaults[i]);
         const ratio = Math.min(range / FULL_ROM, 1.0);
-        return Math.round(100 - ratio * 50);
+        // ratio=1 (ROM completo) → S_FULL=50; ratio≈0 (ROM mínimo) → S_LIMITED=80
+        return Math.round(S_FULL + (1 - ratio) * (S_LIMITED - S_FULL));
     });
 }
 
