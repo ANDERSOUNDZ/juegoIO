@@ -48,7 +48,7 @@
                         <i class="user outline icon"></i>
                         Cuenta
                     </a>
-                    <a class="item" href="#" onclick="openModal()" style="margin-top: 10px">
+                    <a class="item" href="#" onclick="openModalChangesPassword()" style="margin-top: 10px">
                         <i class="lock icon"></i>
                         Cambiar Contraseña
                     </a>
@@ -65,28 +65,35 @@
     {% endif %}
 
     <!-- Modal: cambiar contraseña -->
-    <div class="modal-overlay" id="modal">
+    <div class="modal-overlay" id="modal-changes-password">
     <div class="modal-card">
         <div class="modal-head">
             <div>
                 <h2 id="modal-title">Cambiar Contraseña</h2>
                 <p class="page-sub" style="margin-top:4px;">Complete la información requerida</p>
             </div>
-            <button class="close-x" type="button" onclick="closeModal()"><svg class="ic"><use href="#i-x"/></svg></button>
+            <button class="close-x" type="button" onclick="closeModalChangesPassword()"><svg class="ic"><use href="#i-x"/></svg></button>
         </div>
         <div class="ui divider"></div>
         <form id="change-password-form" class="ui form" style="margin-top:14px;">
             <div class="required field">
                 <label>Contraseña Actual</label>
-                <input type="password" id="f-password" required>
+                <input type="password" id="f-password">
+                <div id="error-current-password" class="ui pointing red basic label hidden"></div>
             </div>
             <div class="required field">
                 <label>Nueva Contraseña</label>
-                <input type="password" id="f-new-password" required>
+                <input type="password" id="f-new-password">
+                <div id="error-password" class="ui pointing red basic label hidden"></div>
             </div>
             <div class="required field">
-                <label>Confirmar Contraseña</label>
-                <input type="password" id="f-repit-new-password" required>
+                <label>Verificar Contraseña</label>
+                <input type="password" id="f-confirm-password">
+                <div id="error-confirm-password" class="ui pointing red basic label hidden"></div>
+            </div>
+            <div style="display:flex;gap:9px;justify-content:flex-end;margin-top:18px;">
+                <button class="ui basic button" type="button" onclick="closeModalChangesPassword()">Cancelar</button>
+                <button class="ui primary button" type="button" onclick="changesPassword()">Guardar</button>
             </div>
         </form>
     </div>
@@ -126,13 +133,158 @@ $(function () {
     });
 });
 
-function openModal() {
-    document.getElementById('change-password-form').reset();
-    document.getElementById('modal').classList.add('active');
+const USER_ID = '{{ current_user.id }}';
+const currentPass = document.getElementById('f-password');
+const password = document.getElementById('f-new-password');
+const confirmPassword = document.getElementById('f-confirm-password');
+const error_current_pass = document.getElementById('error-current-password');
+const error_pass = document.getElementById('error-password');
+const error_confirm_pass = document.getElementById('error-confirm-password');
+
+function debounce(fn, delay = 300) {
+    let timer;
+
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
 }
 
-function closeModal() {
-    document.getElementById('modal').classList.remove('active');
+async function validateCurrentPassword() {
+    const value = currentPass.value.trim();
+
+    if (value === '') {
+        error_current_pass.textContent = 'El campo Contraseña Actual es requerido';
+        currentPass.required = true;
+        error_current_pass.classList.remove('hidden');
+        return false;
+    }
+
+    const result = await compareCurrentPassword(value);
+
+    if (!result.valid) {
+        error_current_pass.textContent = 'La contraseña ingresada no es correcta';
+        currentPass.required = true;
+        error_current_pass.classList.remove('hidden');
+        return false;
+    }
+
+    currentPass.required = false;
+    error_current_pass.classList.add('hidden');
+    return true;
+}
+
+function validatePassword() {
+    const value = password.value.trim();
+
+    if (value === '') {
+        error_pass.textContent = 'El campo Nueva Contraseña es requerido';
+        password.required = true;
+        error_pass.classList.remove('hidden');
+        return false;
+    }
+
+    if (value.length < 6) {
+        error_pass.textContent = 'La Contraseña debe tener mínimo 6 caracteres';
+        error_pass.classList.remove('hidden');
+        password.required = true;
+        return false;
+    }
+
+    error_pass.classList.add('hidden');
+    password.required = false;
+
+    if (confirmPassword.value.trim() !== '') {
+        validateConfirmPassword();
+    }
+
+    return true;
+}
+
+function validateConfirmPassword() {
+    const pass = password.value.trim();
+    const confirm = confirmPassword.value.trim();
+
+    if (confirm === '') {
+        error_confirm_pass.textContent = 'El campo Verificar Contraseña es requerido';
+        confirmPassword.required = true;
+        error_confirm_pass.classList.remove('hidden');
+        return false;
+    }
+
+    if (pass !== confirm) {
+        confirmPassword.required = true;
+        error_confirm_pass.textContent = 'Las contraseñas no coinciden';
+        error_confirm_pass.classList.remove('hidden');
+        return false;
+    }
+
+    error_confirm_pass.classList.add('hidden');
+    confirmPassword.required = false;
+
+    return true;
+}
+
+currentPass.addEventListener('input', debounce(validateCurrentPassword));
+currentPass.addEventListener('blur', validateCurrentPassword);
+password.addEventListener('input', debounce(validatePassword));
+password.addEventListener('blur', validatePassword);
+confirmPassword.addEventListener('input', debounce(validateConfirmPassword));
+confirmPassword.addEventListener('blur', validateConfirmPassword);
+
+function openModalChangesPassword() {
+    document.getElementById('change-password-form').reset();
+    document.getElementById('modal-changes-password').classList.add('active');
+}
+
+function closeModalChangesPassword() {
+    currentPass.required = false;
+    password.required = false;
+    confirmPassword.required = false;
+    error_current_pass.classList.add('hidden');
+    error_pass.classList.add('hidden');
+    error_confirm_pass.classList.add('hidden');
+    document.getElementById('modal-changes-password').classList.remove('active');
+}
+
+async function compareCurrentPassword(value) {
+    const response = await fetch('/api/user/validate-password', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            password: value
+        })
+    });
+
+    return response.json();
+}
+
+async function changesPassword () {
+    const currentValid = await validateCurrentPassword();
+    const passValid = validatePassword();
+    const confirmValid = validateConfirmPassword();
+
+    if (!currentValid || !passValid || !confirmValid) {
+        return;
+    }
+
+    const data = {
+        password: document.getElementById('f-new-password').value.trim(),
+    }
+
+    const response = await fetch('/api/user/update-password/' + USER_ID, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+        closeModalChangesPassword();
+    }
 }
 </script>
 </html>
