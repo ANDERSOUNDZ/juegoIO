@@ -63,12 +63,11 @@ const PID = {{ patient_id }};
 const fingerNames = ['Pulgar', 'Indice', 'Medio', 'Anular', 'Menique'];
 
 async function loadAll() {
-    const [patient, sens, presets, sessions, history] = await Promise.all([
+    const [patient, sens, presets, sessions] = await Promise.all([
         fetch(`/api/patients/${PID}`).then(r => r.json()),
         fetch(`/api/patients/${PID}/sensitivity`).then(r => r.json()),
         fetch('/api/sensitivity/presets').then(r => r.json()),
         fetch(`/api/sessions?patient_id=${PID}`).then(r => r.json()),
-        fetch(`/api/patients/${PID}/sensitivity/history`).then(r => r.json()),
     ]);
 
     document.getElementById('patient-info').innerHTML = `
@@ -127,32 +126,6 @@ async function loadAll() {
         </div>`;
     }).join('');
 
-    const histDiv = document.getElementById('sensitivity-history');
-    if (history.length === 0) {
-        histDiv.innerHTML = '<div class="empty-state">Sin cambios registrados</div>';
-    } else {
-        const FINGERS = ['Pulgar', 'Índice', 'Medio', 'Anular', 'Meñique'];
-        const fmtSens = arr => (arr || []).map((v, i) => `<span style="white-space:nowrap;"><span style="color:var(--muted);font-size:.75rem;">${FINGERS[i]}</span> <strong>${v}</strong></span>`).join(' &nbsp;');
-        histDiv.innerHTML = `
-            <div style="font-size:.75rem;color:var(--muted);padding:6px 0 10px;border-bottom:1px solid var(--bor);margin-bottom:8px;line-height:1.5;">
-                Cada valor (0–100) es el umbral de sensibilidad de un dedo.<br>
-                <strong>0</strong> = muy sensible (basta un leve cierre) &nbsp;·&nbsp; <strong>100</strong> = necesita cerrarse al máximo.
-            </div>
-            ${history.slice(0, 10).map(h => {
-                const date = new Date(h.changed_at).toLocaleDateString('es');
-                const oldFmt = h.old_sensitivities && h.old_sensitivities.length
-                    ? fmtSens(h.old_sensitivities)
-                    : '<span style="color:var(--muted);">sin registro previo</span>';
-                return `<div class="pixo-row" style="display:block;margin-bottom:10px;">
-                    <div class="d">${date}${h.reason ? ' · <em>' + h.reason + '</em>' : ''}</div>
-                    <div style="margin-top:4px;font-size:.82rem;">${oldFmt}</div>
-                    <div style="margin-top:2px;color:var(--muted);font-size:.8rem;">↓</div>
-                    <div style="font-size:.82rem;">${fmtSens(h.new_sensitivities)}</div>
-                </div>`;
-            }).join('')}`;
-    }
-
-    // Load therapists into transfer dropdown
     if (USER_ROLE !== 'viewer') {
         const therapists = await fetch('/api/users/therapists').then(r => r.json());
         const sel = document.getElementById('transfer-therapist');
@@ -182,6 +155,61 @@ async function loadAll() {
             </tr>`;
         }).join('');
     }
+
+    await loadHistory(1);
+}
+
+const FINGERS_H = ['Pulgar', 'Índice', 'Medio', 'Anular', 'Meñique'];
+const fmtSens = arr => {
+    try {
+        return (arr || []).map((v, i) =>
+            `<span style="white-space:nowrap;"><span style="color:var(--muted);font-size:.75rem;">${FINGERS_H[i] || 'D'+i}</span> <strong>${v ?? '-'}</strong></span>`
+        ).join(' &nbsp;');
+    } catch(e) { return '<span style="color:var(--muted);">-</span>'; }
+};
+
+let _histPage = 1;
+async function loadHistory(page) {
+    _histPage = page;
+    const histDiv = document.getElementById('sensitivity-history');
+    const res = await fetch(`/api/patients/${PID}/sensitivity/history?page=${page}&per_page=5`).then(r => r.json());
+    const items = res.items || [];
+    const hasMore = res.has_more;
+    const total = res.total || 0;
+
+    const legend = `<div style="font-size:.75rem;color:var(--muted);padding:6px 0 10px;border-bottom:1px solid var(--bor);margin-bottom:8px;line-height:1.5;">
+        Cada valor (0–100) es el umbral de sensibilidad de un dedo.<br>
+        <strong>0</strong> = muy sensible &nbsp;·&nbsp; <strong>100</strong> = necesita cerrarse al máximo.
+        <span style="margin-left:8px;color:var(--faint);">(${total} registros)</span>
+    </div>`;
+
+    if (total === 0) {
+        histDiv.innerHTML = '<div class="empty-state">Sin cambios registrados</div>';
+        return;
+    }
+
+    const rows = items.map(h => {
+        try {
+            const date = h.changed_at ? new Date(h.changed_at).toLocaleDateString('es') : '-';
+            const oldFmt = Array.isArray(h.old_sensitivities) && h.old_sensitivities.length
+                ? fmtSens(h.old_sensitivities)
+                : '<span style="color:var(--muted);">sin registro previo</span>';
+            return `<div class="pixo-row" style="display:block;margin-bottom:10px;">
+                <div class="d">${date}${h.reason ? ' · <em>' + h.reason + '</em>' : ''}</div>
+                <div style="margin-top:4px;font-size:.82rem;">${oldFmt}</div>
+                <div style="margin-top:2px;color:var(--muted);font-size:.8rem;">↓</div>
+                <div style="font-size:.82rem;">${fmtSens(h.new_sensitivities)}</div>
+            </div>`;
+        } catch(e) { return ''; }
+    }).join('');
+
+    const nav = `<div style="display:flex;gap:8px;margin-top:10px;justify-content:center;align-items:center;">
+        ${page > 1 ? `<button class="ui mini basic button" onclick="loadHistory(${page-1})">‹ Anterior</button>` : ''}
+        <span style="font-size:.8rem;color:var(--muted);">Página ${page}</span>
+        ${hasMore ? `<button class="ui mini basic button" onclick="loadHistory(${page+1})">Siguiente ›</button>` : ''}
+    </div>`;
+
+    histDiv.innerHTML = legend + rows + nav;
 }
 
 function applyPreset(sensitivities, presetId) {

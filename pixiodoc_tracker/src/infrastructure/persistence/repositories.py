@@ -211,6 +211,13 @@ class SessionRepository(ISessionRepository):
         models = q.order_by(GameSessionModel.started_at.desc()).limit(limit).all()
         return [self._to_entity(m) for m in models]
 
+    def find_previous_for_patient(self, patient_id: int, before_session_id: int) -> Optional[GameSession]:
+        m = GameSessionModel.query.filter(
+            GameSessionModel.patient_id == patient_id,
+            GameSessionModel.id < before_session_id,
+        ).order_by(GameSessionModel.id.desc()).first()
+        return self._to_entity(m) if m else None
+
     def save(self, session: GameSession) -> GameSession:
         if session.id:
             m = GameSessionModel.query.get(session.id)
@@ -324,10 +331,13 @@ class PatientSensitivityRepository(IPatientSensitivityRepository):
 
 
 class SensitivityHistoryRepository(ISensitivityHistoryRepository):
-    def find_by_patient_id(self, patient_id: int) -> List[SensitivityHistory]:
+    def find_by_patient_id(self, patient_id: int, limit: int = 100, offset: int = 0) -> List[SensitivityHistory]:
         models = SensitivityHistoryModel.query.filter_by(patient_id=patient_id).order_by(
-            SensitivityHistoryModel.changed_at.desc()).all()
+            SensitivityHistoryModel.changed_at.desc()).offset(offset).limit(limit).all()
         return [self._to_entity(m) for m in models]
+
+    def count_by_patient_id(self, patient_id: int) -> int:
+        return SensitivityHistoryModel.query.filter_by(patient_id=patient_id).count()
 
     def save(self, history: SensitivityHistory) -> SensitivityHistory:
         m = SensitivityHistoryModel(

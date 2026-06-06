@@ -68,6 +68,9 @@ class ISessionRepository(ABC):
     @abstractmethod
     def save(self, session: GameSession) -> GameSession: ...
 
+    @abstractmethod
+    def find_previous_for_patient(self, patient_id: int, before_session_id: int) -> Optional[GameSession]: ...
+
 
 class IFingerEventRepository(ABC):
     @abstractmethod

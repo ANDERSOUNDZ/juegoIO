@@ -180,18 +180,64 @@ class SessionService:
 
         metrics['independence'] = {'score': indep_score, 'issues': issues, 'status': status}
 
+        # Compare with previous session
+        previous_session_data = None
+        if s.patient_id and s.id:
+            prev = self._session_repo.find_previous_for_patient(s.patient_id, s.id)
+            if prev:
+                prev_events = self._event_repo.find_by_session_id(prev.id)
+                prev_raw = self._aggregate_finger_events(prev_events)
+                prev_activations = sum(st['active'] for st in prev_raw.values()) if prev_raw else 0
+                prev_active = sum(1 for st in prev_raw.values() if st['total'] > 0) if prev_raw else 0
+                prev_ys_total = sum(
+                    (st['max_y'] or 0) - (st['min_y'] or 0)
+                    for st in prev_raw.values() if st['max_y'] is not None
+                )
+                prev_rom_score = min((prev_ys_total / max(prev_active, 1)) * 1000 / 10, 60)
+                prev_act_score = min(prev_activations / 2, 40)
+                prev_score = round(prev_rom_score + prev_act_score)
+                if prev_score > 0:
+                    change_pct = round((functional_score - prev_score) / prev_score * 100)
+                else:
+                    change_pct = 100 if functional_score > 0 else 0
+                previous_session_data = {
+                    'change_pct': change_pct,
+                    'improving': change_pct >= 0,
+                    'previous_score': prev_score,
+                }
+
+        # Interpretation based on score, trend and issues
+        trend = ''
+        if previous_session_data:
+            cp = previous_session_data['change_pct']
+            if cp >= 15:
+                trend = f' Mejora significativa del {cp}% respecto a la sesión anterior.'
+            elif cp >= 5:
+                trend = f' Progreso moderado (+{cp}% vs sesión anterior).'
+            elif cp >= -5:
+                trend = ' Rendimiento estable respecto a la sesión anterior.'
+            else:
+                trend = f' Reducción del {abs(cp)}% respecto a la sesión anterior — revisar condición del paciente.'
+
         if functional_score >= 70:
-            interp = 'El paciente mostró buena funcionalidad general. Los rangos de movimiento son consistentes con progreso en rehabilitación.'
+            if previous_session_data and previous_session_data['change_pct'] >= 10 and previous_session_data['previous_score'] >= 65:
+                interp = '✓ Alta funcionalidad mantenida. El paciente ha alcanzado niveles consistentes de rehabilitación — evaluar reducción de frecuencia de sesiones.' + trend
+            else:
+                interp = 'Buena funcionalidad general. Los rangos de movimiento son consistentes con el progreso esperado en rehabilitación.' + trend
         elif functional_score >= 40:
-            interp = 'Funcionalidad moderada registrada. Se recomienda continuar con los ejercicios y revisar sensibilidad si hay dedos inactivos.'
+            interp = 'Funcionalidad moderada. Se recomienda continuar el programa de ejercicios.' + trend
         else:
-            interp = 'Actividad limitada detectada. Puede indicar inicio del programa o necesidad de ajustar la sensibilidad del dispositivo.'
+            if previous_session_data and previous_session_data['change_pct'] < -10:
+                interp = 'Actividad significativamente reducida respecto a sesiones previas. Se recomienda evaluación clínica.' + trend
+            else:
+                interp = 'Actividad limitada detectada. Puede indicar inicio del programa o necesidad de ajustar la sensibilidad del dispositivo.' + trend
+
         if issues:
-            interp += ' Áreas de atención: ' + '; '.join(issues[:3]) + '.'
+            interp += ' Dedos con atención requerida: ' + ', '.join(issues[:3]) + '.'
 
         return {
             'functional_score': functional_score,
-            'previous_session': None,
+            'previous_session': previous_session_data,
             'metrics': metrics,
             'interpretation': interp,
         }

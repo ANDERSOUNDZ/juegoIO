@@ -247,19 +247,30 @@ def update_own_sensitivity():
 @patients_bp.route('/<int:pid>/sensitivity/history', methods=['GET'])
 @login_required
 def sensitivity_history(pid):
-    # Viewer can see history, admin/therapist can see it too
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 5, type=int), 20)
     try:
-        history = _service.get_sensitivity_history(pid)
-        return jsonify([
-            dict(
-                id=h.id,
-                old_sensitivities=h.old_sensitivities,
-                new_sensitivities=h.new_sensitivities,
-                reason=h.reason,
-                changed_by=h.changed_by,
-                changed_at=h.changed_at.isoformat() if h.changed_at else None,
-            )
-            for h in history
-        ])
+        from src.infrastructure.persistence.repositories import SensitivityHistoryRepository as _SHR
+        repo = _SHR()
+        total = repo.count_by_patient_id(pid)
+        offset = (page - 1) * per_page
+        history = repo.find_by_patient_id(pid, limit=per_page, offset=offset)
+        return jsonify({
+            'items': [
+                dict(
+                    id=h.id,
+                    old_sensitivities=h.old_sensitivities,
+                    new_sensitivities=h.new_sensitivities,
+                    reason=h.reason,
+                    changed_by=h.changed_by,
+                    changed_at=h.changed_at.isoformat() if h.changed_at else None,
+                )
+                for h in history
+            ],
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'has_more': offset + per_page < total,
+        })
     except NotFoundError:
         return jsonify(error='Paciente no encontrado'), 404
