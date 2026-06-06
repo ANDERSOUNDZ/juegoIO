@@ -108,7 +108,11 @@ async function loadAll() {
                 <input type="text" id="sens-reason" placeholder="Opcional">
             </div>
         </div>
-        ${USER_ROLE !== 'viewer' ? `<button class="ui primary button" style="margin-top:6px;" onclick="saveSensitivity()"><svg class="ic"><use href="#i-check"/></svg>Guardar sensibilidad</button>` : ''}
+        ${USER_ROLE !== 'viewer' ? `
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+            <button class="ui primary button" onclick="saveSensitivity()"><svg class="ic"><use href="#i-check"/></svg>Guardar</button>
+            <a href="/calibrate?patient_id=${PID}" class="ui basic button"><svg class="ic"><use href="#i-camera"/></svg>Calibrar con cámara</a>
+        </div>` : ''}
     `;
 
     const presetsDiv = document.getElementById('presets-list');

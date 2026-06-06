@@ -163,6 +163,7 @@ window.PLAY_CTX = {
     gameId: {{ game_id }},
     sessionId: parseInt(params.get('session_id')),
     patientId: parseInt(params.get('patient_id')),
+    calibration: (function() { try { return JSON.parse(params.get('calibration')); } catch(e) { return null; } })(),
 };
 
 // Resuelve los sprites (sprite_id → datos completos) antes de cargar la escena.

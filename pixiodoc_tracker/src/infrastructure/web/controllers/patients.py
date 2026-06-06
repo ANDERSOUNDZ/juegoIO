@@ -215,6 +215,29 @@ def update_sensitivity(pid):
             preset_id=data.get('preset_id'),
             reason=data.get('reason'),
             changed_by=current_user.id,
+            calibration_data=data.get('calibration_data'),
+        )
+        return jsonify(**result)
+    except (NotFoundError, ValidationError) as e:
+        return jsonify(error=str(e)), 400
+
+
+@patients_bp.route('/self/sensitivity', methods=['PUT'])
+@login_required
+@role_required(3)
+def update_own_sensitivity():
+    if not current_user.patient_profile:
+        return jsonify(error='No tienes perfil de paciente asignado'), 404
+    pid = current_user.patient_profile.id
+    data = request.get_json()
+    if not data or 'sensitivities' not in data:
+        return jsonify(error='sensitivities es requerido'), 400
+    try:
+        result = _service.update_sensitivity(
+            pid, data['sensitivities'],
+            reason='Calibración automática',
+            changed_by=current_user.id,
+            calibration_data=data.get('calibration_data'),
         )
         return jsonify(**result)
     except (NotFoundError, ValidationError) as e:

@@ -75,6 +75,24 @@ def session_report(sid):
     return render_template('report.html', session_id=sid)
 
 
+@main_bp.route('/calibrate')
+@login_required
+@role_required(1, 2, 3)
+def calibrate():
+    if current_user.role_id == 3:
+        if not current_user.patient_profile:
+            return redirect(url_for('pages.dashboard'))
+        patient_id = current_user.patient_profile.id
+        is_self = True
+    else:
+        from flask import request as req
+        patient_id = req.args.get('patient_id', type=int)
+        if not patient_id:
+            return redirect(url_for('pages.patients_page'))
+        is_self = False
+    return render_template('calibrate.html', patient_id=patient_id, is_self=is_self)
+
+
 @main_bp.route('/admin/users')
 @login_required
 @role_required(1)

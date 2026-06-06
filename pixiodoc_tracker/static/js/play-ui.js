@@ -614,11 +614,15 @@
 
             handInput.setSensitivities(currentSensitivities);
 
-            // Calibración previa del paciente (si existe).
-            try {
-                var saved = localStorage.getItem('pixo_calib_' + PATIENT_ID);
-                if (saved) handInput.calibration = JSON.parse(saved);
-            } catch (e) { }
+            // Calibración del paciente: primero PLAY_CTX (BD), fallback localStorage.
+            var calData = pctx.calibration;
+            if (!calData) {
+                try {
+                    var ls = localStorage.getItem('pixo_calib_' + PATIENT_ID);
+                    if (ls) calData = JSON.parse(ls);
+                } catch (e) {}
+            }
+            if (calData) handInput.applyCalibration(calData);
 
             // Inyecta los mapeos resueltos del paciente en la config para el loader.
             gameConfig.controls = gameConfig.controls || {};

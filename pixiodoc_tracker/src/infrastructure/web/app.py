@@ -26,6 +26,12 @@ def _run_migrations(app):
                 db.session.commit()
 
             # Fix role ordering if patient/viewer were seeded in wrong order (patient=4, viewer=3)
+            # Add calibration_data column to patient_sensitivity if missing
+            db.session.execute(sa_text(
+                "ALTER TABLE patient_sensitivity ADD COLUMN IF NOT EXISTS calibration_data JSONB;"
+            ))
+            db.session.commit()
+
             db.session.execute(sa_text("""
 DO $$
 BEGIN

@@ -157,6 +157,7 @@ class PatientSensitivityModel(db.Model):
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id', ondelete='CASCADE'), unique=True)
     sensitivities = db.Column(db.JSON, nullable=False)
     based_on_preset = db.Column(db.Integer, db.ForeignKey('sensitivity_presets.id'))
+    calibration_data = db.Column(db.JSON)
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 

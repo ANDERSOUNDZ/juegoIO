@@ -285,6 +285,8 @@ async function selectPatient(patientId, patientName) {
         fetch('/api/patients/' + patientId + '/sensitivity').then(r => r.json()),
         fetch('/api/sensitivity/presets').then(r => r.json()),
     ]);
+    // Store calibration for use in startGame
+    window._lastCalibration = sens.calibration_data || null;
 
     const choiceDiv = document.getElementById('sensitivity-choice');
     const optsDiv = document.getElementById('sens-options');
@@ -299,8 +301,9 @@ async function selectPatient(patientId, patientName) {
     if (!hasPersonalSens) {
         if (isPatient) {
             html += `<div class="ui warning message" style="margin-bottom:12px;">
-                <p><strong>Sin sensibilidad configurada.</strong> Tu terapeuta aún no ha configurado tu perfil.
-                ${hasPresets ? 'Puedes jugar usando un perfil predefinido de abajo.' : 'Contacta a tu terapeuta para que configure tu perfil antes de jugar.'}</p>
+                <p style="margin:0 0 8px;"><strong>Sin sensibilidad configurada.</strong> Tu terapeuta aún no ha configurado tu perfil.
+                ${hasPresets ? 'Puedes jugar con un perfil predefinido o calibrar tú mismo.' : 'Calibra ahora para poder jugar.'}</p>
+                <a href="/calibrate?patient_id=${patientId}" class="ui mini primary button"><svg class="ic"><use href="#i-camera"/></svg>Calibrar ahora</a>
             </div>`;
         } else {
             html += `<div class="ui warning message" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -355,6 +358,9 @@ async function startGame(patientId, sensitivities) {
         session_id: session.id,
         sensitivity: JSON.stringify(sensitivities),
     });
+    if (window._lastCalibration) {
+        params.set('calibration', JSON.stringify(window._lastCalibration));
+    }
     window.location.href = '/play/' + selectedGameId + '?' + params;
 }
 

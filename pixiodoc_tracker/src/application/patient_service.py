@@ -74,13 +74,15 @@ class PatientService:
                     break
         return {
             'sensitivities': ps.sensitivities if ps else None,
+            'calibration_data': ps.calibration_data if ps else None,
             'preset': preset_info,
             'updated_at': ps.updated_at.isoformat() if ps and ps.updated_at else None,
         }
 
     def update_sensitivity(self, patient_id: int, sensitivities: list,
                            preset_id: Optional[int] = None, reason: Optional[str] = None,
-                           changed_by: Optional[int] = None) -> dict:
+                           changed_by: Optional[int] = None,
+                           calibration_data: Optional[list] = None) -> dict:
         self.get_by_id(patient_id)
         Sensitivity.from_list(sensitivities)
 
@@ -101,6 +103,8 @@ class PatientService:
             ps.based_on_preset = preset_id
             ps.updated_at = datetime.now(timezone.utc)
             ps.updated_by = changed_by
+            if calibration_data is not None:
+                ps.calibration_data = calibration_data
         else:
             ps = PatientSensitivity(
                 patient_id=patient_id,
@@ -108,8 +112,10 @@ class PatientService:
                 based_on_preset=preset_id,
                 updated_by=changed_by,
             )
+            if calibration_data is not None:
+                ps.calibration_data = calibration_data
         saved = self._sensitivity_repo.save(ps)
-        return {'sensitivities': saved.sensitivities}
+        return {'sensitivities': saved.sensitivities, 'calibration_data': saved.calibration_data}
 
     def get_sensitivity_history(self, patient_id: int) -> list:
         self.get_by_id(patient_id)
