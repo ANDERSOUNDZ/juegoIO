@@ -3,106 +3,183 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  @page { margin: 1.8cm; size: A4; }
-  @page { @top-center { content: "PIXO Therapy — Reporte Clínico"; font-size: 8pt; color: #8896ab; } }
-  @page { @bottom-center { content: "Página " counter(page) " de " counter(pages); font-size: 8pt; color: #8896ab; } }
+  @page { margin: 2cm 1.8cm; size: A4; }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; color: #1b2436; line-height: 1.55; }
+  body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; color: #1b2436; line-height: 1.6; }
 
-  .header { border-bottom: 3px solid #0e9f8e; padding-bottom: 16px; margin-bottom: 22px; display: flex; align-items: center; gap: 14px; }
-  .header .mark { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; color: #fff; font-size: 22px; background: linear-gradient(135deg, #2563eb, #0e9f8e); flex: none; }
-  .header h1 { font-size: 18pt; color: #1b2436; letter-spacing: -.02em; }
-  .header p { color: #5e6b82; font-size: 9pt; margin-top: 2px; }
+  /* ── Encabezado ── */
+  .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid #1b2436; margin-bottom: 20px; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-mark { width: 40px; height: 40px; border-radius: 8px; background: #1b2436; display: flex; align-items: center; justify-content: center; flex: none; }
+  .header-mark svg { width: 22px; height: 22px; }
+  .header-brand { font-size: 15pt; font-weight: 800; color: #1b2436; letter-spacing: -.02em; line-height: 1.1; }
+  .header-sub { font-size: 8pt; color: #5e6b82; margin-top: 2px; }
+  .header-right { text-align: right; font-size: 8pt; color: #5e6b82; line-height: 1.6; }
+  .header-right strong { color: #1b2436; font-size: 9pt; }
 
-  .patient-info { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 18px; margin-bottom: 22px; padding: 16px 18px; background: #f7f9fc; border: 1px solid #e3e8f0; border-radius: 10px; }
-  .patient-info .label { font-size: 7.5pt; color: #8896ab; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
-  .patient-info .value { font-size: 10pt; font-weight: 700; color: #1b2436; margin-top: 1px; }
+  /* ── Info paciente ── */
+  .patient-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 20px; margin-bottom: 20px;
+    padding: 14px 16px; background: #f7f9fc; border: 1px solid #dde3ef; border-radius: 8px; }
+  .info-item .label { font-size: 7pt; color: #8896ab; text-transform: uppercase; letter-spacing: .07em; font-weight: 700; }
+  .info-item .value { font-size: 10pt; font-weight: 700; color: #1b2436; margin-top: 2px; }
 
-  .score-box { text-align: center; padding: 22px; margin-bottom: 24px; border: 1.5px solid #0e9f8e; border-radius: 12px; background: rgba(14,159,142,.05); }
-  .score-box .score { font-size: 38pt; font-weight: 800; color: #1b2436; letter-spacing: -.03em; line-height: 1; }
-  .score-box .score-label { font-size: 9pt; color: #5e6b82; margin-top: 4px; }
-  .score-box .change { font-size: 10pt; font-weight: 700; margin-top: 6px; }
-  .score-box .change.up { color: #1f9d6b; }
-  .score-box .change.down { color: #dc2f2f; }
+  /* ── Score box ── */
+  .score-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+  .score-card { border: 1px solid #dde3ef; border-radius: 8px; padding: 14px 16px; }
+  .score-card.primary { border-color: #0e9f8e; background: rgba(14,159,142,.04); }
+  .score-card .value { font-size: 26pt; font-weight: 800; color: #1b2436; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .score-card.primary .value { color: #0e9f8e; }
+  .score-card .caption { font-size: 8pt; color: #5e6b82; margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .score-card .change { font-size: 9pt; font-weight: 700; margin-top: 5px; }
+  .score-card .change.up { color: #1f9d6b; }
+  .score-card .change.down { color: #dc2f2f; }
 
-  table { width: 100%; border-collapse: collapse; margin-bottom: 22px; }
-  th, td { padding: 9px 11px; text-align: left; border-bottom: 1px solid #e3e8f0; font-size: 9pt; }
-  th { background: #1b2436; color: #fff; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+  /* ── Secciones ── */
+  .section-title { font-size: 10pt; font-weight: 800; color: #1b2436; text-transform: uppercase; letter-spacing: .06em;
+    border-bottom: 1.5px solid #1b2436; padding-bottom: 5px; margin: 22px 0 12px; }
+
+  /* ── Tablas ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 9pt; }
+  thead tr { background: #1b2436; }
+  th { padding: 8px 10px; color: #fff; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; text-align: left; }
+  td { padding: 8px 10px; border-bottom: 1px solid #e8ecf2; }
+  tr:last-child td { border-bottom: none; }
   tr:nth-child(even) td { background: #f7f9fc; }
-  td.alert { background: #fdecec !important; color: #dc2f2f; font-weight: 700; }
+  td.alert { color: #dc2f2f; font-weight: 700; }
   td.ok { color: #1f9d6b; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 
-  .section-title { font-size: 12pt; font-weight: 800; color: #1b2436; border-bottom: 1px solid #e3e8f0; padding-bottom: 6px; margin: 24px 0 14px; letter-spacing: -.01em; }
+  /* ── Mano SVG + tabla lateral ── */
+  .hand-section { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 18px; }
+  .hand-section svg { flex: none; }
+  .hand-section table { margin: 0; }
 
-  .independence-box { padding: 14px 16px; background: #f7f9fc; border: 1px solid #e3e8f0; border-radius: 10px; margin-bottom: 18px; }
-  .independence-box .status { font-size: 10pt; font-weight: 700; color: #1b2436; }
-  .independence-box ul { margin-top: 6px; padding-left: 18px; color: #5e6b82; font-size: 9pt; }
+  /* ── Independencia digital ── */
+  .independence-row { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; align-items: center;
+    padding: 12px 14px; background: #f7f9fc; border: 1px solid #dde3ef; border-radius: 8px; margin-bottom: 18px; }
+  .indep-score { font-size: 20pt; font-weight: 800; color: #2563eb; line-height: 1; font-variant-numeric: tabular-nums; }
+  .indep-label { font-size: 8pt; color: #5e6b82; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .indep-status { font-size: 9.5pt; font-weight: 700; color: #1b2436; }
+  .indep-issues { margin-top: 4px; font-size: 8.5pt; color: #5e6b82; }
+  .indep-issues li { margin-top: 2px; }
 
-  .interpretation { padding: 16px 18px; background: rgba(14,159,142,.06); border-left: 4px solid #0e9f8e; border-radius: 8px; margin-bottom: 22px; font-size: 9.5pt; line-height: 1.7; color: #3a4760; }
+  /* ── Interpretación clínica ── */
+  .interpretation { padding: 14px 16px; background: #f7f9fc; border-left: 3.5px solid #0e9f8e;
+    border-radius: 0 8px 8px 0; margin-bottom: 20px; font-size: 9.5pt; line-height: 1.75; color: #2a3548; }
 
-  .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #e3e8f0; font-size: 8pt; color: #8896ab; text-align: center; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  /* ── Pie de página ── */
+  .footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #e3e8f0;
+    display: flex; justify-content: space-between; align-items: center; font-size: 7.5pt; color: #8896ab; }
+  .footer .disclaimer { max-width: 420px; line-height: 1.5; }
+
+  /* ── Botones (solo pantalla, no en PDF) ── */
+  .no-print { position: fixed; top: 14px; right: 18px; display: flex; gap: 8px; z-index: 999; }
+  .btn-print { background: #1b2436; color: #fff; border: none; border-radius: 7px; padding: 9px 18px; font-size: 10pt; font-weight: 700; cursor: pointer; }
+  .btn-close { background: #e3e8f0; color: #1b2436; border: none; border-radius: 7px; padding: 9px 14px; font-size: 10pt; font-weight: 700; cursor: pointer; }
+  @media print { .no-print { display: none !important; } }
 </style>
 </head>
 <body>
 
+<!-- Botones de acción -->
+<div class="no-print">
+  <button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+  <button class="btn-close" onclick="window.close()">Cerrar</button>
+</div>
+
+<!-- ── Encabezado ── -->
 <div class="header">
-  <div class="mark">✋</div>
-  <div>
-    <h1>PIXO Therapy</h1>
-    <p>Reporte clínico de sesión de rehabilitación</p>
+  <div class="header-left">
+    <div class="header-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 11V6a2 2 0 0 0-4 0v5"/>
+        <path d="M14 10V4a2 2 0 0 0-4 0v6"/>
+        <path d="M10 10.5V6a2 2 0 0 0-4 0v8"/>
+        <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-brand">PIXO Therapy</div>
+      <div class="header-sub">Reporte clínico de sesión de rehabilitación</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <strong>{{ date[:10] if date else '-' }}</strong><br>
+    Generado automáticamente<br>
+    Uso clínico interno
   </div>
 </div>
 
-<div class="patient-info">
-  <div><div class="label">Paciente</div><div class="value">{{ patient_name }}</div></div>
-  <div><div class="label">Edad</div><div class="value">{{ patient_age }}</div></div>
-  <div><div class="label">Diagnóstico</div><div class="value">{{ patient_diagnosis }}</div></div>
-  <div><div class="label">Juego</div><div class="value">{{ game_name }}</div></div>
-  <div><div class="label">Fecha</div><div class="value">{{ date[:10] if date else '-' }}</div></div>
-  <div><div class="label">Duración</div><div class="value">
-    {% if duration %}{{ (duration // 60)|int }}m {{ (duration % 60)|int }}s{% else %}-{% endif %}
+<!-- ── Información del paciente ── -->
+<div class="patient-grid">
+  <div class="info-item"><div class="label">Paciente</div><div class="value">{{ patient_name }}</div></div>
+  <div class="info-item"><div class="label">Edad</div><div class="value">{{ patient_age }} años</div></div>
+  <div class="info-item"><div class="label">Diagnóstico</div><div class="value">{{ patient_diagnosis }}</div></div>
+  <div class="info-item"><div class="label">Actividad terapéutica</div><div class="value">{{ game_name }}</div></div>
+  <div class="info-item"><div class="label">Fecha</div><div class="value">{{ date[:10] if date else '-' }}</div></div>
+  <div class="info-item"><div class="label">Duración</div><div class="value">
+    {% if duration %}{{ (duration // 60)|int }}m {{ (duration % 60)|int }}s{% else %}—{% endif %}
   </div></div>
 </div>
 
-<div class="score-box">
-  <div class="score">{{ functional_score }}</div>
-  <div class="score-label">Score funcional (0-100)</div>
-  {% if previous_session %}
-  <div class="change {{ 'up' if previous_session.improving else 'down' }}">
-    {% if previous_session.improving %}▲{% else %}▼{% endif %}
-    {{ previous_session.change_pct }}% vs sesión anterior ({{ previous_session.previous_score }})
+<!-- ── Score funcional ── -->
+<div class="score-row">
+  <div class="score-card primary">
+    <div class="value">{{ functional_score }}</div>
+    <div class="caption">Score funcional (0-100)</div>
+    {% if previous_session %}
+    <div class="change {{ 'up' if previous_session.improving else 'down' }}">
+      {{ '+' if previous_session.improving else '' }}{{ previous_session.change_pct }}% vs sesión anterior ({{ previous_session.previous_score }})
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
+  <div class="score-card">
+    <div class="value">{{ independence.score }}</div>
+    <div class="caption">Independencia digital (/100)</div>
+    <div class="change" style="color:#5e6b82;font-weight:600;">{{ independence.status }}</div>
+  </div>
+  <div class="score-card">
+    <div class="value" style="font-size:14pt;padding-top:4px;">
+      {% if previous_session %}
+        {{ previous_session.previous_score }}/100
+      {% else %}
+        —
+      {% endif %}
+    </div>
+    <div class="caption">Score sesión anterior</div>
+    <div class="change" style="color:#5e6b82;font-weight:600;">
+      {% if previous_session %}Comparativa disponible{% else %}Primera sesión registrada{% endif %}
+    </div>
+  </div>
 </div>
 
-<h2 class="section-title">Mapa diagnóstico de la mano</h2>
+<!-- ── Mapa diagnóstico de la mano ── -->
+<div class="section-title">Mapa diagnóstico de la mano</div>
 
-<div style="display:flex; gap:24px; align-items:center; margin-bottom:22px;">
-  <svg width="200" height="260" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
+<div class="hand-section">
+  <svg width="180" height="240" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
     <line x1="100" y1="205" x2="94" y2="170" stroke="#cbd3e0" stroke-width="2"/>
     <line x1="100" y1="205" x2="102" y2="168" stroke="#cbd3e0" stroke-width="2"/>
     <line x1="100" y1="205" x2="97" y2="170" stroke="#cbd3e0" stroke-width="2"/>
     <line x1="100" y1="205" x2="91" y2="172" stroke="#cbd3e0" stroke-width="2"/>
     <line x1="100" y1="205" x2="87" y2="178" stroke="#cbd3e0" stroke-width="2"/>
-    <line x1="87" y1="178" x2="91" y2="172" stroke="#cbd3e0" stroke-width="2"/>
-    <line x1="91" y1="172" x2="97" y2="170" stroke="#cbd3e0" stroke-width="2"/>
-    <line x1="97" y1="170" x2="102" y2="168" stroke="#cbd3e0" stroke-width="2"/>
     <path d="M94 170 L90 148 L84 126 L78 104" stroke="{{ '#dc2f2f' if finger_rows[0].alert else '#0e9f8e' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
     <path d="M102 168 L107 146 L112 124 L117 102" stroke="{{ '#dc2f2f' if finger_rows[1].alert else '#0e9f8e' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
     <path d="M97 170 L97 148 L97 126 L97 100" stroke="{{ '#dc2f2f' if finger_rows[2].alert else '#0e9f8e' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
     <path d="M91 172 L85 152 L79 132 L73 112" stroke="{{ '#dc2f2f' if finger_rows[3].alert else '#0e9f8e' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
     <path d="M87 178 L79 160 L71 144 L63 128" stroke="{{ '#dc2f2f' if finger_rows[4].alert else '#0e9f8e' }}" stroke-width="5" fill="none" stroke-linecap="round"/>
-    <rect x="90" y="205" width="20" height="25" rx="3" fill="#e3e8f0"/>
-    <circle cx="10" cy="238" r="5" fill="#1f9d6b"/><text x="20" y="242" font-size="8" fill="#5e6b82">Normal</text>
-    <circle cx="80" cy="238" r="5" fill="#c98a1a"/><text x="90" y="242" font-size="8" fill="#5e6b82">Alerta</text>
-    <circle cx="140" cy="238" r="5" fill="#dc2f2f"/><text x="150" y="242" font-size="8" fill="#5e6b82">Crítico</text>
+    <rect x="90" y="205" width="20" height="25" rx="3" fill="#dde3ef"/>
+    <!-- Leyenda -->
+    <rect x="4" y="232" width="9" height="9" rx="2" fill="#0e9f8e"/>
+    <text x="17" y="240" font-size="8" fill="#5e6b82" font-family="Arial">Normal</text>
+    <rect x="68" y="232" width="9" height="9" rx="2" fill="#dc2f2f"/>
+    <text x="81" y="240" font-size="8" fill="#5e6b82" font-family="Arial">Alerta</text>
   </svg>
 
-  <table style="margin:0; flex:1;">
+  <table style="margin:0;flex:1;">
     <thead>
-      <tr><th>Dedo</th><th>Estado</th><th>ROM</th><th>Fatiga</th><th>Temblor</th></tr>
+      <tr><th>Dedo</th><th>Estado</th><th>ROM</th><th>Fatiga</th><th>Temblor</th><th>Activ.</th></tr>
     </thead>
     <tbody>
       {% for row in finger_rows %}
@@ -115,66 +192,44 @@
         <td>{{ row.rom }}</td>
         <td>{{ row.fatigue }}</td>
         <td>{{ row.tremor }}</td>
+        <td>{{ row.activations }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
-<h2 class="section-title">Métricas por dedo</h2>
-
-<table>
-  <thead>
-    <tr><th>Dedo</th><th>ROM</th><th>Reacción</th><th>Fatiga</th><th>Temblor</th><th>Activ.</th></tr>
-  </thead>
-  <tbody>
-    {% for row in finger_rows %}
-    <tr>
-      <td style="font-weight:700;">{{ row.name }}</td>
-      <td class="{{ 'alert' if row.rom != '-' and row.rom < 0.05 else 'ok' }}">{{ row.rom }}</td>
-      <td>{{ row.reaction }}</td>
-      <td class="{{ 'alert' if row.fatigue != '-' and row.fatigue|replace('%','')|int > 25 else 'ok' }}">{{ row.fatigue }}</td>
-      <td class="{{ 'alert' if row.tremor != '-' and row.tremor > 0.015 else 'ok' }}">{{ row.tremor }}</td>
-      <td>{{ row.activations }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<h2 class="section-title">Independencia digital</h2>
-
-<div class="independence-box">
-  <div class="status">{{ independence.status }}</div>
-  <div style="font-size:9pt;color:#5e6b82;margin-top:4px;">
-    Score: {{ independence.score }}/100
+<!-- ── Independencia digital ── -->
+<div class="section-title">Independencia digital</div>
+<div class="independence-row">
+  <div>
+    <div class="indep-score">{{ independence.score }}<span style="font-size:12pt;color:#5e6b82;">/100</span></div>
+  </div>
+  <div>
+    <div class="indep-label">Resultado</div>
+    <div class="indep-status">{{ independence.status }}</div>
     {% if independence.issues %}
-    <ul>
-      {% for issue in independence.issues[:3] %}
-      <li>{{ issue }}</li>
-      {% endfor %}
+    <ul class="indep-issues">
+      {% for issue in independence.issues[:4] %}<li>{{ issue }}</li>{% endfor %}
     </ul>
+    {% else %}
+    <div class="indep-issues" style="margin-top:4px;">Sin alertas registradas en esta sesión.</div>
     {% endif %}
   </div>
 </div>
 
-<h2 class="section-title">Interpretación clínica</h2>
+<!-- ── Interpretación clínica ── -->
+<div class="section-title">Interpretación clínica</div>
+<div class="interpretation">{{ interpretation }}</div>
 
-<div class="interpretation">
-  {{ interpretation }}
-</div>
-
+<!-- ── Pie de página ── -->
 <div class="footer">
-  PIXO Therapy — Plataforma de juegos terapéuticos<br>
-  Reporte generado automáticamente — {{ date[:10] if date else '' }}
+  <div class="disclaimer">
+    Este reporte es generado automáticamente por la plataforma PIXO Therapy y no reemplaza la evaluación clínica presencial ni el criterio del profesional tratante.
+  </div>
+  <div>PIXO Therapy &nbsp;·&nbsp; {{ date[:10] if date else '' }}</div>
 </div>
 
-<div class="no-print" style="position:fixed;top:12px;right:16px;display:flex;gap:8px;z-index:999;">
-  <button onclick="window.print()" style="background:#0e9f8e;color:#fff;border:none;border-radius:7px;padding:9px 18px;font-size:10pt;font-weight:700;cursor:pointer;">Imprimir / Guardar PDF</button>
-  <button onclick="window.close()" style="background:#e3e8f0;color:#1b2436;border:none;border-radius:7px;padding:9px 14px;font-size:10pt;font-weight:700;cursor:pointer;">Cerrar</button>
-</div>
-
-<style>@media print { .no-print { display: none !important; } }</style>
 <script>setTimeout(() => window.print(), 400);</script>
-
 </body>
 </html>

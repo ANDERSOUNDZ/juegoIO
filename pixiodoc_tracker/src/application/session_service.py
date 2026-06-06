@@ -206,40 +206,77 @@ class SessionService:
                     'previous_score': prev_score,
                 }
 
-        # Interpretation based on score, trend and issues
+        # ── Interpretación clínica (profesionales) ──────────────────────
+        if functional_score >= 80:
+            score_desc = 'Excelente funcionalidad'
+            recom = 'Considerar reducción de frecuencia de sesiones o avance a ejercicios de mayor complejidad.'
+        elif functional_score >= 65:
+            score_desc = 'Buena funcionalidad'
+            recom = 'Mantener el programa actual con seguimiento regular.'
+        elif functional_score >= 45:
+            score_desc = 'Funcionalidad moderada'
+            recom = 'Continuar el programa de rehabilitación con atención a los dedos con menor actividad.'
+        elif functional_score >= 25:
+            score_desc = 'Funcionalidad reducida'
+            recom = 'Revisar ajuste de sensibilidad del dispositivo y la frecuencia de sesiones.'
+        else:
+            score_desc = 'Actividad muy limitada'
+            recom = 'Se recomienda evaluación clínica presencial para ajustar el plan terapéutico.'
+
         trend = ''
         if previous_session_data:
             cp = previous_session_data['change_pct']
+            ps = previous_session_data['previous_score']
             if cp >= 15:
-                trend = f' Mejora significativa del {cp}% respecto a la sesión anterior.'
+                trend = f' Mejora significativa de +{cp}% respecto a la sesión anterior (score previo: {ps}/100).'
             elif cp >= 5:
-                trend = f' Progreso moderado (+{cp}% vs sesión anterior).'
+                trend = f' Progreso moderado de +{cp}% respecto a la sesión anterior (score previo: {ps}/100).'
             elif cp >= -5:
-                trend = ' Rendimiento estable respecto a la sesión anterior.'
+                trend = f' Rendimiento estable — variacion de {cp}% respecto a la sesion anterior ({ps}/100).'
+            elif cp >= -15:
+                trend = f' Leve descenso de {abs(cp)}% respecto a la sesión anterior ({ps}/100).'
             else:
-                trend = f' Reducción del {abs(cp)}% respecto a la sesión anterior — revisar condición del paciente.'
+                trend = f' Descenso notable de {abs(cp)}% respecto a la sesión anterior ({ps}/100) — revisar condición clínica del paciente.'
 
-        if functional_score >= 70:
-            if previous_session_data and previous_session_data['change_pct'] >= 10 and previous_session_data['previous_score'] >= 65:
-                interp = '✓ Alta funcionalidad mantenida. El paciente ha alcanzado niveles consistentes de rehabilitación — evaluar reducción de frecuencia de sesiones.' + trend
+        active_detail = f'{active_count}/5 dedos con actividad registrada.'
+        issues_detail = (' Alertas clínicas: ' + '; '.join(issues[:4]) + '.') if issues else ' Sin alertas clínicas detectadas.'
+        interp = f'{score_desc} ({functional_score}/100).{trend} {active_detail}{issues_detail} {recom}'
+
+        # ── Interpretación para el paciente (lenguaje accesible) ────────
+        if previous_session_data:
+            cp = previous_session_data['change_pct']
+            if cp >= 15:
+                pat_trend = f'Mejoraste un {cp}% respecto a tu sesión anterior.'
+            elif cp >= 5:
+                pat_trend = f'Progresaste un {cp}% respecto a tu sesión anterior.'
+            elif cp >= -5:
+                pat_trend = 'Mantuviste tu nivel de la sesión anterior.'
             else:
-                interp = 'Buena funcionalidad general. Los rangos de movimiento son consistentes con el progreso esperado en rehabilitación.' + trend
-        elif functional_score >= 40:
-            interp = 'Funcionalidad moderada. Se recomienda continuar el programa de ejercicios.' + trend
+                pat_trend = 'Esta sesión fue más difícil que la anterior — la constancia es lo que genera resultados a largo plazo.'
         else:
-            if previous_session_data and previous_session_data['change_pct'] < -10:
-                interp = 'Actividad significativamente reducida respecto a sesiones previas. Se recomienda evaluación clínica.' + trend
-            else:
-                interp = 'Actividad limitada detectada. Puede indicar inicio del programa o necesidad de ajustar la sensibilidad del dispositivo.' + trend
+            pat_trend = ''
 
+        if functional_score >= 65:
+            pat_base = 'Tus dedos mostraron muy buena actividad en esta sesión.'
+        elif functional_score >= 45:
+            pat_base = 'Tus dedos mostraron actividad moderada en esta sesión.'
+        else:
+            pat_base = 'Tus dedos registraron actividad limitada en esta sesión.'
+
+        pat_fingers = f'{active_count} de 5 dedos registraron movimiento.'
         if issues:
-            interp += ' Dedos con atención requerida: ' + ', '.join(issues[:3]) + '.'
+            pat_detail = f'Dedos que requieren mas practica: {", ".join(iss.split(":")[0].strip() for iss in issues[:3])}.'
+        else:
+            pat_detail = 'Todos tus dedos respondieron correctamente en la sesión.'
+
+        patient_interp = ' '.join(p for p in [pat_base, pat_trend, pat_fingers, pat_detail] if p)
 
         return {
             'functional_score': functional_score,
             'previous_session': previous_session_data,
             'metrics': metrics,
             'interpretation': interp,
+            'patient_interpretation': patient_interp,
         }
 
     def get_report(self, session_id):
