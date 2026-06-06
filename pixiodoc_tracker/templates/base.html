@@ -28,6 +28,11 @@
         {% if current_user.role_id == 1 %}
         <a class="item {% if 'admin' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('pages.admin_users') }}"><svg class="ic"><use href="#i-cog"/></svg>Admin</a>
         {% endif %}
+        <!-- Botón hamburger — visible sólo en móvil (CSS lo muestra) -->
+        <button class="pixo-hamburger" id="pixo-hamburger" onclick="toggleMobileNav()" aria-label="Menú">
+            <span></span><span></span><span></span>
+        </button>
+
         <div class="right menu">
             <div class="item">
               <a class="browse item active">
@@ -62,6 +67,54 @@
             </div>
         </div>
     </div>
+    {% endif %}
+
+    {% if current_user.is_authenticated %}
+    <!-- Panel de menú móvil (hamburger) -->
+    <nav class="pixo-mobile-nav" id="pixo-mobile-nav">
+        <a class="pixo-mn-item {% if request.endpoint == 'pages.dashboard' %}active{% endif %}"
+           href="{{ url_for('pages.dashboard') }}" onclick="closeMobileNav()">
+            <svg class="ic"><use href="#i-home"/></svg>Dashboard
+        </a>
+        {% if current_user.role_id != 3 %}
+        <a class="pixo-mn-item {% if 'patient' in (request.endpoint or '') %}active{% endif %}"
+           href="{{ url_for('pages.patients_page') }}" onclick="closeMobileNav()">
+            <svg class="ic"><use href="#i-users"/></svg>Pacientes
+        </a>
+        <a class="pixo-mn-item {% if 'game' in (request.endpoint or '') or 'play' in (request.endpoint or '') %}active{% endif %}"
+           href="{{ url_for('pages.games_page') }}" onclick="closeMobileNav()">
+            <svg class="ic"><use href="#i-gamepad"/></svg>Juegos
+        </a>
+        {% elif current_user.patient_profile %}
+        <a class="pixo-mn-item {% if 'game' in (request.endpoint or '') or 'play' in (request.endpoint or '') %}active{% endif %}"
+           href="/games?patient_id={{ current_user.patient_profile.id }}" onclick="closeMobileNav()">
+            <svg class="ic"><use href="#i-gamepad"/></svg>Juegos
+        </a>
+        {% endif %}
+        {% if current_user.role_id == 1 %}
+        <a class="pixo-mn-item {% if 'admin' in (request.endpoint or '') %}active{% endif %}"
+           href="{{ url_for('pages.admin_users') }}" onclick="closeMobileNav()">
+            <svg class="ic"><use href="#i-cog"/></svg>Admin
+        </a>
+        {% endif %}
+
+        <div class="pixo-mn-divider"></div>
+        <div class="pixo-mn-section">{{ current_user.name }} {{ current_user.lastname }}</div>
+
+        <a class="pixo-mn-item" href="{{ url_for('pages.profile_page', user_id=current_user.id) }}" onclick="closeMobileNav()">
+            <svg class="ic"><use href="#i-user"/></svg>Cuenta
+        </a>
+        <button class="pixo-mn-item" onclick="PIXO.toggleTheme();closeMobileNav()">
+            <svg class="ic"><use href="#i-moon"/></svg>Cambiar tema
+        </button>
+        <button class="pixo-mn-item" onclick="closeMobileNav();openPasswordModal()">
+            <svg class="ic"><use href="#i-lock"/></svg>Cambiar contraseña
+        </button>
+        <a class="pixo-mn-item" href="{{ url_for('auth.logout') }}" onclick="closeMobileNav()">
+            <svg class="ic"><use href="#i-logout"/></svg>Salir
+        </a>
+    </nav>
+    <div class="pixo-mobile-nav-overlay" id="pixo-mn-overlay" onclick="closeMobileNav()"></div>
     {% endif %}
 
     <!-- Modal: cambiar contraseña -->
@@ -133,6 +186,26 @@ function openPasswordModal() {
 
 function closePasswordModal() {
     document.getElementById('password-modal').classList.remove('active');
+}
+
+// ── Hamburger menu ────────────────────────────────────────────────
+function toggleMobileNav() {
+    const nav = document.getElementById('pixo-mobile-nav');
+    const btn = document.getElementById('pixo-hamburger');
+    const overlay = document.getElementById('pixo-mn-overlay');
+    if (!nav) return;
+    const isOpen = nav.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+    if (overlay) overlay.classList.toggle('open', isOpen);
+}
+function closeMobileNav() {
+    const nav = document.getElementById('pixo-mobile-nav');
+    const btn = document.getElementById('pixo-hamburger');
+    const overlay = document.getElementById('pixo-mn-overlay');
+    if (!nav) return;
+    nav.classList.remove('open');
+    if (btn) btn.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
 }
 </script>
 </html>
