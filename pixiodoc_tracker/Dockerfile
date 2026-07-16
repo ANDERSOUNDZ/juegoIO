@@ -11,11 +11,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Descargar dependencias frontend (Phaser, Fomantic, MediaPipe, etc.)
-COPY tools/download-vendor.sh .
-RUN bash download-vendor.sh && rm download-vendor.sh
-
-# Copiar el resto del código fuente
+# Copiar el resto del código fuente (incluye vendor/ ya descargado en el repo)
 COPY . .
 
 EXPOSE 5000
