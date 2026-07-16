@@ -4,25 +4,26 @@ services:
     container_name: mario-web
     ports:
       - "5001:5000"
+    env_file:
+      - .env
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: mario_db
       DB_USER: postgres
       DB_PASSWORD: admin
-      SECRET_KEY: change-me-in-production
-      FLASK_DEBUG: 1
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      FLASK_DEBUG: ${FLASK_DEBUG:-0}
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./src:/app/src
-      - ./templates:/app/templates
-      - ./static:/app/static
-      - ./games:/app/games
-      - ./server.py:/app/server.py
-      # - ./hand_landmarker.task:/app/hand_landmarker.task
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   postgres:
     image: postgres:16
@@ -41,6 +42,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -55,6 +57,7 @@ services:
         condition: service_healthy
     volumes:
       - pgadmin-data:/var/lib/pgadmin
+    restart: unless-stopped
 
 volumes:
   pgdata:

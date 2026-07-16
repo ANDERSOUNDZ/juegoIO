@@ -3,10 +3,10 @@
 {% block main_class %}{% endblock %}
 
 {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/mediapipe/hands.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
 <script src="{{ url_for('static', filename='js/play-common.js') }}"></script>
-<script src="https://cdn.jsdelivr.net/npm/nostalgist"></script>
+<script src="{{ url_for('static', filename='vendor/nostalgist/nostalgist.min.js') }}"></script>
 <script src="{{ url_for('static', filename='games/smb3/bridge.js') }}"></script>
 <style>
 .play-wrapper{display:grid;grid-template-columns:minmax(280px,320px) 1fr;gap:14px;

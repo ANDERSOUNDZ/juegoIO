@@ -15,9 +15,9 @@ const FLEX_CAL = [
 ];
 
 // MediaPipe Tasks Vision (API actualizada) — se carga dinamicamente como modulo ESM
-const TASKS_VISION_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs';
-const TASKS_VISION_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
-const HAND_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+const TASKS_VISION_URL = '/static/vendor/mediapipe/vision_bundle.mjs';
+const TASKS_VISION_WASM = '/static/vendor/mediapipe/wasm';
+const HAND_MODEL_URL = '/static/vendor/mediapipe/hand_landmarker.task';
 
 class HandInput {
     constructor() {

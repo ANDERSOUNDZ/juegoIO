@@ -3,9 +3,9 @@
 {% block main_class %}{% endblock %}
 
 {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/mediapipe/hands.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/hand-input.js') }}"></script>
-<script src="https://cdn.jsdelivr.net/npm/nostalgist"></script>
+<script src="{{ url_for('static', filename='vendor/nostalgist/nostalgist.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/emulator-loader.js') }}"></script>
 <script src="{{ url_for('static', filename='js/play-ui.js') }}"></script>
 <style>
