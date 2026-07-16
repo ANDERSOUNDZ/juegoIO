@@ -15,20 +15,22 @@ No necesitas Python, Node.js, PostgreSQL, ni descargar nada a mano.
 ```powershell
 git clone -b completo https://github.com/ANDERSOUNDZ/juegoIO.git
 cd juegoIO/pixiodoc_tracker
-docker compose up --build -d
+docker compose up -d
 ```
 
-Ese único comando (`docker compose up --build -d`) descarga e instala **todo** automáticamente:
+Ese único comando (`docker compose up -d`) descarga e instala **todo** automáticamente:
 
 | Docker descarga | Propósito |
 |----------------|-----------|
 | Python 3.11 + pip | Lenguaje del servidor |
 | Flask, SQLAlchemy, WeasyPrint… | Librerías del backend |
 | PostgreSQL 16 | Base de datos (pacientes, sesiones, eventos) |
-| Phaser 3 + MediaPipe + Fomantic UI + Chart.js + Nostalgist.js | Librerías del frontend (~22 MB) |
-| Hand Landmarker model | Modelo de IA para detectar dedos (~7.5 MB) |
+| Phaser 3 + MediaPipe + Fomantic UI + Chart.js + Nostalgist.js | Librerías del frontend (~22 MB, incluidas en el repo) |
+| Hand Landmarker model | Modelo de IA para detectar dedos (~7.5 MB, incluido en el repo) |
 
 **Todo queda dentro de Docker.** No instalas nada en tu PC. Solo abres http://localhost:5001 y usas la web.
+
+> **Nota:** Los archivos vendor (Phaser, MediaPipe, etc.) ya vienen incluidos en el repositorio. No se necesita `--build` para descargarlos. El build solo se necesita si modificas el código fuente. Para uso normal basta `docker compose up -d`.
 
 ---
 
@@ -685,15 +687,15 @@ Los valores por defecto ya funcionan, no necesitas cambiarlos.
 ### Paso 4: Construir y levantar los servicios
 
 ```powershell
-# Primera vez (descarga imágenes Docker + librerías frontend)
-docker compose up --build -d
+# Primera vez (solo descarga imágenes Docker)
+docker compose up -d
 ```
 Esta es la parte más lenta. Docker va a:
 1. Descargar Python 3.11, PostgreSQL 16 y pgAdmin
 2. Instalar las librerías Python (Flask, SQLAlchemy, etc.)
-3. Descargar automáticamente Phaser 3, Fomantic UI, MediaPipe, Chart.js, Nostalgist.js, Google Fonts (~22 MB)
-4. Copiar todo el código del proyecto
-5. Iniciar los 3 servicios
+3. Iniciar los 3 servicios
+
+> Las librerías frontend (Phaser, MediaPipe, Chart.js, Google Fonts, ~22 MB) ya vienen incluidas en el repositorio. No necesitan descargarse.
 
 **Tiempo estimado:** 3-5 minutos (depende de tu internet).
 
@@ -744,7 +746,7 @@ docker compose down
 # Detener y borrar TODO (BD incluida)
 docker compose down -v
 
-# Reconstruir después de cambios en el código
+# Reconstruir después de cambios en Python/Dockerfile
 docker compose up --build -d
 ```
 
@@ -759,7 +761,7 @@ docker compose up --build -d
 | Puerto 5432 en uso | Otro PostgreSQL local | Detén tu PostgreSQL local antes de iniciar Docker |
 | Contenedor `mario-web` se reinicia | DB no lista aún | Espera 30 segundos, el healthcheck lo intenta automáticamente |
 | La cámara no funciona | Permisos del navegador | Acepta permisos de cámara cuando el navegador lo pida |
-| Los juegos no cargan | Faltan vendor files | Ejecuta `docker compose up --build -d` para reconstruir |
+| Los juegos no cargan | Faltan vendor files | Asegúrate de estar en la rama `completo`: `git checkout completo` |
 | pgAdmin no conecta | Credenciales incorrectas | Usa: Host=postgres, User=postgres, Password=admin, DB=mario_db |
 
 ---
@@ -919,8 +921,12 @@ docker compose down
 # Detener y borrar BD
 docker compose down -v
 
-# Reconstruir después de cambios
+# Reconstruir después de cambiar Python/Dockerfile
 docker compose up --build -d
+
+# Solo iniciar/detener (sin build, los vendor ya están en el repo)
+docker compose start
+docker compose stop
 
 # Acceder a la base de datos
 docker compose exec postgres psql -U postgres -d mario_db
