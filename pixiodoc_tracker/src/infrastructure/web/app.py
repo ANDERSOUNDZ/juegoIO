@@ -55,6 +55,18 @@ END $$;
 
             db.session.execute(sa_text(SEED_SQL))
             db.session.commit()
+
+            # Limpiar juegos no funcionales
+            db.session.execute(sa_text("""
+DELETE FROM games WHERE name IN (
+    'Mario Bros Terapeutico',
+    'Prince of Persia',
+    'Super Mario Bros. 3',
+    'Emulador NES (Demo)',
+    'Super Mario Bros. 2 (NES)'
+);
+"""             ))
+            db.session.commit()
             print('[MIGRACION] Juegos y sprites por defecto sincronizados')
             print('[MIGRACION] Base de datos actualizada correctamente')
         except Exception as e:

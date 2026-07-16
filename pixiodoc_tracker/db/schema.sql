@@ -176,26 +176,7 @@ SELECT * FROM (VALUES
 ) AS v(name, category, type, width, height, data, image_url, frame_count)
 WHERE NOT EXISTS (SELECT 1 FROM sprites LIMIT 1);
 
--- ─── SPRITES MARIO BROS ─────────────────────────────────────────
-INSERT INTO sprites (name, category, type, width, height, data, image_url, frame_count)
-SELECT * FROM (VALUES
-    ('Mario Bros', 'player', 'pixelmap', 20, 26,
-     '{"frames":[{"grid":["....0000000000......","...000000000000.....","...000000000000.....","..00000000000000....","..22000000000022....","..22000000000022....","..22440000004422....","..22555555555522....","..22000000000022....","...000000000000.....","...000660066000.....","...000660066000.....","...000000000000.....","..00111111111100....",".0011111111111100...",".0011111111111100...",".0011111111111100...",".0011111111111100...",".0011111111111100...","..00111111111100....","......33..33........","......33..33........","......33..33........","......33..33........","......33..33........",".....3333..3333....."]},{"grid":["....0000000000......","...000000000000.....","...000000000000.....","..00000000000000....","..22000000000022....","..22000000000022....","..22440000004422....","..22555555555522....","..22000000000022....","...000000000000.....","...000660066000.....","...000660066000.....","...000000000000.....","..00111111111100....",".0011111111111100...",".0011111111111100...",".0011111111111100...",".0011111111111100...",".0011111111111100...","..00111111111100....",".....33..33.........",".....33..33.........",".....33..33.........",".....33..33.........","....3333..33........","....33....3333......"]},{"grid":["....0000000000......","...000000000000.....","...000000000000.....","..00000000000000....","..22000000000022....","..22000000000022....","..22440000004422....","..22555555555522....","..22000000000022....","...000000000000.....","...000660066000.....","...000660066000.....","...000000000000.....","..00111111111100....",".0011111111111100...",".0011111111111100...",".0011111111111100...",".0011111111111100...",".0011111111111100...","..00111111111100....","........33..33......","........33..33......","........33..33......","........33..33......",".......3333..33.....",".....3333....33....."]},{"grid":["....0000000000......","...000000000000.....","...000000000000.....","..00000000000000....","..22000000000022....","..22000000000022....","..22440000004422....","..22555555555522....","..22000000000022....","...000000000000.....","...000660066000.....","...000660066000.....","...000000000000.....","..00111111111100....",".0011111111111100...",".0011111111111100...",".0011111111111100...",".0011111111111100...","..00111111111100....",".....33......33.....",".....33......33.....","....3333....3333....","....33........33....","....33........33....","....................","...................."]}],"palette":["#dc2020","#2020f8","#f8d8a0","#684020","#f8f8f8","#000000","#f8b800"]}'::jsonb,
-     NULL::text, 4),
-    ('Plataforma Mario', 'platform', 'pixelmap', 16, 16,
-     '{"frames":[{"grid":["0111111111111110","0111111111111110","0000000000000000","0111110111111110","0111110111111110","0000000000000000","0111111110111110","0111111110111110","0000000000000000","0111110111111110","0111110111111110","0000000000000000","0111111111111110","0111111111111110","0000000000000000","0111111111111110"]}],"palette":["#c84b31","#7a2e1d","#e87a5a","#2e1a0a"]}'::jsonb,
-     NULL::text, 1),
-    ('Moneda Mario', 'coin', 'pixelmap', 12, 12,
-     '{"frames":[{"grid":[".....00.....","....0000....","...000000...","..00000000..","..00000000..","..00000000..","..00000000..","..00000000..","..00000000..","...000000...","....0000....",".....00....."]},{"grid":[".....11.....","....1111....","...000000...","..00000000..",".0000000000.",".0000000000.",".0000000000.",".0000000000.",".0000000000.","...000000...","....2222....",".....22....."]},{"grid":["....1111....","...111111...","..00000000..",".0000000000.",".0000000000.",".0000000000.",".0000000000.",".0000000000.",".0000000000.","..00000000..","...222222...","....2222...."]},{"grid":["...111111...","..11111111..",".0000000000.","000000000000","000000000000","000000000000","000000000000","000000000000","000000000000",".0000000000.","..22222222..","...222222..."]},{"grid":["....1111....","...111111...","..00000000..",".0000000000.",".0000000000.",".0000000000.",".0000000000.",".0000000000.",".0000000000.","..00000000..","...222222...","....2222...."]},{"grid":[".....11.....","....1111....","...000000...","..00000000..",".0000000000.",".0000000000.",".0000000000.",".0000000000.",".0000000000.","...000000...","....2222....",".....22....."]}],"palette":["#ffd23f","#fff3a0","#b8830a","#ffffff"]}'::jsonb,
-     NULL::text, 6),
-    ('Shellcreeper', 'enemy', 'pixelmap', 16, 16,
-     '{"frames":[{"grid":["................","....022220....","...02222220...","...02222220...","..0222002220..","..0220002220..","..0222222220..","..0022222200..","...04444440...","...04555540...","...04444440...","....033330....","....600006....","...60000006...","...60000006...","....66..66...."]},{"grid":["................","....022220....","...02222220...","...02222220...","..0222002220..","..0220002220..","..0222222220..","..0022222200..","...04444440...","...04555540...","...04444440...","....033330....","....600006....","...60000006...","...60000006...","....66..66...."]}],"palette":["#30b030","#188018","#58d858","#f8d8a0","#f8f8f8","#000000","#d8d800"]}'::jsonb,
-     NULL::text, 2),
-    ('Fondo Mario', 'background', 'pixelmap', 16, 16,
-     '{"frames":[{"grid":["0000000000000000","0000000000000000","0000000000000000","0000000000000000","0000000000000000","0000000000000000","0000000000000000","0000000000000000","0000000000000000","0000000000000000","0000000000000000","0000111111000000","0000111111000000","0000222222000000","0000222222000000","0000111111000000"]}],"palette":["#1a0a2e","#30b030","#188018","#58d858"]}'::jsonb,
-     NULL::text, 1)
-) AS v(name, category, type, width, height, data, image_url, frame_count)
-WHERE NOT EXISTS (SELECT 1 FROM sprites WHERE name = 'Mario Bros');
+-- (Sprites de Mario Bros eliminados — juegos no funcionales)
 
 -- ─── JUEGO POR DEFECTO ──────────────────────────────────────────
 INSERT INTO games (name, description, game_type, config)
@@ -301,24 +282,7 @@ UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_ob
 ))
 WHERE name = 'Plataformas Terapéuticas' AND NOT (config ? 'sprites');
 
--- ─── JUEGO MARIO BROS ───────────────────────────────────────────
-INSERT INTO games (name, description, game_type, config)
-SELECT 'Mario Bros Terapeutico',
-       'Juego terapeutico inspirado en Mario Bros. Salta entre plataformas, evita enemigos y colecciona monedas. Ejercita los 5 dedos: pulgar(salto), indice(derecha), medio(izquierda), anular(arriba), menique(abajo).',
-       'platformer',
-       '{"controls":{"fingerMap":{"0":"jump","1":"right","2":"left","3":"up","4":"down"},"fingerMaps":[{"0":"jump","1":"right","2":"left","3":"up","4":"down"},{"0":"jump","1":"right","2":"left","3":"up","4":"down"}],"hands":2,"keyboardFallback":true},"entities":{"collectibles":{"color":"#ffd23f","positions":[{"x":55,"y":82},{"x":345,"y":82},{"x":40,"y":262},{"x":200,"y":262},{"x":360,"y":262},{"x":70,"y":422},{"x":330,"y":422}],"scoreValue":100,"spawnRate":0},"enemies":{"ai":"patrol","color":"#30b030","count":0,"height":16,"positions":[{"x":55,"y":88},{"x":345,"y":88},{"x":40,"y":268},{"x":360,"y":268},{"x":70,"y":428},{"x":330,"y":428}],"speed":40,"width":16},"platforms":{"color":"#c84b31","height":14,"layout":"positions","oneWay":true,"positions":[{"h":14,"w":110,"x":55,"y":100},{"h":14,"w":110,"x":345,"y":100},{"h":14,"w":100,"x":40,"y":280},{"h":14,"w":100,"x":200,"y":280},{"h":14,"w":100,"x":360,"y":280},{"h":14,"w":140,"x":70,"y":440},{"h":14,"w":140,"x":330,"y":440},{"h":14,"w":400,"x":200,"y":570}],"static":true,"width":80},"player":{"color":"#dc2020","height":26,"jumpForce":-380,"physics":{"bounce":0,"collideWorldBounds":true},"spawn":{"x":200,"y":520},"speed":160,"width":20}},"events":[{"actions":[{"ai":"patrol","color":"#30b030","count":1,"entity":"enemies","speed":50,"type":"spawn"},{"color":"#ff5c8a","duration":1500,"size":"12px","text":"CUIDADO!","type":"flash_text"}],"trigger":{"delay":25,"repeat":true,"type":"timer"}},{"actions":[{"color":"#ffd23f","duration":2000,"size":"10px","text":"MITAD DEL NIVEL!","type":"flash_text"}],"trigger":{"type":"score","value":500}},{"actions":[{"color":"#ff5c8a","duration":2000,"size":"12px","text":"ULTIMA VIDA!","type":"flash_text"},{"color":"#ff0000","duration":3000,"target":"player","type":"tint"}],"trigger":{"type":"lives","value":1}}],"metadata":{"description":"Juego terapeutico inspirado en Mario Bros. Salta entre plataformas, evita enemigos y colecciona monedas. Ejercita los 5 dedos: pulgar(salto), indice(derecha), medio(izquierda), anular(arriba), menique(abajo).","difficulty":"easy","estimatedDuration":300,"name":"Mario Bros Terapeutico","targetFingers":[0,1,2,3,4],"type":"platformer"},"physics":{"debug":false,"gravity":{"x":0,"y":400},"type":"arcade"},"rules":{"lives":3,"loseCondition":{"type":"fall_off"},"timer":null,"winCondition":{"target":1000,"type":"score"}},"screens":{"gameOver":{"backgroundColor":"#1a0a2e","losePrompt":"SPACE / Cierra un dedo para reintentar","loseTitle":"GAME OVER","loseTitleColor":"#ff5c8a","subtitleColor":"#ffd23f","winPrompt":"SPACE / Cierra un dedo para continuar","winTitle":"NIVEL COMPLETADO!","winTitleColor":"#3ddc97"},"start":{"backgroundColor":"#1a0a2e","delay":400,"prompt":"Salta! [SPACE / dedo pulgar]","promptColor":"#ffffff","promptSize":"7px","subtitle":"Terapeutico","subtitleColor":"#ffd23f","subtitleSize":"10px","title":"MARIO BROS","titleColor":"#dc2020","titleSize":"18px"}},"sprites":{"background":{"sprite_id":10},"coin":{"sprite_id":8},"enemy":{"sprite_id":9},"platform":{"sprite_id":7},"player":{"sprite_id":6}},"version":"1.0","world":{"backgroundColor":"#1a0a2e","camera":{"follow":null,"scrollX":false,"scrollY":false},"height":600,"width":400}}'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Mario Bros Terapeutico');
-
--- Migración idempotente: habilita 2 manos en el Mario terapéutico (juego Phaser).
--- Sólo aplica si aún no tiene multi-mano configurado. Para BDs ya inicializadas.
-UPDATE games
-SET config = jsonb_set(
-    jsonb_set(config, '{controls,hands}', '2'::jsonb, true),
-    '{controls,fingerMaps}',
-    '[{"0":"jump","1":"right","2":"left","3":"up","4":"down"},{"0":"jump","1":"right","2":"left","3":"up","4":"down"}]'::jsonb,
-    true)
-WHERE name = 'Mario Bros Terapeutico'
-  AND COALESCE((config->'controls'->>'hands')::int, 1) < 2;
+-- (Juego Mario Bros Terapeutico eliminado — no funcional)
 
 -- ─── SPRITES: Pumpkin Panic ────────────────────────────────────
 INSERT INTO sprites (name, category, type, width, height, data, image_url, frame_count)
@@ -452,132 +416,7 @@ UPDATE games SET config = config || jsonb_build_object('sprites', jsonb_build_ob
 ))
 WHERE name = 'Pumpkin Panic - Granja Embrujada' AND NOT (config ? 'sprites');
 
--- ─── JUEGO: Prince of Persia (WASM) ────────────────────────────
-INSERT INTO games (name, description, game_type, config)
-SELECT 'Prince of Persia',
-       'El cl\u00e1sico Prince of Persia de 1990 convertido a WebAssembly. Controla al pr\u00edncipe con gestos de los dedos para escapar del calabozo.',
-       'prince',
-       '{
-         "version": "1.0",
-         "metadata": {
-           "name": "Prince of Persia",
-           "type": "prince",
-           "targetFingers": [0, 1, 2, 3, 4],
-           "difficulty": "medium",
-           "description": "Prince of Persia original corriendo en WebAssembly con control por gestos.",
-           "estimatedDuration": 3600
-         },
-         "controls": {
-           "fingerMap": {
-             "0": "left",
-             "1": "jump",
-             "2": "right",
-             "3": "down",
-             "4": "action"
-           }
-         }
-       }'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Prince of Persia');
-
--- ─── JUEGO: Super Mario Bros. 3 (NES via JSNES) ────────────────
-INSERT INTO games (name, description, game_type, config)
-SELECT 'Super Mario Bros. 3',
-       'El cl\u00e1sico Super Mario Bros. 3 de NES. Controla a Mario con gestos de los dedos: \u00edndice para saltar, medio para derecha, pulgar para izquierda, anular para correr.',
-       'smb3',
-       '{
-         "version": "1.0",
-         "metadata": {
-           "name": "Super Mario Bros. 3",
-           "type": "smb3",
-           "targetFingers": [0, 1, 2, 3, 4],
-           "difficulty": "medium",
-           "description": "Super Mario Bros. 3 corriendo en emulador NES con control por gestos.",
-           "estimatedDuration": 3600
-         },
-         "controls": {
-           "fingerMap": {
-             "0": "left",
-             "1": "jump",
-             "2": "right",
-             "3": "run",
-             "4": "start"
-           }
-         }
-       }'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 3');
-
--- ─── JUEGO: Emulador Retro genérico (config-driven, reutilizable) ──
--- Demuestra el tipo 'emulator': el mismo template/loader corre CUALQUIER ROM.
--- Para agregar otro juego de emulador, copia este INSERT y cambia metadata.name,
--- emulator.core / emulator.rom y controls.fingerMap. No se toca código.
--- (Esta demo reutiliza la ROM de smb3 ya servida en /static/games/smb3/smb3.nes.)
-INSERT INTO games (name, description, game_type, config)
-SELECT 'Emulador NES (Demo)',
-       'Demo del sistema genérico de emulador: corre una ROM de NES con Nostalgist.js y controles mapeados desde la base de datos. Pulgar=izquierda, índice=A(salto), medio=derecha, anular=B(correr), meñique=START.',
-       'emulator',
-       '{
-         "version": "1.0",
-         "metadata": {
-           "name": "Emulador NES (Demo)",
-           "type": "emulator",
-           "targetFingers": [0, 1, 2, 3, 4],
-           "difficulty": "medium",
-           "description": "Juego de emulador NES genérico, controlado por gestos.",
-           "estimatedDuration": 1800
-         },
-         "emulator": {
-           "core": "fceumm",
-           "rom": "smb3/smb3.nes",
-           "aspectRatio": "256/240",
-           "tapButtons": ["start", "select"]
-         },
-         "controls": {
-           "fingerMap": {
-             "0": "left",
-             "1": "a",
-             "2": "right",
-             "3": "b",
-             "4": "start"
-           },
-           "keyboardFallback": true
-         }
-       }'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Emulador NES (Demo)');
-
--- ─── JUEGO: Super Mario Bros. 2 (NES, emulador genérico) ──────────
--- Ejemplo real de agregar un juego de emulador: solo este INSERT.
--- Requiere la ROM en static/roms/smb2.nes (servida en /static/roms/smb2.nes).
-INSERT INTO games (name, description, game_type, config)
-SELECT 'Super Mario Bros. 2 (NES)',
-       'El clásico Super Mario Bros. 2 de NES corriendo con Nostalgist.js y controlado por gestos. Pulgar=A(salto), índice=derecha, medio=izquierda, anular=B(correr/levantar), meñique=abajo.',
-       'emulator',
-       '{
-         "version": "1.0",
-         "metadata": {
-           "name": "Super Mario Bros. 2 (NES)",
-           "type": "emulator",
-           "targetFingers": [0, 1, 2, 3, 4],
-           "difficulty": "medium",
-           "description": "Super Mario Bros. 2 (NES) en emulador, control por gestos.",
-           "estimatedDuration": 1800
-         },
-         "emulator": {
-           "core": "fceumm",
-           "rom": "static/roms/smb2.nes",
-           "aspectRatio": "256/240",
-           "tapButtons": ["start", "select"]
-         },
-         "controls": {
-           "hands": 2,
-           "fingerMap": { "0": "left", "1": "right", "2": "up", "3": "down", "4": "select" },
-           "fingerMaps": [
-             { "0": "left", "1": "right", "2": "up", "3": "down", "4": "select" },
-             { "0": "a", "1": "b", "2": "start", "3": "none", "4": "none" }
-           ],
-           "keyboardFallback": true
-         }
-       }'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = 'Super Mario Bros. 2 (NES)');
+-- (Juegos de emulador/retro eliminados — no funcionales)
 
 -- ─── CONFIG DE CONTROLES POR PACIENTE+JUEGO ───────────────────
 -- sensitivities / finger_map soportan dos formas (multi-mano sólo en juegos Phaser):
