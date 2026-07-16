@@ -4,6 +4,34 @@ Plataforma de rehabilitación motriz basada en juegos controlados por gestos de 
 
 ---
 
+## ¿Qué necesitas instalar?
+
+**Solo una cosa:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+No necesitas Python, Node.js, PostgreSQL, ni descargar nada a mano.
+
+### Cómo empezar (2 comandos)
+
+```powershell
+git clone -b completo https://github.com/ANDERSOUNDZ/juegoIO.git
+cd juegoIO/pixiodoc_tracker
+docker compose up --build -d
+```
+
+Ese único comando (`docker compose up --build -d`) descarga e instala **todo** automáticamente:
+
+| Docker descarga | Propósito |
+|----------------|-----------|
+| Python 3.11 + pip | Lenguaje del servidor |
+| Flask, SQLAlchemy, WeasyPrint… | Librerías del backend |
+| PostgreSQL 16 | Base de datos (pacientes, sesiones, eventos) |
+| Phaser 3 + MediaPipe + Fomantic UI + Chart.js + Nostalgist.js | Librerías del frontend (~22 MB) |
+| Hand Landmarker model | Modelo de IA para detectar dedos (~7.5 MB) |
+
+**Todo queda dentro de Docker.** No instalas nada en tu PC. Solo abres http://localhost:5001 y usas la web.
+
+---
+
 ## Índice
 
 - [Stack Tecnológico](#stack-tecnológico)
