@@ -610,66 +610,156 @@ Genera un PDF con formato médico profesional usando WeasyPrint.
 
 ---
 
-## Docker
+## Requisitos
 
-### Servicios
+Solo necesitas una cosa instalada en tu computadora:
 
-```
-docker compose up -d
-```
+| Software | Versión | Descarga |
+|----------|---------|----------|
+| **Docker Desktop** | Cualquier versión reciente | https://www.docker.com/products/docker-desktop/ |
 
-| Servicio | Contenedor | Puerto | Imagen | Propósito |
-|----------|------------|--------|--------|-----------|
-| **web** | `mario-web` | `5000` | Build local | Servidor Flask |
-| **postgres** | `mario-postgres` | `5432` | `postgres:16` | Base de datos |
-| **pgadmin** | `mario-pgadmin` | `5050:80` | `dpage/pgadmin4` | Gestor DB web |
-
-### Volúmenes
-
-| Volumen | Montaje | Propósito |
-|---------|---------|-----------|
-| `pgdata` | `/var/lib/postgresql/data` | Persistencia de DB |
-| `pgadmin-data` | `/var/lib/pgadmin` | Config de pgAdmin |
-| Bind mount | `./src:/app/src` | Hot reload (desarrollo) |
-| Bind mount | `./templates:/app/templates` | Hot reload (desarrollo) |
-| Bind mount | `./static:/app/static` | Hot reload (desarrollo) |
-| Bind mount | `./server.py:/app/server.py` | Hot reload (desarrollo) |
-| Bind mount | `./hand_landmarker.task` | Modelo MediaPipe |
-
-### Hot Reload
-
-En modo desarrollo, los cambios en el código se reflejan automáticamente:
-
-| Cambio | ¿Requiere rebuild? | Tiempo de recarga |
-|--------|-------------------|-------------------|
-| Python `.py` | No | ~1s (Flask recarga automática) |
-| Jinja2 `.html` | No | Instantáneo (refrescar navegador) |
-| JS / CSS | No | Instantáneo (refrescar navegador) |
-| `requirements.txt` | Sí (`docker compose build web`) | ~10s |
-| `Dockerfile` | Sí (`docker compose build web`) | ~10s |
+No necesitas instalar Python, PostgreSQL, Node.js, ni ninguna otra cosa.
 
 ---
 
-## Inicio Rápido
+## Instalación paso a paso
 
-### Con Docker (recomendado)
+### Paso 1: Instalar Docker Desktop
+
+1. Ve a https://www.docker.com/products/docker-desktop/
+2. Descarga Docker Desktop para tu sistema operativo (Windows/Mac/Linux)
+3. Instálalo (en Windows: acepta todos los defaults, **no** necesitas WSL 2 si no quieres, pero es recomendado)
+4. Abre Docker Desktop y espera a que aparezca "Engine running" en la esquina inferior izquierda
+
+### Paso 2: Descargar el proyecto
 
 ```powershell
-cd mario_db_tracker
-docker compose up -d
-# Abrir http://localhost:5000
-# pgAdmin: http://localhost:5050 (admin@admin.com / admin)
+# Opción A: Con Git (recomendado)
+git clone -b completo https://github.com/ANDERSOUNDZ/juegoIO.git
+cd juegoIO/pixiodoc_tracker
+
+# Opción B: Sin Git (descarga el ZIP)
+# 1. Ve a https://github.com/ANDERSOUNDZ/juegoIO
+# 2. Botón verde "Code" → "Download ZIP"
+# 3. Extrae el ZIP y abre la carpeta pixiodoc_tracker
 ```
 
-### Sin Docker (desarrollo local)
+### Paso 3: Crear archivo .env (opcional, ya viene incluido)
 
-Requiere PostgreSQL 16 instalado y corriendo.
+Si no ves el archivo `.env` en la carpeta, crea uno copiando:
 
 ```powershell
-cd mario_db_tracker
-pip install -r requirements.txt
-python server.py
-# Abrir http://localhost:5000
+Copy-Item .env.example .env
+```
+
+Los valores por defecto ya funcionan, no necesitas cambiarlos.
+
+### Paso 4: Construir y levantar los servicios
+
+```powershell
+# Primera vez (descarga imágenes Docker + librerías frontend)
+docker compose up --build -d
+```
+Esta es la parte más lenta. Docker va a:
+1. Descargar Python 3.11, PostgreSQL 16 y pgAdmin
+2. Instalar las librerías Python (Flask, SQLAlchemy, etc.)
+3. Descargar automáticamente Phaser 3, Fomantic UI, MediaPipe, Chart.js, Nostalgist.js, Google Fonts (~22 MB)
+4. Copiar todo el código del proyecto
+5. Iniciar los 3 servicios
+
+**Tiempo estimado:** 3-5 minutos (depende de tu internet).
+
+### Paso 5: Verificar que todo funciona
+
+```powershell
+docker compose ps
+```
+
+Debes ver 3 contenedores con estado "Up" y "healthy":
+```
+NAME             SERVICE    STATUS                    PORTS
+mario-web        web        Up 30 seconds (healthy)   0.0.0.0:5001->5000/tcp
+mario-postgres   postgres   Up 30 seconds (healthy)   0.0.0.0:5432->5432/tcp
+mario-pgadmin    pgadmin    Up 30 seconds             0.0.0.0:5050->80/tcp
+```
+
+Si ves "healthy" en web y postgres, todo está bien.
+
+### Paso 6: Abrir la aplicación
+
+| Servicio | URL | Usuario/Contraseña |
+|----------|-----|-------------------|
+| **PIXO Therapy** (app principal) | http://localhost:5001 | Regístrate libre |
+| **pgAdmin** (gestor BD) | http://localhost:5050 | admin@admin.com / admin |
+
+### Paso 7: Primer uso
+
+1. Abre http://localhost:5001
+2. Haz clic en **"Crear cuenta"**
+3. Regístrate como terapeuta (nombre, email, contraseña)
+4. ¡Ya estás dentro! Crea pacientes, juega, genera reportes
+
+---
+
+## Cómo usar después de la primera vez
+
+```powershell
+# Iniciar servicios (si están detenidos)
+docker compose start
+
+# Ver logs en vivo
+docker compose logs -f
+
+# Detener (conserva datos de la BD)
+docker compose down
+
+# Detener y borrar TODO (BD incluida)
+docker compose down -v
+
+# Reconstruir después de cambios en el código
+docker compose up --build -d
+```
+
+---
+
+## Solución de problemas
+
+| Problema | Causa posible | Solución |
+|----------|--------------|----------|
+| `docker: command not found` | Docker no instalado | Descarga e instala Docker Desktop |
+| Puerto 5001 en uso | Otro programa usa ese puerto | Cambia el puerto en docker-compose.yml línea 6 (`5001:5000` → `5002:5000`) |
+| Puerto 5432 en uso | Otro PostgreSQL local | Detén tu PostgreSQL local antes de iniciar Docker |
+| Contenedor `mario-web` se reinicia | DB no lista aún | Espera 30 segundos, el healthcheck lo intenta automáticamente |
+| La cámara no funciona | Permisos del navegador | Acepta permisos de cámara cuando el navegador lo pida |
+| Los juegos no cargan | Faltan vendor files | Ejecuta `docker compose up --build -d` para reconstruir |
+| pgAdmin no conecta | Credenciales incorrectas | Usa: Host=postgres, User=postgres, Password=admin, DB=mario_db |
+
+---
+
+## ¿Qué hace cada servicio?
+
+| Servicio | Contenedor | Puerto local | Qué es | Para qué sirve |
+|----------|------------|-------------|--------|---------------|
+| **web** | `mario-web` | `http://localhost:5001` | Flask + Phaser + MediaPipe | La app principal donde juegas |
+| **postgres** | `mario-postgres` | `5432` | Base de datos PostgreSQL | Guarda pacientes, sesiones, config |
+| **pgadmin** | `mario-pgadmin` | `http://localhost:5050` | Gestor web de PostgreSQL | Para ver/editar la BD directamente |
+
+---
+
+## Estructura de carpetas importante
+
+```
+pixiodoc_tracker/
+├── server.py                ← Entry point (no tocar)
+├── Dockerfile               ← Cómo se construye el contenedor
+├── docker-compose.yml       ← Configuración de los 3 servicios
+├── .env / .env.example      ← Variables de entorno
+├── tools/download-vendor.sh ← Script que descarga librerías frontend
+├── src/                     ← Código Python (backend)
+├── static/                  ← JS, CSS, imágenes (frontend)
+├── templates/               ← Plantillas HTML
+├── games/                   ← Juegos específicos (Prince, SMB3, emuladores)
+└── db/schema.sql            ← Estructura de la base de datos
 ```
 
 ---
@@ -730,116 +820,80 @@ git push                                # Subir cambios
 ## Estructura del Proyecto
 
 ```
-mario_db_tracker/
-├── server.py                        # Entry point Flask (delgado)
-├── Dockerfile                       # Python 3.11-slim + WeasyPrint
+pixiodoc_tracker/
+├── server.py                        # Entry point Flask
+├── Dockerfile                       # Python 3.11-slim + WeasyPrint + curl
 ├── docker-compose.yml               # 3 servicios (web, postgres, pgadmin)
-├── requirements.txt                 # 7 dependencias Python
+├── requirements.txt                 # Dependencias Python
+├── .env / .env.example              # Variables de entorno
 ├── .dockerignore                    # Exclusiones Docker
 ├── .gitignore                       # Exclusiones Git
-├── hand_landmarker.task             # Modelo MediaPipe (~15MB)
 ├── README.md                        # Esta documentación
 │
-├── src/                             # 📦 CÓDIGO FUENTE
-│   ├── domain/                      # ⚪ Capa de dominio
-│   │   ├── entities.py              #   10 entidades puras (dataclasses)
-│   │   ├── value_objects.py         #   FingerState, Sensitivity, HandLandmarks
-│   │   ├── exceptions.py           #   DomainError, NotFoundError, ValidationError
-│   │   └── interfaces/             #   Puertos abstractos
-│   │       ├── repositories.py     #   9 interfaces de repositorios
-│   │       └── hand_tracker.py     #   IHandTracker
-│   │
-│   ├── application/                 # 🟢 Capa de aplicación
-│   │   ├── patient_service.py      #   Pacientes + sensibilidad + historial
-│   │   ├── game_service.py         #   Juegos + config por jugador
-│   │   ├── session_service.py      #   Sesiones + eventos + reportes
-│   │   ├── sensitivity_service.py  #   Presets
-│   │   ├── sprite_service.py       #   Sprites CRUD + batch
-│   │   └── analytics_service.py   #   Métricas de rehabilitación + PDF
-│   │
-│   └── infrastructure/             # 🔵 Capa de infraestructura
-│       ├── di.py                   #   Inyección de dependencias
-│       ├── persistence/
-│       │   ├── models.py           #   9 modelos SQLAlchemy
-│       │   ├── repositories.py     #   Implementaciones de repositorios
-│       │   └── db_worker.py        #   Worker async para inserts
-│       └── web/
-│           ├── app.py              #   Flask create_app()
-│           ├── config.py           #   Config Flask
-│           ├── middleware.py       #   Error handlers
-│           └── controllers/
-│               ├── auth.py         #   Login/register + API
-│               ├── patients.py     #   Pacientes API
-│               ├── games.py        #   Juegos API
-│               ├── sessions.py     #   Sesiones API
-│               ├── sensitivity.py  #   Presets API
-│               ├── sprites.py      #   Sprites API
-│               ├── analytics.py    #   Analytics API + PDF
-│               ├── pages.py        #   Rutas de páginas HTML
-│               └── ws.py           #   WebSocket handler
+├── tools/
+│   └── download-vendor.sh           # Descarga Phaser, MediaPipe, etc. (se ejecuta en docker build)
 │
-├── static/                          # 📦 FRONTEND
-│   ├── css/platform.css            #   Tema retro pixel-art (422 líneas)
-│   └── js/
-│       ├── hand-input.js           #   MediaPipe WASM + WebSocket + detección
-│       ├── game-loader.js          #   Motor Phaser 3 (709 líneas)
-│       └── sprite-generator.js     #   Renderizador de sprites
+├── src/                             # Código fuente Python
+│   ├── config/settings.py           # Config desde variables de entorno
+│   ├── domain/                      # Entidades, value objects, interfaces
+│   ├── application/                 # Servicios (pacientes, juegos, sesiones, analytics)
+│   └── infrastructure/              # Persistencia, controladores Flask, WebSocket
 │
-└── templates/                       # 📦 PLANTILLAS
-    ├── base.html                   #   Layout principal
-    ├── login.html                  #   Login
-    ├── register.html               #   Registro
-    ├── dashboard.html              #   Dashboard terapeuta
-    ├── patients.html               #   Lista pacientes
-    ├── patient_detail.html         #   Detalle + sensibilidad
-    ├── games.html                  #   Catálogo juegos
-    ├── play.html                   #   Ejecutor Phaser 3 (705 líneas)
-    ├── report.html                 #   Reporte con analytics
-    └── report_pdf.html             #   Template PDF médico
+├── static/                          # Frontend
+│   ├── css/pixo.css                # Estilos
+│   ├── js/                         # hand-input.js, game-loader.js, etc.
+│   └── vendor/                     # ⚡ Generado por Docker (NO editar aquí)
+│       ├── phaser/
+│       ├── fomantic/
+│       ├── jquery/
+│       ├── chart.js/
+│       ├── nostalgist/
+│       ├── mediapipe/              # HandLandmarker model + WASM + vision bundle
+│       └── fonts/                  # Google Fonts Plus Jakarta Sans
+│
+├── templates/                       # Plantillas HTML (Jinja2)
+├── games/                           # Juegos (Prince of Persia, SMB3, emulador)
+└── db/schema.sql                    # Esquema de base de datos + seed data
 ```
 
---
+---
 
-## Flujo de trabajo para desarrolladores
+## Cómo conectar pgAdmin
 
-Dependiendo de qué cambies, el comando es diferente:
+1. Abre http://localhost:5050
+2. Login: admin@admin.com / admin
+3. Clic derecho en "Servers" → "Register" → "Server"
+4. Pestaña **General**: Name = `PIXO Local`
+5. Pestaña **Connection**:
+   - Host: `postgres`
+   - Port: `5432`
+   - Username: `postgres`
+   - Password: `admin`
+6. Guardar
 
-| Cambiaste | Comando | Tiempo |
-|---|---|---|
-| **JS, CSS, HTML** (static/, games/, templates/) | `F5` en el navegador | 0s |
-| **Python** (src/, server.py) | `docker compose restart web` | 5s |
-| **requirements.txt** o **Dockerfile** | `docker compose up -d --build` | 30-60s |
-| **schema.sql** | `docker compose down -v && docker compose up -d` | 10s |
-| **docker-compose.yml** (nuevo volume) | `docker compose down && docker compose up -d` | 10s |
+---
 
-### Ejemplos
+## Comandos rápidos
 
-```bash
-# Cambiaste bridge.js o template.html → solo recarga la página
-# (los volumes montan los archivos en vivo)
+```powershell
+# Iniciar todo
+docker compose up -d
 
-# Cambiaste analytics_service.py
-docker compose restart web
+# Ver estado
+docker compose ps
 
-# Agregaste una librería Python
-docker compose up -d --build
+# Ver logs del servidor web
+docker compose logs -f web
 
-# Primer clone del repo
-docker compose up -d --build
+# Detener (sin borrar datos)
+docker compose down
+
+# Detener y borrar BD
+docker compose down -v
+
+# Reconstruir después de cambios
+docker compose up --build -d
+
+# Acceder a la base de datos
+docker compose exec postgres psql -U postgres -d mario_db
 ```
-
-> **Nota:** `docker compose down` detiene los contenedores. Si solo haces cambios en Python o JS, no es necesario bajar y subir todo. Usa `restart web` que es mucho más rápido.
-
---
-
-Para conectar pgAdmin al servidor:
-1. Abrir http://localhost:5050 y loguearse con admin@admin.com / admin
-2. Clic en Add New Server
-3. En la pestaña General, poner nombre: PIXO Local
-4. En la pestaña Connection:
-- Host: postgres
-- Port: 5432
-- Maintenance database: mario_db
-- Username: postgres
-- Password: admin
-5. Save
